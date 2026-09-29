@@ -163,5 +163,7 @@ func init() {
 		"menu.drop_options": "Opciones de arrastrar y soltar...",
 		"group.settings_selected": "Configuración: %s",
 		"filter.extensions_hint": "jpg, png, psd — al escribir se activa Personalizado",
+		"button.cancel_preview": "Cancelar vista previa",
+		"dialog.canceling_preview": "Cancelando vista previa...",
 	}
 }

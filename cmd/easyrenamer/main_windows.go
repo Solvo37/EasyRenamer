@@ -133,13 +133,13 @@ type methodStackFile struct {
 }
 
 var presets = []struct {
-	Name     string
+	Key      string
 	Template string
 }{
-	{"Sequence + original name", "<Inc NrDir:01>-<Name>"},
-	{"Original name + sequence", "<Name>-<Inc:001>"},
-	{"Parent folder + sequence", "<DirName:1>-<Inc NrDir:01>"},
-	{"Date + original name", "<Date:yyyyMMdd>-<Name>"},
+	{"preset.sequence_original", "<Inc NrDir:01>-<Name>"},
+	{"preset.original_sequence", "<Name>-<Inc:001>"},
+	{"preset.parent_sequence", "<DirName:1>-<Inc NrDir:01>"},
+	{"preset.date_original", "<Date:yyyyMMdd>-<Name>"},
 }
 
 var templateTokens = []string{
@@ -402,7 +402,7 @@ func main() {
 	var moveStartNE, moveCountNE, moveToNE, swapOccurrenceNE *walk.NumberEdit
 	var methodTable, table *walk.TableView
 	var editorTabs *walk.TabWidget
-	var sourceCountLbl, statusLbl, collisionLbl *walk.Label
+	var sourceCountLbl, statusLbl, collisionLbl, dropHintLbl *walk.Label
 	var previewPB, renamePB, undoPB *walk.PushButton
 
 	model := &previewModel{}
@@ -422,7 +422,7 @@ func main() {
 	}
 	presetNames := make([]string, len(presets))
 	for i := range presets {
-		presetNames[i] = presets[i].Name
+		presetNames[i] = i18n.T(presets[i].Key)
 	}
 
 	updateStatus := func() {
@@ -460,6 +460,9 @@ func main() {
 	refreshSourceCount := func() {
 		if sourceCountLbl != nil {
 			sourceCountLbl.SetText(fmt.Sprintf(i18n.T("sources.count"), len(sources)))
+		}
+		if dropHintLbl != nil {
+			dropHintLbl.SetVisible(len(sources) == 0)
 		}
 	}
 
@@ -1304,6 +1307,7 @@ func main() {
 											{Title: i18n.T("column.method"), Width: 235},
 										},
 										StyleCell: func(style *walk.CellStyle) {
+											style.BackgroundColor = uiTableAltColor(darkTheme, style.Row()%2 == 1)
 											style.TextColor = uiTextColor(darkTheme)
 										},
 										OnCurrentIndexChanged: func() {
@@ -1391,6 +1395,7 @@ func main() {
 										},
 										Pages: []TabPage{
 											{
+												Background: uiPanelBrush(darkTheme),
 												Title:  i18n.T("method.new_name"),
 												Layout: Grid{Columns: 5, Spacing: 7},
 												Children: []Widget{
@@ -1425,6 +1430,7 @@ func main() {
 												},
 											},
 											{
+												Background: uiPanelBrush(darkTheme),
 												Title:  i18n.T("method.list"),
 												Layout: Grid{Columns: 4, Spacing: 7},
 												Children: []Widget{
@@ -1488,6 +1494,7 @@ func main() {
 												},
 											},
 											{
+												Background: uiPanelBrush(darkTheme),
 												Title:  i18n.T("method.list_replace"),
 												Layout: Grid{Columns: 4, Spacing: 7},
 												Children: []Widget{
@@ -1517,6 +1524,7 @@ func main() {
 												},
 											},
 											{
+												Background: uiPanelBrush(darkTheme),
 												Title:  i18n.T("method.change_case"),
 												Layout: Grid{Columns: 2, Spacing: 7},
 												Children: []Widget{
@@ -1529,6 +1537,7 @@ func main() {
 												},
 											},
 											{
+												Background: uiPanelBrush(darkTheme),
 												Title:  i18n.T("method.move"),
 												Layout: Grid{Columns: 6, Spacing: 7},
 												Children: []Widget{
@@ -1542,6 +1551,7 @@ func main() {
 												},
 											},
 											{
+												Background: uiPanelBrush(darkTheme),
 												Title:  i18n.T("method.remove"),
 												Layout: Grid{Columns: 4, Spacing: 7},
 												Children: []Widget{
@@ -1553,6 +1563,7 @@ func main() {
 												},
 											},
 											{
+												Background: uiPanelBrush(darkTheme),
 												Title:  i18n.T("method.remove_pattern"),
 												Layout: Grid{Columns: 4, Spacing: 7},
 												Children: []Widget{
@@ -1562,6 +1573,7 @@ func main() {
 												},
 											},
 											{
+												Background: uiPanelBrush(darkTheme),
 												Title:  i18n.T("method.renumber"),
 												Layout: Grid{Columns: 6, Spacing: 7},
 												Children: []Widget{
@@ -1579,6 +1591,7 @@ func main() {
 												},
 											},
 											{
+												Background: uiPanelBrush(darkTheme),
 												Title:  i18n.T("method.replace"),
 												Layout: Grid{Columns: 4, Spacing: 7},
 												Children: []Widget{
@@ -1593,6 +1606,7 @@ func main() {
 												},
 											},
 											{
+												Background: uiPanelBrush(darkTheme),
 												Title:  i18n.T("method.add_text"),
 												Layout: Grid{Columns: 4, Spacing: 7},
 												Children: []Widget{
@@ -1604,6 +1618,7 @@ func main() {
 												},
 											},
 											{
+												Background: uiPanelBrush(darkTheme),
 												Title:  i18n.T("method.script"),
 												Layout: Grid{Columns: 4, Spacing: 7},
 												Children: []Widget{
@@ -1616,6 +1631,7 @@ func main() {
 												},
 											},
 											{
+												Background: uiPanelBrush(darkTheme),
 												Title:  i18n.T("method.swap"),
 												Layout: Grid{Columns: 4, Spacing: 7},
 												Children: []Widget{
@@ -1627,6 +1643,7 @@ func main() {
 												},
 											},
 											{
+												Background: uiPanelBrush(darkTheme),
 												Title:  i18n.T("method.trim"),
 												Layout: Grid{Columns: 2, Spacing: 7},
 												Children: []Widget{
@@ -1635,6 +1652,7 @@ func main() {
 												},
 											},
 											{
+												Background: uiPanelBrush(darkTheme),
 												Title:  i18n.T("method.timestamp"),
 												Layout: Grid{Columns: 4, Spacing: 7},
 												Children: []Widget{
@@ -1652,6 +1670,14 @@ func main() {
 										},
 									},
 								},
+							},
+							Label{
+								AssignTo:      &dropHintLbl,
+								Text:          i18n.T("drop.hint") + "   ·   " + i18n.T("drop.subhint"),
+								TextColor:     uiMutedTextColor(darkTheme),
+								Background:    uiFieldBrush(darkTheme),
+								TextAlignment: AlignCenter,
+								MinSize:       Size{0, 38},
 							},
 							TableView{Background: uiFieldBrush(darkTheme),
 								AssignTo:                    &table,
@@ -1679,6 +1705,7 @@ func main() {
 									if style.Row() < 0 || style.Row() >= len(model.items) {
 										return
 									}
+									style.BackgroundColor = uiTableAltColor(darkTheme, style.Row()%2 == 1)
 									style.TextColor = uiTextColor(darkTheme)
 									it := model.items[style.Row()]
 									switch it.Status {

@@ -252,5 +252,16 @@ func init() {
 		"case.upper": "ВЕРХНИЙ РЕГИСТР",
 		"case.title": "Каждое Слово С Заглавной",
 		"dialog.startup_error": "Ошибка запуска EasyRenamer",
+		"item.status.ok": "ОК",
+		"item.status.unchanged": "Без изменений",
+		"item.status.conflict": "Конфликт",
+		"item.status.invalid": "Недопустимо",
+		"item.error.duplicate_target": "повторяющееся итоговое имя",
+		"item.error.target_exists": "файл с таким именем уже существует",
+		"item.error.empty_name": "пустое имя файла",
+		"item.error.forbidden_chars": "имя содержит запрещённые Windows символы",
+		"item.error.trailing_dot_space": "имя не может заканчиваться точкой или пробелом",
+		"item.error.control_chars": "имя содержит управляющие символы",
+		"item.error.reserved_name": "имя зарезервировано Windows",
 	}
 }

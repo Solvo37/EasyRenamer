@@ -62,10 +62,12 @@ EasyRenamer is intended to grow from a focused batch renamer into a serious open
 
 ## v0.5 — Polish
 
-- [ ] Dark mode
+- [x] System / light / dark theme
 - [x] Localization (English / Russian / Spanish / Chinese)
 - [ ] Search/filter inside preview
 - [x] File size and image dimensions in preview table
+- [x] Debounced live preview while editing method settings
+- [x] Explicit preview repaint after model refresh
 - [ ] Keyboard shortcuts
 - [ ] Context-menu integration (optional)
 - [ ] Signed Windows releases when infrastructure is available

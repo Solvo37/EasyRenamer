@@ -19,6 +19,7 @@ import (
 
 	"github.com/Solvo37/easyrenamer/internal/engine"
 	"github.com/Solvo37/easyrenamer/internal/history"
+	"github.com/Solvo37/easyrenamer/internal/i18n"
 	"github.com/Solvo37/easyrenamer/internal/version"
 )
 
@@ -142,52 +143,82 @@ var presets = []struct {
 }
 
 var templateTokens = []string{
-	"<Name>",
-	"<Ext>",
-	"<Inc:001>",
-	"<Inc NrDir:01>",
-	"<DirName:1>",
-	"<Date:yyyyMMdd>",
-	"<Date:yyyyMMdd-HHmmss>",
-	"<UnixTimestamp>",
-	"<Rand>",
-	"<Rand Str:8>",
-	"<Rand Alpha:9>",
+	"<Name>", "<Ext>", "<FolderName:1>",
+	"<Inc Nr:001:1>", "<Inc NrDir:01:1>", "<Inc Alpha:A:1>", "<Inc Hex:1:1>", "<Inc Roman:1:1>",
+	"<Num Items:000>", "<Num Files:000>", "<Num Dirs:000>",
+	"<Word:1>", "<RWord:1>", "<Substr:1:5>", "<Switch:A:B>",
+	"<Date:yyyy-mm-dd>", "<Time:hh-nn-ss>", "<UnixTimestamp>",
+	"<Date Created:yyyy-mm-dd>", "<Date Modified:yyyy-mm-dd>",
+	"<Width>", "<Height>", "<Img DateOriginal:yyyy-mm-dd>",
+	"<Artist>", "<Album>", "<Title>", "<Genre>", "<Track:00>", "<Disc:00>",
+	"<Duration>", "<FrameRate>", "<Video Date:yyyy-mm-dd>",
+	"<Pages>", "<Creator>", "<Subject>", "<From>", "<To:1>",
+	"<GPS Lat>", "<GPS Lng>", "<GPS Alt>",
+	"<Filesize Text>", "<Filesize B>", "<MD5>", "<SHA1>",
+	"<Exe Product>", "<Exe Version>", "<Exe Company>", "<Description>",
+	"<MetaData:fieldname>",
 }
+
 
 func methodTitle(method engine.Method) string {
 	switch method {
 	case engine.MethodTemplate:
-		return "New Name"
+		return i18n.T("method.new_name")
 	case engine.MethodList:
-		return "List"
+		return i18n.T("method.list")
 	case engine.MethodListReplace:
-		return "List replace"
+		return i18n.T("method.list_replace")
 	case engine.MethodCase:
-		return "Change case"
+		return i18n.T("method.change_case")
 	case engine.MethodMove:
-		return "Move"
+		return i18n.T("method.move")
 	case engine.MethodRemove:
-		return "Remove"
+		return i18n.T("method.remove")
 	case engine.MethodRemovePattern:
-		return "Remove pattern"
+		return i18n.T("method.remove_pattern")
 	case engine.MethodRenumber:
-		return "Renumber"
+		return i18n.T("method.renumber")
 	case engine.MethodReplace:
-		return "Replace"
+		return i18n.T("method.replace")
 	case engine.MethodPrefixSuffix:
-		return "Add text"
+		return i18n.T("method.add_text")
 	case engine.MethodScript:
-		return "Script"
+		return i18n.T("method.script")
 	case engine.MethodSwap:
-		return "Swap"
+		return i18n.T("method.swap")
 	case engine.MethodTrim:
-		return "Trim"
+		return i18n.T("method.trim")
 	case engine.MethodTimestamp:
-		return "Timestamp"
+		return i18n.T("method.timestamp")
 	default:
-		return "Method"
+		return i18n.T("column.method")
 	}
+}
+
+func categoryTitle(category engine.Category) string {
+	switch category {
+	case engine.CategoryImages:
+		return i18n.T("category.images")
+	case engine.CategoryVideos:
+		return i18n.T("category.videos")
+	case engine.CategoryAudio:
+		return i18n.T("category.audio")
+	case engine.CategoryDocuments:
+		return i18n.T("category.documents")
+	case engine.CategoryArchives:
+		return i18n.T("category.archives")
+	case engine.CategoryCustom:
+		return i18n.T("category.custom")
+	default:
+		return i18n.T("category.all")
+	}
+}
+
+func openURL(url string) {
+	if strings.TrimSpace(url) == "" {
+		return
+	}
+	_ = exec.Command("rundll32.exe", "url.dll,FileProtocolHandler", url).Start()
 }
 
 func methodTabIndex(method engine.Method) int {
@@ -381,8 +412,8 @@ func main() {
 	dragMethodIndex := -1
 
 	categoryNames := make([]string, 0)
-	for _, c := range engine.Categories() {
-		categoryNames = append(categoryNames, string(c))
+	for _, category := range engine.Categories() {
+		categoryNames = append(categoryNames, categoryTitle(category))
 	}
 	presetNames := make([]string, len(presets))
 	for i := range presets {
@@ -405,14 +436,14 @@ func main() {
 				checked++
 			}
 		}
-		statusLbl.SetText(fmt.Sprintf("%d Items    %d Ready    %d Selected    %d Errors", len(model.items), ok, checked, problems))
+		statusLbl.SetText(fmt.Sprintf(i18n.T("status.summary"), len(model.items), ok, checked, problems))
 		if collisionLbl != nil {
 			if problems > 0 {
-				collisionLbl.SetText("Status: check errors before batch")
+				collisionLbl.SetText(i18n.T("status.errors"))
 			} else if len(model.items) > 0 {
-				collisionLbl.SetText("Status: OK")
+				collisionLbl.SetText(i18n.T("status.ok"))
 			} else {
-				collisionLbl.SetText("Status: waiting for files")
+				collisionLbl.SetText(i18n.T("status.waiting"))
 			}
 		}
 		if renamePB != nil {
@@ -423,7 +454,7 @@ func main() {
 
 	refreshSourceCount := func() {
 		if sourceCountLbl != nil {
-			sourceCountLbl.SetText(fmt.Sprintf("Sources: %d", len(sources)))
+			sourceCountLbl.SetText(fmt.Sprintf(i18n.T("sources.count"), len(sources)))
 		}
 	}
 
@@ -780,11 +811,11 @@ func main() {
 			return
 		}
 		if len(sources) == 0 {
-			walk.MsgBox(mw, "EasyRenamer", "Add files or folders first.", walk.MsgBoxIconInformation)
+			walk.MsgBox(mw, "EasyRenamer", i18n.T("dialog.no_sources"), walk.MsgBoxIconInformation)
 			return
 		}
 		cfg := buildConfig()
-		setBusy(true, "Scanning and building preview...")
+		setBusy(true, i18n.T("dialog.scanning"))
 		go func() {
 			items, err := engine.Preview(cfg)
 			mw.Synchronize(func() {
@@ -795,7 +826,7 @@ func main() {
 				}
 				model.SetItems(items)
 				if len(items) == 0 {
-					walk.MsgBox(mw, "EasyRenamer", "No files matched the selected filter.", walk.MsgBoxIconInformation)
+					walk.MsgBox(mw, "EasyRenamer", i18n.T("dialog.no_match"), walk.MsgBoxIconInformation)
 				}
 			})
 		}()
@@ -830,7 +861,7 @@ func main() {
 		if walk.MsgBox(mw, "Confirm rename", fmt.Sprintf("Rename %d selected files?\n\nThe operation is transactional and can be undone.", count), walk.MsgBoxYesNo|walk.MsgBoxIconQuestion) != walk.DlgCmdYes {
 			return
 		}
-		setBusy(true, fmt.Sprintf("Renaming %d files...", count))
+		setBusy(true, fmt.Sprintf(i18n.T("dialog.renaming"), count))
 		items := model.items
 		go func() {
 			pairs, execErr := engine.Execute(items)
@@ -849,7 +880,7 @@ func main() {
 				if historyErr != nil {
 					walk.MsgBox(mw, "EasyRenamer", fmt.Sprintf("Renamed %d files, but undo history could not be saved:\n%s", len(pairs), historyErr), walk.MsgBoxIconWarning)
 				} else {
-					walk.MsgBox(mw, "EasyRenamer", fmt.Sprintf("Renamed %d files.", len(pairs)), walk.MsgBoxIconInformation)
+					walk.MsgBox(mw, "EasyRenamer", fmt.Sprintf(i18n.T("dialog.renamed"), len(pairs)), walk.MsgBoxIconInformation)
 				}
 				preview()
 			})
@@ -865,7 +896,7 @@ func main() {
 		if walk.MsgBox(mw, "Undo last rename", fmt.Sprintf("Restore %d files from the last operation?", len(rec.Pairs)), walk.MsgBoxYesNo|walk.MsgBoxIconQuestion) != walk.DlgCmdYes {
 			return
 		}
-		setBusy(true, "Restoring previous names...")
+		setBusy(true, i18n.T("dialog.restoring"))
 		go func() {
 			undoErr := engine.Undo(rec.Pairs)
 			var historyErr error
@@ -883,7 +914,7 @@ func main() {
 				if historyErr != nil {
 					walk.MsgBox(mw, "EasyRenamer", "Names were restored, but undo history could not be cleared:\n"+historyErr.Error(), walk.MsgBoxIconWarning)
 				} else {
-					walk.MsgBox(mw, "EasyRenamer", "Last rename operation was undone.", walk.MsgBoxIconInformation)
+					walk.MsgBox(mw, "EasyRenamer", i18n.T("dialog.undone"), walk.MsgBoxIconInformation)
 				}
 				if len(sources) > 0 {
 					preview()
@@ -918,7 +949,7 @@ func main() {
 
 	addFiles := func() {
 		dlg := new(walk.FileDialog)
-		dlg.Title = "Add files"
+		dlg.Title = i18n.T("menu.add_files")
 		dlg.Filter = "All files (*.*)|*.*"
 		if ok, err := dlg.ShowOpenMultiple(mw); err != nil {
 			walk.MsgBox(mw, "Files", err.Error(), walk.MsgBoxIconError)
@@ -929,7 +960,7 @@ func main() {
 
 	addFolder := func() {
 		dlg := new(walk.FileDialog)
-		dlg.Title = "Add folder"
+		dlg.Title = i18n.T("menu.add_folder")
 		if len(sources) > 0 {
 			if st, err := os.Stat(sources[0]); err == nil && st.IsDir() {
 				dlg.InitialDirPath = sources[0]
@@ -1100,7 +1131,7 @@ func main() {
 
 	if _, err := (MainWindow{
 		AssignTo: &mw,
-		Title:    "EasyRenamer " + version.Version + " — Batch File Renamer",
+		Title:    "EasyRenamer " + version.Version + " — " + i18n.T("app.subtitle"),
 		MinSize:  Size{1060, 700},
 		Size:     Size{1480, 900},
 		Layout:   VBox{Margins: Margins{Left: 8, Top: 8, Right: 8, Bottom: 6}, Spacing: 6},
@@ -1109,35 +1140,58 @@ func main() {
 		},
 		MenuItems: []MenuItem{
 			Menu{
-				Text: "&File",
+				Text: i18n.T("menu.file"),
 				Items: []MenuItem{
-					Action{Text: "Add files...", OnTriggered: addFiles},
-					Action{Text: "Add folder...", OnTriggered: addFolder},
+					Action{Text: i18n.T("menu.add_files"), OnTriggered: addFiles},
+					Action{Text: i18n.T("menu.add_folder"), OnTriggered: addFolder},
 					Separator{},
-					Action{Text: "Save method set...", OnTriggered: saveMethodStack},
-					Action{Text: "Load method set...", OnTriggered: loadMethodStack},
+					Action{Text: i18n.T("menu.save_methods"), OnTriggered: saveMethodStack},
+					Action{Text: i18n.T("menu.load_methods"), OnTriggered: loadMethodStack},
 					Separator{},
-					Action{Text: "Clear list", OnTriggered: clearSources},
+					Action{Text: i18n.T("menu.clear_list"), OnTriggered: clearSources},
 				},
 			},
 			Menu{
-				Text: "&Batch",
+				Text: i18n.T("menu.batch"),
 				Items: []MenuItem{
-					Action{Text: "Preview", OnTriggered: func() { preview() }},
-					Action{Text: "Start batch", OnTriggered: func() { rename() }},
-					Action{Text: "Undo last batch", OnTriggered: func() { undo() }},
+					Action{Text: i18n.T("menu.preview"), OnTriggered: func() { preview() }},
+					Action{Text: i18n.T("menu.start_batch"), OnTriggered: func() { rename() }},
+					Action{Text: i18n.T("menu.undo"), OnTriggered: func() { undo() }},
 				},
 			},
 			Menu{
-				Text: "&Help",
+				Text: i18n.T("menu.language"),
 				Items: []MenuItem{
-					Action{Text: "Token reference", OnTriggered: func() {
-						walk.MsgBox(mw, "Template tokens",
-							"<Name> original/current base name\n<Ext> extension without dot\n<Inc:001> global counter\n<Inc NrDir:01> counter reset per folder\n<DirName:1> parent folder\n<UnixTimestamp> batch Unix time\n<Rand> random digit\n<Rand Str:8> random letters/digits\n<Rand Alpha:9> random letters only\n<Date:yyyyMMdd-HHmmss> date/time",
-							walk.MsgBoxIconInformation)
+					Action{Text: i18n.LanguageName(i18n.English), OnTriggered: func() {
+						_ = i18n.Set(i18n.English)
+						walk.MsgBox(mw, "EasyRenamer", i18n.T("language.restart"), walk.MsgBoxIconInformation)
 					}},
-					Action{Text: "About", OnTriggered: func() {
-						walk.MsgBox(mw, "About EasyRenamer", "EasyRenamer "+version.Version+"\n\nOpen-source batch renamer for Windows.\nMIT License\nhttps://github.com/Solvo37/easyrenamer", walk.MsgBoxIconInformation)
+					Action{Text: i18n.LanguageName(i18n.Russian), OnTriggered: func() {
+						_ = i18n.Set(i18n.Russian)
+						walk.MsgBox(mw, "EasyRenamer", i18n.T("language.restart"), walk.MsgBoxIconInformation)
+					}},
+					Action{Text: i18n.LanguageName(i18n.Spanish), OnTriggered: func() {
+						_ = i18n.Set(i18n.Spanish)
+						walk.MsgBox(mw, "EasyRenamer", i18n.T("language.restart"), walk.MsgBoxIconInformation)
+					}},
+					Action{Text: i18n.LanguageName(i18n.Chinese), OnTriggered: func() {
+						_ = i18n.Set(i18n.Chinese)
+						walk.MsgBox(mw, "EasyRenamer", i18n.T("language.restart"), walk.MsgBoxIconInformation)
+					}},
+				},
+			},
+			Menu{
+				Text: i18n.T("menu.help"),
+				Items: []MenuItem{
+					Action{Text: i18n.T("menu.tags"), OnTriggered: func() {
+						openURL("https://github.com/Solvo37/easyrenamer/blob/main/docs/TAGS.md")
+					}},
+					Action{Text: i18n.T("menu.learn"), OnTriggered: func() {
+						openURL("https://github.com/Solvo37/easyrenamer/blob/main/docs/LEARN.md")
+					}},
+					Separator{},
+					Action{Text: i18n.T("menu.about"), OnTriggered: func() {
+						walk.MsgBox(mw, "EasyRenamer", fmt.Sprintf(i18n.T("about.text"), version.Version), walk.MsgBoxIconInformation)
 					}},
 				},
 			},
@@ -1146,36 +1200,36 @@ func main() {
 			Composite{
 				Layout: HBox{Spacing: 6},
 				Children: []Widget{
-					Label{Text: "Batch mode:"},
-					ComboBox{Model: []string{"Rename"}, CurrentIndex: 0, MinSize: Size{130, 0}},
-					PushButton{Text: "+ Files", ToolTipText: "Add individual files", OnClicked: addFiles},
-					PushButton{Text: "+ Folders", ToolTipText: "Add one or more folders", OnClicked: addFolder},
-					PushButton{Text: "Clear", ToolTipText: "Clear source list and preview", OnClicked: clearSources},
-					PushButton{AssignTo: &previewPB, Text: "Preview", OnClicked: preview},
-					PushButton{AssignTo: &undoPB, Text: "Undo batch", OnClicked: undo},
+					Label{Text: i18n.T("batch.mode")},
+					ComboBox{Model: []string{i18n.T("batch.rename")}, CurrentIndex: 0, MinSize: Size{130, 0}},
+					PushButton{Text: i18n.T("button.files"), ToolTipText: "Add individual files", OnClicked: addFiles},
+					PushButton{Text: i18n.T("button.folders"), ToolTipText: "Add one or more folders", OnClicked: addFolder},
+					PushButton{Text: i18n.T("button.clear"), ToolTipText: "Clear source list and preview", OnClicked: clearSources},
+					PushButton{AssignTo: &previewPB, Text: i18n.T("button.preview"), OnClicked: preview},
+					PushButton{AssignTo: &undoPB, Text: i18n.T("button.undo"), OnClicked: undo},
 					HSpacer{},
-					Label{AssignTo: &sourceCountLbl, Text: "Sources: 0"},
-					PushButton{AssignTo: &renamePB, Text: "Start batch", Enabled: false, MinSize: Size{155, 0}, OnClicked: rename},
+					Label{AssignTo: &sourceCountLbl, Text: fmt.Sprintf(i18n.T("sources.count"), 0)},
+					PushButton{AssignTo: &renamePB, Text: i18n.T("button.start"), Enabled: false, MinSize: Size{155, 0}, OnClicked: rename},
 				},
 			},
 			Composite{
 				Layout: HBox{Spacing: 6},
 				Children: []Widget{
-					Label{Text: "Filter:"},
+					Label{Text: i18n.T("filter.label")},
 					ComboBox{AssignTo: &categoryCB, Model: categoryNames, CurrentIndex: 0, MinSize: Size{130, 0}, OnCurrentIndexChanged: func() {
 						if customExtLE != nil {
 							customExtLE.SetEnabled(categoryCB.CurrentIndex() == len(categoryNames)-1)
 						}
 						maybePreview()
 					}},
-					CheckBox{AssignTo: &recursiveCB, Text: "Include subfolders", Checked: true, OnCheckedChanged: maybePreview},
-					Label{Text: "Extensions:"},
+					CheckBox{AssignTo: &recursiveCB, Text: i18n.T("filter.subfolders"), Checked: true, OnCheckedChanged: maybePreview},
+					Label{Text: i18n.T("filter.extensions")},
 					LineEdit{AssignTo: &customExtLE, Text: "psd, svg", Enabled: false, MinSize: Size{125, 0}, CueBanner: "jpg, png, psd", OnEditingFinished: maybePreview},
-					CheckBox{AssignTo: &autoPreviewCB, Text: "Auto test", Checked: true},
-					Label{Text: "Collision rule:"},
-					Label{Text: "Prevent overwrite"},
+					CheckBox{AssignTo: &autoPreviewCB, Text: i18n.T("filter.auto_test"), Checked: true},
+					Label{Text: i18n.T("collision.label")},
+					Label{Text: i18n.T("collision.prevent")},
 					HSpacer{},
-					PushButton{Text: "Open source", OnClicked: openSourceFolder},
+					PushButton{Text: i18n.T("button.open_source"), OnClicked: openSourceFolder},
 				},
 			},
 			HSplitter{
@@ -1186,7 +1240,7 @@ func main() {
 						Layout:  VBox{Spacing: 6},
 						Children: []Widget{
 							GroupBox{
-								Title:  "Renaming methods",
+								Title:  i18n.T("group.methods"),
 								Layout: VBox{Spacing: 5},
 								Children: []Widget{
 									TableView{
@@ -1201,7 +1255,7 @@ func main() {
 										CustomRowHeight:              27,
 										MinSize:                      Size{260, 230},
 										Columns: []TableViewColumn{
-											{Title: "Method", Width: 235},
+											{Title: i18n.T("column.method"), Width: 235},
 										},
 										OnCurrentIndexChanged: func() {
 											if updatingMethodUI || methodTable == nil {
@@ -1235,36 +1289,36 @@ func main() {
 									Composite{
 										Layout: HBox{Spacing: 4},
 										Children: []Widget{
-											PushButton{Text: "Up", ToolTipText: "Move selected method up", OnClicked: func() { moveMethod(-1) }},
-											PushButton{Text: "Down", ToolTipText: "Move selected method down", OnClicked: func() { moveMethod(1) }},
-											PushButton{Text: "Copy", ToolTipText: "Duplicate selected method", OnClicked: duplicateMethod},
+											PushButton{Text: i18n.T("button.up"), ToolTipText: "Move selected method up", OnClicked: func() { moveMethod(-1) }},
+											PushButton{Text: i18n.T("button.down"), ToolTipText: "Move selected method down", OnClicked: func() { moveMethod(1) }},
+											PushButton{Text: i18n.T("button.copy"), ToolTipText: "Duplicate selected method", OnClicked: duplicateMethod},
 											HSpacer{},
-											PushButton{Text: "Remove", OnClicked: removeMethod},
+											PushButton{Text: i18n.T("button.remove"), OnClicked: removeMethod},
 										},
 									},
 								},
 							},
 							GroupBox{
-								Title:  "Add batch method",
+								Title:  i18n.T("group.add_method"),
 								Layout: Grid{Columns: 2, Spacing: 5},
 								Children: []Widget{
-									PushButton{Text: "New Name", OnClicked: func() { addMethod(engine.MethodTemplate) }},
-									PushButton{Text: "List", OnClicked: func() { addMethod(engine.MethodList) }},
-									PushButton{Text: "List replace", OnClicked: func() { addMethod(engine.MethodListReplace) }},
-									PushButton{Text: "Change case", OnClicked: func() { addMethod(engine.MethodCase) }},
-									PushButton{Text: "Move", OnClicked: func() { addMethod(engine.MethodMove) }},
-									PushButton{Text: "Remove", OnClicked: func() { addMethod(engine.MethodRemove) }},
-									PushButton{Text: "Remove pattern", OnClicked: func() { addMethod(engine.MethodRemovePattern) }},
-									PushButton{Text: "Renumber", OnClicked: func() { addMethod(engine.MethodRenumber) }},
-									PushButton{Text: "Replace", OnClicked: func() { addMethod(engine.MethodReplace) }},
-									PushButton{Text: "Add text", OnClicked: func() { addMethod(engine.MethodPrefixSuffix) }},
-									PushButton{Text: "Script", OnClicked: func() { addMethod(engine.MethodScript) }},
-									PushButton{Text: "Swap", OnClicked: func() { addMethod(engine.MethodSwap) }},
-									PushButton{Text: "Trim", OnClicked: func() { addMethod(engine.MethodTrim) }},
-									PushButton{Text: "Timestamp", OnClicked: func() { addMethod(engine.MethodTimestamp) }},
+									PushButton{Text: i18n.T("method.new_name"), OnClicked: func() { addMethod(engine.MethodTemplate) }},
+									PushButton{Text: i18n.T("method.list"), OnClicked: func() { addMethod(engine.MethodList) }},
+									PushButton{Text: i18n.T("method.list_replace"), OnClicked: func() { addMethod(engine.MethodListReplace) }},
+									PushButton{Text: i18n.T("method.change_case"), OnClicked: func() { addMethod(engine.MethodCase) }},
+									PushButton{Text: i18n.T("method.move"), OnClicked: func() { addMethod(engine.MethodMove) }},
+									PushButton{Text: i18n.T("method.remove"), OnClicked: func() { addMethod(engine.MethodRemove) }},
+									PushButton{Text: i18n.T("method.remove_pattern"), OnClicked: func() { addMethod(engine.MethodRemovePattern) }},
+									PushButton{Text: i18n.T("method.renumber"), OnClicked: func() { addMethod(engine.MethodRenumber) }},
+									PushButton{Text: i18n.T("method.replace"), OnClicked: func() { addMethod(engine.MethodReplace) }},
+									PushButton{Text: i18n.T("method.add_text"), OnClicked: func() { addMethod(engine.MethodPrefixSuffix) }},
+									PushButton{Text: i18n.T("method.script"), OnClicked: func() { addMethod(engine.MethodScript) }},
+									PushButton{Text: i18n.T("method.swap"), OnClicked: func() { addMethod(engine.MethodSwap) }},
+									PushButton{Text: i18n.T("method.trim"), OnClicked: func() { addMethod(engine.MethodTrim) }},
+									PushButton{Text: i18n.T("method.timestamp"), OnClicked: func() { addMethod(engine.MethodTimestamp) }},
 								},
 							},
-							Label{Text: "Tip: uncheck to disable. Drag a method to reorder it."},
+							Label{Text: i18n.T("tip.methods")},
 							VSpacer{},
 						},
 					},
@@ -1272,7 +1326,7 @@ func main() {
 						Layout: VBox{Spacing: 6},
 						Children: []Widget{
 							GroupBox{
-								Title:  "Method settings",
+								Title:  i18n.T("group.settings"),
 								Layout: VBox{},
 								Children: []Widget{
 									TabWidget{
@@ -1288,7 +1342,7 @@ func main() {
 										},
 										Pages: []TabPage{
 											{
-												Title:  "New Name",
+												Title:  i18n.T("method.new_name"),
 												Layout: Grid{Columns: 5, Spacing: 7},
 												Children: []Widget{
 													Label{Text: "Preset:"},
@@ -1322,7 +1376,7 @@ func main() {
 												},
 											},
 											{
-												Title:  "List",
+												Title:  i18n.T("method.list"),
 												Layout: Grid{Columns: 4, Spacing: 7},
 												Children: []Widget{
 													Label{Text: "One new name per item. Line 1 = item 1, line 2 = item 2, and so on.", ColumnSpan: 4},
@@ -1385,7 +1439,7 @@ func main() {
 												},
 											},
 											{
-												Title:  "List replace",
+												Title:  i18n.T("method.list_replace"),
 												Layout: Grid{Columns: 4, Spacing: 7},
 												Children: []Widget{
 													Label{Text: "One rule per line: find => replace. Tab-separated pairs are also accepted.", ColumnSpan: 4},
@@ -1409,12 +1463,12 @@ func main() {
 															maybePreview()
 														}
 													}},
-													PushButton{Text: "Clear", OnClicked: func() { if listReplaceTE != nil { listReplaceTE.SetText(""); saveMethodEditor(); maybePreview() } }},
+													PushButton{Text: i18n.T("button.clear"), OnClicked: func() { if listReplaceTE != nil { listReplaceTE.SetText(""); saveMethodEditor(); maybePreview() } }},
 													PushButton{Text: "Apply", OnClicked: func() { saveMethodEditor(); maybePreview() }},
 												},
 											},
 											{
-												Title:  "Change case",
+												Title:  i18n.T("method.change_case"),
 												Layout: Grid{Columns: 2, Spacing: 7},
 												Children: []Widget{
 													Label{Text: "Convert base name to:"},
@@ -1426,7 +1480,7 @@ func main() {
 												},
 											},
 											{
-												Title:  "Move",
+												Title:  i18n.T("method.move"),
 												Layout: Grid{Columns: 6, Spacing: 7},
 												Children: []Widget{
 													Label{Text: "Start:"},
@@ -1439,7 +1493,7 @@ func main() {
 												},
 											},
 											{
-												Title:  "Remove",
+												Title:  i18n.T("method.remove"),
 												Layout: Grid{Columns: 4, Spacing: 7},
 												Children: []Widget{
 													Label{Text: "Start:"},
@@ -1450,7 +1504,7 @@ func main() {
 												},
 											},
 											{
-												Title:  "Remove pattern",
+												Title:  i18n.T("method.remove_pattern"),
 												Layout: Grid{Columns: 4, Spacing: 7},
 												Children: []Widget{
 													Label{Text: "Pattern:"},
@@ -1459,7 +1513,7 @@ func main() {
 												},
 											},
 											{
-												Title:  "Renumber",
+												Title:  i18n.T("method.renumber"),
 												Layout: Grid{Columns: 6, Spacing: 7},
 												Children: []Widget{
 													Label{Text: "Start:"},
@@ -1476,7 +1530,7 @@ func main() {
 												},
 											},
 											{
-												Title:  "Replace",
+												Title:  i18n.T("method.replace"),
 												Layout: Grid{Columns: 4, Spacing: 7},
 												Children: []Widget{
 													Label{Text: "Find:"},
@@ -1490,7 +1544,7 @@ func main() {
 												},
 											},
 											{
-												Title:  "Add text",
+												Title:  i18n.T("method.add_text"),
 												Layout: Grid{Columns: 4, Spacing: 7},
 												Children: []Widget{
 													Label{Text: "Prefix:"},
@@ -1501,7 +1555,7 @@ func main() {
 												},
 											},
 											{
-												Title:  "Script",
+												Title:  i18n.T("method.script"),
 												Layout: Grid{Columns: 4, Spacing: 7},
 												Children: []Widget{
 													Label{Text: "Expression:"},
@@ -1513,7 +1567,7 @@ func main() {
 												},
 											},
 											{
-												Title:  "Swap",
+												Title:  i18n.T("method.swap"),
 												Layout: Grid{Columns: 4, Spacing: 7},
 												Children: []Widget{
 													Label{Text: "Separator:"},
@@ -1524,7 +1578,7 @@ func main() {
 												},
 											},
 											{
-												Title:  "Trim",
+												Title:  i18n.T("method.trim"),
 												Layout: Grid{Columns: 2, Spacing: 7},
 												Children: []Widget{
 													Label{Text: "Leading and trailing whitespace is always removed.", ColumnSpan: 2},
@@ -1532,7 +1586,7 @@ func main() {
 												},
 											},
 											{
-												Title:  "Timestamp",
+												Title:  i18n.T("method.timestamp"),
 												Layout: Grid{Columns: 4, Spacing: 7},
 												Children: []Widget{
 													Label{Text: "Source:"},
@@ -1561,14 +1615,14 @@ func main() {
 								LastColumnStretched:          true,
 								OnItemActivated:              openSelectedFile,
 								Columns: []TableViewColumn{
-									{Title: "Index", Width: 55},
-									{Title: "Filename", Width: 235},
-									{Title: "New filename", Width: 300},
-									{Title: "Path", Width: 300},
-									{Title: "Size", Width: 80},
-									{Title: "Width", Width: 65},
-									{Title: "Height", Width: 65},
-									{Title: "Error / Status", Width: 220},
+									{Title: i18n.T("column.index"), Width: 55},
+									{Title: i18n.T("column.filename"), Width: 235},
+									{Title: i18n.T("column.new_filename"), Width: 300},
+									{Title: i18n.T("column.path"), Width: 300},
+									{Title: i18n.T("column.size"), Width: 80},
+									{Title: i18n.T("column.width"), Width: 65},
+									{Title: i18n.T("column.height"), Width: 65},
+									{Title: i18n.T("column.status"), Width: 220},
 								},
 								Model: model,
 								StyleCell: func(style *walk.CellStyle) {
@@ -1587,25 +1641,25 @@ func main() {
 							Composite{
 								Layout: HBox{Spacing: 6},
 								Children: []Widget{
-									PushButton{Text: "Select all valid", OnClicked: func() {
+									PushButton{Text: i18n.T("button.select_valid"), OnClicked: func() {
 										for _, it := range model.items {
 											it.Checked = it.Status == engine.StatusOK
 										}
 										model.PublishRowsReset()
 										updateStatus()
 									}},
-									PushButton{Text: "Clear selection", OnClicked: func() {
+									PushButton{Text: i18n.T("button.clear_selection"), OnClicked: func() {
 										for _, it := range model.items {
 											it.Checked = false
 										}
 										model.PublishRowsReset()
 										updateStatus()
 									}},
-									PushButton{Text: "Open selected", OnClicked: openSelectedFile},
+									PushButton{Text: i18n.T("button.open_selected"), OnClicked: openSelectedFile},
 									HSpacer{},
-									Label{AssignTo: &collisionLbl, Text: "Status: waiting for files"},
+									Label{AssignTo: &collisionLbl, Text: i18n.T("status.waiting")},
 									Label{Text: "   "},
-									Label{AssignTo: &statusLbl, Text: "0 Items    0 Ready    0 Selected    0 Errors"},
+									Label{AssignTo: &statusLbl, Text: fmt.Sprintf(i18n.T("status.summary"), 0, 0, 0, 0)},
 								},
 							},
 						},

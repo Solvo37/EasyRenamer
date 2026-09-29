@@ -224,5 +224,16 @@ func init() {
 		"case.upper": "MAYÚSCULAS",
 		"case.title": "Iniciales En Mayúscula",
 		"dialog.startup_error": "Error al iniciar EasyRenamer",
+		"item.status.ok": "OK",
+		"item.status.unchanged": "Sin cambios",
+		"item.status.conflict": "Conflicto",
+		"item.status.invalid": "No válido",
+		"item.error.duplicate_target": "nombre de destino duplicado",
+		"item.error.target_exists": "ya existe un archivo con ese nombre",
+		"item.error.empty_name": "nombre de archivo vacío",
+		"item.error.forbidden_chars": "el nombre contiene caracteres prohibidos por Windows",
+		"item.error.trailing_dot_space": "el nombre no puede terminar en punto o espacio",
+		"item.error.control_chars": "el nombre contiene caracteres de control",
+		"item.error.reserved_name": "el nombre está reservado por Windows",
 	}
 }

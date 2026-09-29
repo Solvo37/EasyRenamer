@@ -960,9 +960,7 @@ func runMainWindow(state *uiState) uiRunResult {
 			items, err := engine.PreviewContext(ctx, cfg)
 			mw.Synchronize(func() {
 				cancel()
-				if previewCancel == cancel {
-					previewCancel = nil
-				}
+				previewCancel = nil
 				setBusy(false, "")
 
 				if errors.Is(err, context.Canceled) {

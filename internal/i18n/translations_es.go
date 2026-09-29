@@ -64,5 +64,11 @@ func init() {
 		"theme.dark": "Oscuro",
 		"theme.restart": "Tema guardado. Reinicia EasyRenamer para aplicarlo.",
 		"status.live_preview": "Vista previa en vivo",
+		"preset.sequence_original": "Número + nombre original",
+		"preset.original_sequence": "Nombre original + número",
+		"preset.parent_sequence": "Carpeta superior + número",
+		"preset.date_original": "Fecha + nombre original",
+		"drop.hint": "Arrastra archivos o carpetas aquí",
+		"drop.subhint": "o usa + Archivos / + Carpetas",
 	}
 }

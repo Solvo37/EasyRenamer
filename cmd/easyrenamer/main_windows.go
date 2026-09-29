@@ -383,9 +383,39 @@ func insertIntoLineEdit(le *walk.LineEdit, value string) {
 	le.SetFocus()
 }
 
+type uiState struct {
+	Sources          []string
+	Methods          []engine.RenameMethod
+	CategoryIndex    int
+	CustomExtensions string
+	Recursive        bool
+	AutoPreview      bool
+	SelectedMethod   int
+}
+
+type uiRunResult int
+
+const (
+	uiExit uiRunResult = iota
+	uiRebuild
+)
+
 func main() {
 	runtime.LockOSThread()
 
+	state := &uiState{
+		Methods:     []engine.RenameMethod{defaultMethod(engine.MethodTemplate)},
+		Recursive:   true,
+		AutoPreview: true,
+	}
+	for {
+		if runMainWindow(state) != uiRebuild {
+			return
+		}
+	}
+}
+
+func runMainWindow(state *uiState) uiRunResult {
 	currentTheme := loadThemeMode()
 	darkTheme := effectiveDarkTheme(currentTheme)
 
@@ -408,8 +438,11 @@ func main() {
 	var previewPB, renamePB, undoPB *walk.PushButton
 
 	model := &previewModel{}
-	sources := make([]string, 0)
-	methods := []engine.RenameMethod{defaultMethod(engine.MethodTemplate)}
+	sources := append([]string(nil), state.Sources...)
+	methods := append([]engine.RenameMethod(nil), state.Methods...)
+	if len(methods) == 0 {
+		methods = []engine.RenameMethod{defaultMethod(engine.MethodTemplate)}
+	}
 	methodsModel := &methodModel{methods: &methods}
 	editingMethodIndex := 0
 	updatingMethodUI := false
@@ -417,6 +450,7 @@ func main() {
 	dragMethodIndex := -1
 	var previewTimer *time.Timer
 	previewPending := false
+	rebuildRequested := false
 
 	categoryNames := make([]string, 0)
 	for _, category := range engine.Categories() {
@@ -465,6 +499,32 @@ func main() {
 		}
 		if dropHintLbl != nil {
 			dropHintLbl.SetVisible(len(sources) == 0)
+		}
+	}
+
+	captureState := func() {
+		state.Sources = append([]string(nil), sources...)
+		state.Methods = append([]engine.RenameMethod(nil), methods...)
+		if categoryCB != nil {
+			state.CategoryIndex = categoryCB.CurrentIndex()
+		}
+		if customExtLE != nil {
+			state.CustomExtensions = customExtLE.Text()
+		}
+		if recursiveCB != nil {
+			state.Recursive = recursiveCB.Checked()
+		}
+		if autoPreviewCB != nil {
+			state.AutoPreview = autoPreviewCB.Checked()
+		}
+		state.SelectedMethod = editingMethodIndex
+	}
+
+	requestUIRebuild := func() {
+		captureState()
+		rebuildRequested = true
+		if mw != nil {
+			mw.Close()
 		}
 	}
 
@@ -1269,20 +1329,28 @@ func main() {
 				Text: i18n.T("menu.language"),
 				Items: []MenuItem{
 					Action{Text: i18n.LanguageName(i18n.English), OnTriggered: func() {
-						_ = i18n.Set(i18n.English)
-						walk.MsgBox(mw, "EasyRenamer", i18n.T("language.restart"), walk.MsgBoxIconInformation)
+						if i18n.Current() != i18n.English {
+							_ = i18n.Set(i18n.English)
+							requestUIRebuild()
+						}
 					}},
 					Action{Text: i18n.LanguageName(i18n.Russian), OnTriggered: func() {
-						_ = i18n.Set(i18n.Russian)
-						walk.MsgBox(mw, "EasyRenamer", i18n.T("language.restart"), walk.MsgBoxIconInformation)
+						if i18n.Current() != i18n.Russian {
+							_ = i18n.Set(i18n.Russian)
+							requestUIRebuild()
+						}
 					}},
 					Action{Text: i18n.LanguageName(i18n.Spanish), OnTriggered: func() {
-						_ = i18n.Set(i18n.Spanish)
-						walk.MsgBox(mw, "EasyRenamer", i18n.T("language.restart"), walk.MsgBoxIconInformation)
+						if i18n.Current() != i18n.Spanish {
+							_ = i18n.Set(i18n.Spanish)
+							requestUIRebuild()
+						}
 					}},
 					Action{Text: i18n.LanguageName(i18n.Chinese), OnTriggered: func() {
-						_ = i18n.Set(i18n.Chinese)
-						walk.MsgBox(mw, "EasyRenamer", i18n.T("language.restart"), walk.MsgBoxIconInformation)
+						if i18n.Current() != i18n.Chinese {
+							_ = i18n.Set(i18n.Chinese)
+							requestUIRebuild()
+						}
 					}},
 				},
 			},
@@ -1290,16 +1358,22 @@ func main() {
 				Text: i18n.T("menu.theme"),
 				Items: []MenuItem{
 					Action{Text: i18n.T("theme.system"), OnTriggered: func() {
-						_ = saveThemeMode(themeSystem)
-						walk.MsgBox(mw, "EasyRenamer", i18n.T("theme.restart"), walk.MsgBoxIconInformation)
+						if currentTheme != themeSystem {
+							_ = saveThemeMode(themeSystem)
+							requestUIRebuild()
+						}
 					}},
 					Action{Text: i18n.T("theme.light"), OnTriggered: func() {
-						_ = saveThemeMode(themeLight)
-						walk.MsgBox(mw, "EasyRenamer", i18n.T("theme.restart"), walk.MsgBoxIconInformation)
+						if currentTheme != themeLight {
+							_ = saveThemeMode(themeLight)
+							requestUIRebuild()
+						}
 					}},
 					Action{Text: i18n.T("theme.dark"), OnTriggered: func() {
-						_ = saveThemeMode(themeDark)
-						walk.MsgBox(mw, "EasyRenamer", i18n.T("theme.restart"), walk.MsgBoxIconInformation)
+						if currentTheme != themeDark {
+							_ = saveThemeMode(themeDark)
+							requestUIRebuild()
+						}
 					}},
 				},
 			},
@@ -1332,19 +1406,19 @@ func main() {
 					PushButton{Background: uiPanelBrush(darkTheme),AssignTo: &undoPB, Text: i18n.T("button.undo"), MinSize: Size{95, 32}, OnClicked: undo},
 					HSpacer{},
 					Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),AssignTo: &sourceCountLbl, Text: fmt.Sprintf(i18n.T("sources.count"), 0)},
-					PushButton{Background: uiPanelBrush(darkTheme),AssignTo: &renamePB, Text: i18n.T("button.start"), Enabled: false, MinSize: Size{170, 34}, OnClicked: rename},
+					PushButton{Background: uiPanelBrush(darkTheme),AssignTo: &renamePB, Text: i18n.T("button.start"), Font: Font{PointSize: 11, Bold: true}, Enabled: false, MinSize: Size{190, 38}, OnClicked: rename},
 				},
 			},
 			Composite{Background: uiPanelBrush(darkTheme),
 				Layout: HBox{Spacing: 6},
 				Children: []Widget{
 					Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("filter.label")},
-					ComboBox{Background: uiFieldBrush(darkTheme),OnMouseDown: func(x, y int, button walk.MouseButton) { scheduleFloatingTheme(mw, darkTheme) },AssignTo: &categoryCB, Model: categoryNames, CurrentIndex: 0, MinSize: Size{130, 0}, OnCurrentIndexChanged: func() {
+					ComboBox{Background: uiFieldBrush(darkTheme),OnMouseDown: func(x, y int, button walk.MouseButton) { scheduleFloatingTheme(mw, darkTheme) },AssignTo: &categoryCB, Model: categoryNames, CurrentIndex: state.CategoryIndex, MinSize: Size{130, 0}, OnCurrentIndexChanged: func() {
 						maybePreview()
 					}},
-					CheckBox{Background: uiPanelBrush(darkTheme),AssignTo: &recursiveCB, Text: i18n.T("filter.subfolders"), Checked: true, OnCheckedChanged: maybePreview},
+					CheckBox{Background: uiPanelBrush(darkTheme),AssignTo: &recursiveCB, Text: i18n.T("filter.subfolders"), Checked: state.Recursive, OnCheckedChanged: maybePreview},
 					Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("filter.extensions")},
-					LineEdit{TextColor: uiTextColor(darkTheme), Background: uiFieldBrush(darkTheme),AssignTo: &customExtLE, MinSize: Size{165, 0}, CueBanner: i18n.T("filter.extensions_hint"), OnTextChanged: func() {
+					LineEdit{TextColor: uiTextColor(darkTheme), Background: uiFieldBrush(darkTheme),AssignTo: &customExtLE, Text: state.CustomExtensions, MinSize: Size{165, 0}, CueBanner: i18n.T("filter.extensions_hint"), OnTextChanged: func() {
 						if updatingMethodUI || customExtLE == nil {
 							return
 						}
@@ -1353,7 +1427,7 @@ func main() {
 						}
 						maybePreview()
 					}, OnEditingFinished: maybePreview},
-					CheckBox{Background: uiPanelBrush(darkTheme),AssignTo: &autoPreviewCB, Text: i18n.T("status.live_preview"), Checked: true},
+					CheckBox{Background: uiPanelBrush(darkTheme),AssignTo: &autoPreviewCB, Text: i18n.T("status.live_preview"), Checked: state.AutoPreview},
 					Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("collision.label")},
 					Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("collision.prevent")},
 					HSpacer{},
@@ -1364,7 +1438,7 @@ func main() {
 				HandleWidth: 7,
 				Children: []Widget{
 					Composite{Background: uiPanelBrush(darkTheme),
-						MinSize: Size{320, 0},
+						MinSize: Size{500, 0},
 						Layout:  VBox{Spacing: 6},
 						Children: []Widget{
 							GroupBox{Background: uiPanelBrush(darkTheme),
@@ -1381,7 +1455,7 @@ func main() {
 										NotSortableByHeaderClick:    true,
 										SelectionHiddenWithoutFocus: false,
 										CustomRowHeight:              32,
-										MinSize:                      Size{295, 260},
+										MinSize:                      Size{470, 165},
 										Columns: []TableViewColumn{
 											{Title: i18n.T("column.method"), Width: 235},
 										},
@@ -1430,41 +1504,14 @@ func main() {
 									},
 								},
 							},
-							GroupBox{Background: uiPanelBrush(darkTheme),
-								Title:  i18n.T("group.add_method"),
-								Layout: Grid{Columns: 2, Spacing: 5},
-								Children: []Widget{
-									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.new_name"), OnClicked: func() { addMethod(engine.MethodTemplate) }},
-									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.list"), OnClicked: func() { addMethod(engine.MethodList) }},
-									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.list_replace"), OnClicked: func() { addMethod(engine.MethodListReplace) }},
-									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.change_case"), OnClicked: func() { addMethod(engine.MethodCase) }},
-									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.move"), OnClicked: func() { addMethod(engine.MethodMove) }},
-									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.remove"), OnClicked: func() { addMethod(engine.MethodRemove) }},
-									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.remove_pattern"), OnClicked: func() { addMethod(engine.MethodRemovePattern) }},
-									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.renumber"), OnClicked: func() { addMethod(engine.MethodRenumber) }},
-									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.replace"), OnClicked: func() { addMethod(engine.MethodReplace) }},
-									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.add_text"), OnClicked: func() { addMethod(engine.MethodPrefixSuffix) }},
-									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.script"), OnClicked: func() { addMethod(engine.MethodScript) }},
-									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.swap"), OnClicked: func() { addMethod(engine.MethodSwap) }},
-									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.trim"), OnClicked: func() { addMethod(engine.MethodTrim) }},
-									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.timestamp"), OnClicked: func() { addMethod(engine.MethodTimestamp) }},
-								},
-							},
-							Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("tip.methods")},
-							VSpacer{},
-						},
-					},
-					Composite{Background: uiPanelBrush(darkTheme),
-						Layout: VBox{Spacing: 6},
-						Children: []Widget{
-							GroupBox{Background: uiPanelBrush(darkTheme),
+GroupBox{Background: uiPanelBrush(darkTheme),
 								AssignTo: &methodSettingsGB,
 								Title:  fmt.Sprintf(i18n.T("group.settings_selected"), methodTitle(methods[0].Type)),
 								Layout: VBox{},
 								Children: []Widget{
 									TabWidget{Background: uiPanelBrush(darkTheme),
 										AssignTo: &editorTabs,
-										MinSize:  Size{700, 250},
+										MinSize:  Size{470, 260},
 										Pages: []TabPage{
 											{
 												AssignTo: &editorPages[0],
@@ -1755,6 +1802,34 @@ func main() {
 									},
 								},
 							},
+							GroupBox{Background: uiPanelBrush(darkTheme),
+								Title:  i18n.T("group.add_method"),
+								Layout: Grid{Columns: 2, Spacing: 5},
+								Children: []Widget{
+									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.new_name"), OnClicked: func() { addMethod(engine.MethodTemplate) }},
+									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.list"), OnClicked: func() { addMethod(engine.MethodList) }},
+									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.list_replace"), OnClicked: func() { addMethod(engine.MethodListReplace) }},
+									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.change_case"), OnClicked: func() { addMethod(engine.MethodCase) }},
+									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.move"), OnClicked: func() { addMethod(engine.MethodMove) }},
+									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.remove"), OnClicked: func() { addMethod(engine.MethodRemove) }},
+									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.remove_pattern"), OnClicked: func() { addMethod(engine.MethodRemovePattern) }},
+									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.renumber"), OnClicked: func() { addMethod(engine.MethodRenumber) }},
+									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.replace"), OnClicked: func() { addMethod(engine.MethodReplace) }},
+									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.add_text"), OnClicked: func() { addMethod(engine.MethodPrefixSuffix) }},
+									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.script"), OnClicked: func() { addMethod(engine.MethodScript) }},
+									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.swap"), OnClicked: func() { addMethod(engine.MethodSwap) }},
+									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.trim"), OnClicked: func() { addMethod(engine.MethodTrim) }},
+									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.timestamp"), OnClicked: func() { addMethod(engine.MethodTimestamp) }},
+								},
+							},
+							Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("tip.methods")},
+							VSpacer{},
+						},
+					},
+					Composite{Background: uiPanelBrush(darkTheme),
+						Layout: VBox{Spacing: 6},
+						Children: []Widget{
+							
 							Label{
 								AssignTo:      &dropHintLbl,
 								Text:          i18n.T("drop.hint") + "   ·   " + i18n.T("drop.subhint"),
@@ -1834,12 +1909,30 @@ func main() {
 	if err := window.Create(); err != nil {
 		walk.MsgBox(nil, "EasyRenamer startup error", err.Error(), walk.MsgBoxIconError)
 		log.Print(err)
-		return
+		return uiExit
 	}
 
-	showMethodEditor(methods[0].Type)
-	loadMethodEditor(0)
+	selectedIndex := state.SelectedMethod
+	if selectedIndex < 0 || selectedIndex >= len(methods) {
+		selectedIndex = 0
+	}
+	refreshMethodTable(selectedIndex)
 	refreshSourceCount()
 	applyNativeTheme(uintptr(mw.Handle()), darkTheme)
+	if len(sources) > 0 {
+		time.AfterFunc(80*time.Millisecond, func() {
+			mw.Synchronize(func() {
+				if !busy {
+					preview()
+				}
+			})
+		})
+	}
 	mw.Run()
+
+	captureState()
+	if rebuildRequested {
+		return uiRebuild
+	}
+	return uiExit
 }

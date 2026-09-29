@@ -1,37 +1,40 @@
-# EasyRenamer v0.4.5
+# EasyRenamer v0.5.0
 
-UX clarity hotfix.
+Major desktop UX rebuild.
 
-## Method workflow
+## Workspace
 
-- The method stack on the left is now the single source of truth.
-- The right pane no longer acts like a second method selector.
-- Only the settings page for the currently selected left-side method is shown.
-- Editing fields on the right can no longer change a method from one type to another.
-- The settings title explicitly names the selected method.
+- The window is reorganized around a professional batch-renamer workflow.
+- Left side: rename method stack, settings for the selected method, and Add method.
+- Right side: the large file preview/list area.
+- The right side is no longer consumed by a second method-selection UI.
+- Start batch is more visually prominent.
+- The selected method is preserved when the UI is rebuilt.
 
-This removes the previous ambiguity where users could add **New Name** on the left but also see clickable **New Name / Replace / Move / ...** tabs on the right.
+## Language and theme
 
-## Filters
+- Language changes apply without restarting EasyRenamer.
+- System / Light / Dark theme changes apply without restarting EasyRenamer.
+- EasyRenamer recreates its window inside the same running process so all translated labels and Win32 theme surfaces are rebuilt consistently.
+- Current sources, method stack, selected method, file filter, custom extensions, recursive setting, and live-preview setting are preserved.
+- If files are already loaded, preview is rebuilt automatically after the UI refresh.
 
-- The **Extensions** field is now always editable.
-- It starts empty instead of showing a disabled example value.
-- Typing extensions such as `jpg, png, psd` automatically switches the category to **Custom**.
-- Choosing another category still works normally and does not erase the typed extensions.
+## Existing v0.4.5 fixes retained
 
-## ComboBox dropdown
-
-- Fixed a dark-theme interaction where opening the Filter dropdown could immediately close it.
-- Popup theming now targets the transient dropdown only and no longer re-themes the entire owner window while the dropdown is opening.
+- The method stack remains the single source of truth.
+- Only the selected method settings are shown.
+- Extensions are always editable.
+- Typing extensions switches to the Custom filter.
+- Filter dropdown no longer immediately closes in dark mode.
 
 ## Quality
 
-- Core tests pass.
-- Windows build passes.
-- The produced EXE passes the startup smoke test before publication.
+- Core tests must pass.
+- Windows build must pass.
+- The produced EXE must pass the startup smoke test before publication.
 
 ## Downloads
 
 - **EasyRenamer.exe** — portable Windows x64 executable.
-- **EasyRenamer-v0.4.5-windows-x64.zip** — EXE + README + license + documentation.
+- **EasyRenamer-v0.5.0-windows-x64.zip** — EXE + README + license + documentation.
 - **SHA256SUMS.txt** — checksums.

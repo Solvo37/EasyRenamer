@@ -71,6 +71,10 @@ EasyRenamer is intended to grow from a focused batch renamer into a serious open
 - [x] Localized built-in preset names
 - [x] Visible drag-and-drop affordance
 - [x] Softer dark palette and dark tab/table surfaces
+- [x] Localized tabbed tag browser in New Name
+- [x] Drag/drop choice dialog for files, folders and subfolders
+- [x] Rememberable drag/drop behavior
+- [x] Native dark ListView and ComboBox popup theming
 - [ ] Keyboard shortcuts
 - [ ] Context-menu integration (optional)
 - [ ] Signed Windows releases when infrastructure is available

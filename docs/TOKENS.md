@@ -1,11 +1,11 @@
 # Template token reference
 
-EasyRenamer templates are evaluated against every file in the preview batch.
+EasyRenamer templates are evaluated for every item in the preview batch. When several rename methods are used, `<Name>` and `<Ext>` refer to the name produced by the previous method.
 
 ## Core tokens
 
-- `<Name>` — source base name without the extension.
-- `<Ext>` — extension without the leading dot. If this token is absent, the original extension is appended automatically.
+- `<Name>` — current base name without the extension.
+- `<Ext>` — current extension without the leading dot. If this token is absent, the current extension is appended automatically.
 - `<DirName:1>` — name of the immediate parent directory.
 - `<UnixTimestamp>` or `<Unix>` — Unix timestamp captured once when Preview starts.
 - `<Date:yyyyMMdd-HHmmss>` — batch date/time using a compact .NET-style pattern.
@@ -28,18 +28,6 @@ Examples:
 - `<Rand Str:8>` — N random lowercase letters/digits.
 - `<Rand Alpha:9>` — N random lowercase letters only.
 
-When a random token follows a numeric counter and Explorer sort order matters, prefer `Rand Alpha` so the counter remains a separate leading numeric run.
+## Compatibility
 
-## Compatibility goal
-
-EasyRenamer intentionally supports familiar Advanced Renamer-style tokens such as:
-
-```text
-<Inc NrDir:01><Rand><Rand Str:8><UnixTimestamp>-<DirName:1>
-```
-
-The safer built-in preset uses:
-
-```text
-<Inc NrDir:01><Rand Alpha:9><UnixTimestamp>-<DirName:1>
-```
+EasyRenamer supports familiar Advanced Renamer-style tokens, including counters, parent-directory names, dates and random-string tokens. This makes it easier to move existing naming templates into EasyRenamer while still using the preview and transactional execution model.

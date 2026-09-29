@@ -428,14 +428,14 @@ func runMainWindow(state *uiState) uiRunResult {
 	var recursiveCB, regexCB, autoPreviewCB *walk.CheckBox
 	var removePatternRegexCB, renumberPerDirCB, trimNormalizeCB *walk.CheckBox
 	var listIncludeExtCB, listReplaceRegexCB, listReplaceCaseCB *walk.CheckBox
-	var categoryCB, presetCB, caseCB *walk.ComboBox
+	var categoryCB, presetCB, caseCB, addMethodCB *walk.ComboBox
 	var renumberPositionCB, timestampSourceCB, timestampPositionCB *walk.ComboBox
 	var removeStartNE, removeCountNE, renumberStartNE, renumberStepNE, renumberPaddingNE *walk.NumberEdit
 	var moveStartNE, moveCountNE, moveToNE, swapOccurrenceNE *walk.NumberEdit
 	var methodTable, table *walk.TableView
 	var editorTabs *walk.TabWidget
 	var editorPages [14]*walk.TabPage
-	var methodSettingsGB *walk.GroupBox
+	var methodSettingsTitleLbl *walk.Label
 	var sourceCountLbl, statusLbl, collisionLbl, dropHintLbl *walk.Label
 	var previewPB, renamePB, undoPB *walk.PushButton
 
@@ -462,6 +462,27 @@ func runMainWindow(state *uiState) uiRunResult {
 	presetNames := make([]string, len(presets))
 	for i := range presets {
 		presetNames[i] = i18n.T(presets[i].Key)
+	}
+
+	addMethodTypes := []engine.Method{
+		engine.MethodTemplate,
+		engine.MethodList,
+		engine.MethodListReplace,
+		engine.MethodCase,
+		engine.MethodMove,
+		engine.MethodRemove,
+		engine.MethodRemovePattern,
+		engine.MethodRenumber,
+		engine.MethodReplace,
+		engine.MethodPrefixSuffix,
+		engine.MethodScript,
+		engine.MethodSwap,
+		engine.MethodTrim,
+		engine.MethodTimestamp,
+	}
+	addMethodNames := make([]string, len(addMethodTypes))
+	for i, methodType := range addMethodTypes {
+		addMethodNames[i] = methodTitle(methodType)
 	}
 
 	updateStatus := func() {
@@ -700,8 +721,8 @@ func runMainWindow(state *uiState) uiRunResult {
 		if pages.Len() > 0 {
 			_ = editorTabs.SetCurrentIndex(0)
 		}
-		if methodSettingsGB != nil {
-			_ = methodSettingsGB.SetTitle(fmt.Sprintf(i18n.T("group.settings_selected"), methodTitle(methodType)))
+		if methodSettingsTitleLbl != nil {
+			methodSettingsTitleLbl.SetText(fmt.Sprintf(i18n.T("group.settings_selected"), methodTitle(methodType)))
 		}
 	}
 
@@ -1290,12 +1311,6 @@ func runMainWindow(state *uiState) uiRunResult {
 		}()
 	}
 
-	openSourceFolder := func() {
-		if len(sources) == 0 {
-			return
-		}
-		openInExplorerAsync(sources[0], false)
-	}
 
 	openSelectedFile := func() {
 		if table == nil {
@@ -1489,7 +1504,6 @@ func runMainWindow(state *uiState) uiRunResult {
 					Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("collision.label")},
 					Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("collision.prevent")},
 					HSpacer{},
-					PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("button.open_source"), OnClicked: openSourceFolder},
 				},
 			},
 			HSplitter{
@@ -1501,10 +1515,15 @@ func runMainWindow(state *uiState) uiRunResult {
 						HorizontalFixed: true,
 						Layout:          VBox{Spacing: 6},
 						Children: []Widget{
-							GroupBox{Background: uiPanelBrush(darkTheme),
-								Title:  i18n.T("group.methods"),
-								Layout: VBox{Spacing: 5},
+							Composite{Background: uiPanelBrush(darkTheme),
+								Layout: VBox{Spacing: 6, Margins: Margins{Left: 4, Top: 4, Right: 4, Bottom: 4}},
 								Children: []Widget{
+									Label{
+										Text:       i18n.T("group.methods"),
+										Font:       Font{PointSize: 10, Bold: true},
+										TextColor:  uiTextColor(darkTheme),
+										Background: uiPanelBrush(darkTheme),
+									},
 									TableView{Background: uiFieldBrush(darkTheme),
 										AssignTo:                    &methodTable,
 										Model:                       methodsModel,
@@ -1564,11 +1583,16 @@ func runMainWindow(state *uiState) uiRunResult {
 									},
 								},
 							},
-GroupBox{Background: uiPanelBrush(darkTheme),
-								AssignTo: &methodSettingsGB,
-								Title:  fmt.Sprintf(i18n.T("group.settings_selected"), methodTitle(methods[0].Type)),
-								Layout: VBox{},
+Composite{Background: uiPanelBrush(darkTheme),
+								Layout: VBox{Spacing: 6, Margins: Margins{Left: 4, Top: 4, Right: 4, Bottom: 4}},
 								Children: []Widget{
+									Label{
+										AssignTo:    &methodSettingsTitleLbl,
+										Text:        fmt.Sprintf(i18n.T("group.settings_selected"), methodTitle(methods[0].Type)),
+										Font:        Font{PointSize: 10, Bold: true},
+										TextColor:   uiTextColor(darkTheme),
+										Background:  uiPanelBrush(darkTheme),
+									},
 									TabWidget{Background: uiPanelBrush(darkTheme),
 										AssignTo: &editorTabs,
 										MinSize:  Size{360, 210},
@@ -1862,24 +1886,45 @@ GroupBox{Background: uiPanelBrush(darkTheme),
 									},
 								},
 							},
-							GroupBox{Background: uiPanelBrush(darkTheme),
-								Title:  i18n.T("group.add_method"),
-								Layout: Grid{Columns: 2, Spacing: 5},
+							Composite{Background: uiPanelBrush(darkTheme),
+								Layout: VBox{Spacing: 6, Margins: Margins{Left: 4, Top: 4, Right: 4, Bottom: 4}},
 								Children: []Widget{
-									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.new_name"), OnClicked: func() { addMethod(engine.MethodTemplate) }},
-									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.list"), OnClicked: func() { addMethod(engine.MethodList) }},
-									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.list_replace"), OnClicked: func() { addMethod(engine.MethodListReplace) }},
-									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.change_case"), OnClicked: func() { addMethod(engine.MethodCase) }},
-									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.move"), OnClicked: func() { addMethod(engine.MethodMove) }},
-									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.remove"), OnClicked: func() { addMethod(engine.MethodRemove) }},
-									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.remove_pattern"), OnClicked: func() { addMethod(engine.MethodRemovePattern) }},
-									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.renumber"), OnClicked: func() { addMethod(engine.MethodRenumber) }},
-									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.replace"), OnClicked: func() { addMethod(engine.MethodReplace) }},
-									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.add_text"), OnClicked: func() { addMethod(engine.MethodPrefixSuffix) }},
-									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.script"), OnClicked: func() { addMethod(engine.MethodScript) }},
-									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.swap"), OnClicked: func() { addMethod(engine.MethodSwap) }},
-									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.trim"), OnClicked: func() { addMethod(engine.MethodTrim) }},
-									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.timestamp"), OnClicked: func() { addMethod(engine.MethodTimestamp) }},
+									Label{
+										Text:       i18n.T("group.add_method"),
+										Font:       Font{PointSize: 10, Bold: true},
+										TextColor:  uiTextColor(darkTheme),
+										Background: uiPanelBrush(darkTheme),
+									},
+									Composite{Background: uiPanelBrush(darkTheme),
+										Layout: HBox{Spacing: 6},
+										Children: []Widget{
+											ComboBox{
+												AssignTo:     &addMethodCB,
+												Background:   uiFieldBrush(darkTheme),
+												Model:        addMethodNames,
+												CurrentIndex: 0,
+												ToolTipText:  i18n.T("method.choose"),
+												StretchFactor: 1,
+												OnMouseDown: func(x, y int, button walk.MouseButton) {
+													scheduleFloatingTheme(mw, darkTheme)
+												},
+											},
+											PushButton{
+												Text:       i18n.T("button.add"),
+												MinSize:    Size{90, 32},
+												Background: uiPanelBrush(darkTheme),
+												OnClicked: func() {
+													if addMethodCB == nil {
+														return
+													}
+													idx := addMethodCB.CurrentIndex()
+													if idx >= 0 && idx < len(addMethodTypes) {
+														addMethod(addMethodTypes[idx])
+													}
+												},
+											},
+										},
+									},
 								},
 							},
 							Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("tip.methods")},
@@ -1889,7 +1934,12 @@ GroupBox{Background: uiPanelBrush(darkTheme),
 					Composite{Background: uiPanelBrush(darkTheme),
 						Layout: VBox{Spacing: 6},
 						Children: []Widget{
-							
+							Label{
+								Text:       i18n.T("group.files"),
+								Font:       Font{PointSize: 10, Bold: true},
+								TextColor:  uiTextColor(darkTheme),
+								Background: uiPanelBrush(darkTheme),
+							},
 							Label{
 								AssignTo:      &dropHintLbl,
 								Text:          i18n.T("drop.hint") + "   ·   " + i18n.T("drop.subhint"),

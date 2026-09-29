@@ -44,11 +44,11 @@ EasyRenamer is intended to grow from a focused batch renamer into a serious open
 
 ## v0.3 — Metadata
 
-- [ ] EXIF date / camera / dimensions tokens
-- [ ] Audio ID3 artist / album / track tokens
-- [ ] Video metadata tokens
-- [ ] File creation/modification date tokens
-- [ ] Hash tokens (MD5/SHA-256)
+- [x] Common EXIF date / dimensions / GPS tokens
+- [x] Common MP3 ID3 / FLAC artist / album / track tokens
+- [x] Common MP4 / MOV video metadata tokens
+- [x] File creation/modification date tokens
+- [x] Checksum tags (MD5 / SHA1)
 
 ## v0.4 — Workflow
 
@@ -63,10 +63,22 @@ EasyRenamer is intended to grow from a focused batch renamer into a serious open
 ## v0.5 — Polish
 
 - [ ] Dark mode
-- [ ] Localization (English / Russian)
+- [x] Localization (English / Russian / Spanish / Chinese)
 - [ ] Search/filter inside preview
 - [x] File size and image dimensions in preview table
 - [ ] Keyboard shortcuts
 - [ ] Context-menu integration (optional)
 - [ ] Signed Windows releases when infrastructure is available
 - [ ] Portable settings mode
+
+## v0.4 — Public release
+
+- [x] Portable GitHub Release workflow
+- [x] SHA-256 release checksums
+- [x] Built-in tag reference
+- [x] Built-in Learn / user guide
+- [x] Common document / email / EPUB metadata tags
+- [x] Windows EXE version-resource tags
+- [ ] Arbitrary ExifTool fields without an external dependency
+- [ ] CSV column tag importer
+- [ ] Offline GPS country/city/state reverse-geocoding database

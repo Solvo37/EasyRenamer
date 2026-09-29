@@ -58,5 +58,11 @@ var translations = map[Language]map[string]string{
 		"label.case_sensitive": "Case sensitive", "button.populate_list": "Populate list", "button.load_list": "Load list...",
 		"button.save_list": "Save list...", "button.load_rules": "Load rules...", "button.apply_script": "Apply script",
 		"button.reset_example": "Reset example",
+		"menu.theme": "Theme",
+		"theme.system": "Use system setting",
+		"theme.light": "Light",
+		"theme.dark": "Dark",
+		"theme.restart": "Theme saved. Restart EasyRenamer to apply it.",
+		"status.live_preview": "Live preview",
 	},
 }

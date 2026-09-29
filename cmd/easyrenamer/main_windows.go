@@ -386,6 +386,9 @@ func insertIntoLineEdit(le *walk.LineEdit, value string) {
 func main() {
 	runtime.LockOSThread()
 
+	currentTheme := loadThemeMode()
+	darkTheme := effectiveDarkTheme(currentTheme)
+
 	var mw *walk.MainWindow
 	var customExtLE, templateLE, findLE, replaceLE, prefixLE, suffixLE *walk.LineEdit
 	var removePatternLE, renumberSeparatorLE, timestampFormatLE, timestampSeparatorLE, swapSeparatorLE *walk.LineEdit
@@ -410,6 +413,8 @@ func main() {
 	updatingMethodUI := false
 	busy := false
 	dragMethodIndex := -1
+	var previewTimer *time.Timer
+	previewPending := false
 
 	categoryNames := make([]string, 0)
 	for _, category := range engine.Categories() {
@@ -751,9 +756,23 @@ func main() {
 	}
 
 	maybePreview = func() {
-		if autoPreviewCB != nil && autoPreviewCB.Checked() && len(sources) > 0 && preview != nil && !busy {
-			preview()
+		if updatingMethodUI || autoPreviewCB == nil || !autoPreviewCB.Checked() || len(sources) == 0 || preview == nil || mw == nil {
+			return
 		}
+
+		previewPending = true
+		if previewTimer != nil {
+			previewTimer.Stop()
+		}
+		previewTimer = time.AfterFunc(140*time.Millisecond, func() {
+			mw.Synchronize(func() {
+				if !previewPending || busy {
+					return
+				}
+				previewPending = false
+				preview()
+			})
+		})
 	}
 	methodsModel.onToggle = maybePreview
 
@@ -822,11 +841,20 @@ func main() {
 				setBusy(false, "")
 				if err != nil {
 					walk.MsgBox(mw, "Preview error", err.Error(), walk.MsgBoxIconError)
+					if previewPending {
+						maybePreview()
+					}
 					return
 				}
 				model.SetItems(items)
+				if table != nil {
+					_ = table.Invalidate()
+				}
 				if len(items) == 0 {
 					walk.MsgBox(mw, "EasyRenamer", i18n.T("dialog.no_match"), walk.MsgBoxIconInformation)
+				}
+				if previewPending {
+					maybePreview()
 				}
 			})
 		}()
@@ -1129,12 +1157,13 @@ func main() {
 		_ = exec.Command("explorer.exe", "/select,"+filepath.Clean(path)).Start()
 	}
 
-	if _, err := (MainWindow{
+	window := MainWindow{
 		AssignTo: &mw,
-		Title:    "EasyRenamer " + version.Version + " — " + i18n.T("app.subtitle"),
-		MinSize:  Size{1060, 700},
-		Size:     Size{1480, 900},
-		Layout:   VBox{Margins: Margins{Left: 8, Top: 8, Right: 8, Bottom: 6}, Spacing: 6},
+		Title:      "EasyRenamer " + version.Version + " — " + i18n.T("app.subtitle"),
+		Background: uiWindowBrush(darkTheme),
+		MinSize:    Size{1160, 740},
+		Size:       Size{1560, 940},
+		Layout:     VBox{Margins: Margins{Left: 12, Top: 12, Right: 12, Bottom: 10}, Spacing: 10},
 		OnDropFiles: func(files []string) {
 			addSources(files)
 		},
@@ -1181,6 +1210,23 @@ func main() {
 				},
 			},
 			Menu{
+				Text: i18n.T("menu.theme"),
+				Items: []MenuItem{
+					Action{Text: i18n.T("theme.system"), OnTriggered: func() {
+						_ = saveThemeMode(themeSystem)
+						walk.MsgBox(mw, "EasyRenamer", i18n.T("theme.restart"), walk.MsgBoxIconInformation)
+					}},
+					Action{Text: i18n.T("theme.light"), OnTriggered: func() {
+						_ = saveThemeMode(themeLight)
+						walk.MsgBox(mw, "EasyRenamer", i18n.T("theme.restart"), walk.MsgBoxIconInformation)
+					}},
+					Action{Text: i18n.T("theme.dark"), OnTriggered: func() {
+						_ = saveThemeMode(themeDark)
+						walk.MsgBox(mw, "EasyRenamer", i18n.T("theme.restart"), walk.MsgBoxIconInformation)
+					}},
+				},
+			},
+			Menu{
 				Text: i18n.T("menu.help"),
 				Items: []MenuItem{
 					Action{Text: i18n.T("menu.tags"), OnTriggered: func() {
@@ -1197,53 +1243,53 @@ func main() {
 			},
 		},
 		Children: []Widget{
-			Composite{
+			Composite{Background: uiPanelBrush(darkTheme),
 				Layout: HBox{Spacing: 6},
 				Children: []Widget{
-					Label{Text: i18n.T("batch.mode")},
-					ComboBox{Model: []string{i18n.T("batch.rename")}, CurrentIndex: 0, MinSize: Size{130, 0}},
-					PushButton{Text: i18n.T("button.files"), ToolTipText: "Add individual files", OnClicked: addFiles},
-					PushButton{Text: i18n.T("button.folders"), ToolTipText: "Add one or more folders", OnClicked: addFolder},
-					PushButton{Text: i18n.T("button.clear"), ToolTipText: "Clear source list and preview", OnClicked: clearSources},
-					PushButton{AssignTo: &previewPB, Text: i18n.T("button.preview"), OnClicked: preview},
-					PushButton{AssignTo: &undoPB, Text: i18n.T("button.undo"), OnClicked: undo},
+					Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("batch.mode")},
+					ComboBox{Background: uiFieldBrush(darkTheme),Model: []string{i18n.T("batch.rename")}, CurrentIndex: 0, MinSize: Size{130, 0}},
+					PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("button.files"), MinSize: Size{92, 32}, ToolTipText: "Add individual files", OnClicked: addFiles},
+					PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("button.folders"), MinSize: Size{92, 32}, ToolTipText: "Add one or more folders", OnClicked: addFolder},
+					PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("button.clear"), MinSize: Size{82, 32}, ToolTipText: "Clear source list and preview", OnClicked: clearSources},
+					PushButton{Background: uiPanelBrush(darkTheme),AssignTo: &previewPB, Text: i18n.T("button.preview"), MinSize: Size{105, 32}, OnClicked: preview},
+					PushButton{Background: uiPanelBrush(darkTheme),AssignTo: &undoPB, Text: i18n.T("button.undo"), MinSize: Size{95, 32}, OnClicked: undo},
 					HSpacer{},
-					Label{AssignTo: &sourceCountLbl, Text: fmt.Sprintf(i18n.T("sources.count"), 0)},
-					PushButton{AssignTo: &renamePB, Text: i18n.T("button.start"), Enabled: false, MinSize: Size{155, 0}, OnClicked: rename},
+					Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),AssignTo: &sourceCountLbl, Text: fmt.Sprintf(i18n.T("sources.count"), 0)},
+					PushButton{Background: uiPanelBrush(darkTheme),AssignTo: &renamePB, Text: i18n.T("button.start"), Enabled: false, MinSize: Size{170, 34}, OnClicked: rename},
 				},
 			},
-			Composite{
+			Composite{Background: uiPanelBrush(darkTheme),
 				Layout: HBox{Spacing: 6},
 				Children: []Widget{
-					Label{Text: i18n.T("filter.label")},
-					ComboBox{AssignTo: &categoryCB, Model: categoryNames, CurrentIndex: 0, MinSize: Size{130, 0}, OnCurrentIndexChanged: func() {
+					Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("filter.label")},
+					ComboBox{Background: uiFieldBrush(darkTheme),AssignTo: &categoryCB, Model: categoryNames, CurrentIndex: 0, MinSize: Size{130, 0}, OnCurrentIndexChanged: func() {
 						if customExtLE != nil {
 							customExtLE.SetEnabled(categoryCB.CurrentIndex() == len(categoryNames)-1)
 						}
 						maybePreview()
 					}},
-					CheckBox{AssignTo: &recursiveCB, Text: i18n.T("filter.subfolders"), Checked: true, OnCheckedChanged: maybePreview},
-					Label{Text: i18n.T("filter.extensions")},
-					LineEdit{AssignTo: &customExtLE, Text: "psd, svg", Enabled: false, MinSize: Size{125, 0}, CueBanner: "jpg, png, psd", OnEditingFinished: maybePreview},
-					CheckBox{AssignTo: &autoPreviewCB, Text: i18n.T("filter.auto_test"), Checked: true},
-					Label{Text: i18n.T("collision.label")},
-					Label{Text: i18n.T("collision.prevent")},
+					CheckBox{Background: uiPanelBrush(darkTheme),AssignTo: &recursiveCB, Text: i18n.T("filter.subfolders"), Checked: true, OnCheckedChanged: maybePreview},
+					Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("filter.extensions")},
+					LineEdit{TextColor: uiTextColor(darkTheme), Background: uiFieldBrush(darkTheme),AssignTo: &customExtLE, Text: "psd, svg", Enabled: false, MinSize: Size{125, 0}, CueBanner: "jpg, png, psd", OnTextChanged: maybePreview, OnEditingFinished: maybePreview},
+					CheckBox{Background: uiPanelBrush(darkTheme),AssignTo: &autoPreviewCB, Text: i18n.T("status.live_preview"), Checked: true},
+					Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("collision.label")},
+					Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("collision.prevent")},
 					HSpacer{},
-					PushButton{Text: i18n.T("button.open_source"), OnClicked: openSourceFolder},
+					PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("button.open_source"), OnClicked: openSourceFolder},
 				},
 			},
 			HSplitter{
-				HandleWidth: 5,
+				HandleWidth: 7,
 				Children: []Widget{
-					Composite{
-						MinSize: Size{285, 0},
+					Composite{Background: uiPanelBrush(darkTheme),
+						MinSize: Size{320, 0},
 						Layout:  VBox{Spacing: 6},
 						Children: []Widget{
-							GroupBox{
+							GroupBox{Background: uiPanelBrush(darkTheme),
 								Title:  i18n.T("group.methods"),
 								Layout: VBox{Spacing: 5},
 								Children: []Widget{
-									TableView{
+									TableView{Background: uiFieldBrush(darkTheme),
 										AssignTo:                    &methodTable,
 										Model:                       methodsModel,
 										CheckBoxes:                  true,
@@ -1252,10 +1298,13 @@ func main() {
 										MultiSelection:              false,
 										NotSortableByHeaderClick:    true,
 										SelectionHiddenWithoutFocus: false,
-										CustomRowHeight:              27,
-										MinSize:                      Size{260, 230},
+										CustomRowHeight:              32,
+										MinSize:                      Size{295, 260},
 										Columns: []TableViewColumn{
 											{Title: i18n.T("column.method"), Width: 235},
+										},
+										StyleCell: func(style *walk.CellStyle) {
+											style.TextColor = uiTextColor(darkTheme)
 										},
 										OnCurrentIndexChanged: func() {
 											if updatingMethodUI || methodTable == nil {
@@ -1286,52 +1335,52 @@ func main() {
 											}
 										},
 									},
-									Composite{
+									Composite{Background: uiPanelBrush(darkTheme),
 										Layout: HBox{Spacing: 4},
 										Children: []Widget{
-											PushButton{Text: i18n.T("button.up"), ToolTipText: "Move selected method up", OnClicked: func() { moveMethod(-1) }},
-											PushButton{Text: i18n.T("button.down"), ToolTipText: "Move selected method down", OnClicked: func() { moveMethod(1) }},
-											PushButton{Text: i18n.T("button.copy"), ToolTipText: "Duplicate selected method", OnClicked: duplicateMethod},
+											PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("button.up"), ToolTipText: "Move selected method up", OnClicked: func() { moveMethod(-1) }},
+											PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("button.down"), ToolTipText: "Move selected method down", OnClicked: func() { moveMethod(1) }},
+											PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("button.copy"), ToolTipText: "Duplicate selected method", OnClicked: duplicateMethod},
 											HSpacer{},
-											PushButton{Text: i18n.T("button.remove"), OnClicked: removeMethod},
+											PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("button.remove"), OnClicked: removeMethod},
 										},
 									},
 								},
 							},
-							GroupBox{
+							GroupBox{Background: uiPanelBrush(darkTheme),
 								Title:  i18n.T("group.add_method"),
 								Layout: Grid{Columns: 2, Spacing: 5},
 								Children: []Widget{
-									PushButton{Text: i18n.T("method.new_name"), OnClicked: func() { addMethod(engine.MethodTemplate) }},
-									PushButton{Text: i18n.T("method.list"), OnClicked: func() { addMethod(engine.MethodList) }},
-									PushButton{Text: i18n.T("method.list_replace"), OnClicked: func() { addMethod(engine.MethodListReplace) }},
-									PushButton{Text: i18n.T("method.change_case"), OnClicked: func() { addMethod(engine.MethodCase) }},
-									PushButton{Text: i18n.T("method.move"), OnClicked: func() { addMethod(engine.MethodMove) }},
-									PushButton{Text: i18n.T("method.remove"), OnClicked: func() { addMethod(engine.MethodRemove) }},
-									PushButton{Text: i18n.T("method.remove_pattern"), OnClicked: func() { addMethod(engine.MethodRemovePattern) }},
-									PushButton{Text: i18n.T("method.renumber"), OnClicked: func() { addMethod(engine.MethodRenumber) }},
-									PushButton{Text: i18n.T("method.replace"), OnClicked: func() { addMethod(engine.MethodReplace) }},
-									PushButton{Text: i18n.T("method.add_text"), OnClicked: func() { addMethod(engine.MethodPrefixSuffix) }},
-									PushButton{Text: i18n.T("method.script"), OnClicked: func() { addMethod(engine.MethodScript) }},
-									PushButton{Text: i18n.T("method.swap"), OnClicked: func() { addMethod(engine.MethodSwap) }},
-									PushButton{Text: i18n.T("method.trim"), OnClicked: func() { addMethod(engine.MethodTrim) }},
-									PushButton{Text: i18n.T("method.timestamp"), OnClicked: func() { addMethod(engine.MethodTimestamp) }},
+									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.new_name"), OnClicked: func() { addMethod(engine.MethodTemplate) }},
+									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.list"), OnClicked: func() { addMethod(engine.MethodList) }},
+									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.list_replace"), OnClicked: func() { addMethod(engine.MethodListReplace) }},
+									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.change_case"), OnClicked: func() { addMethod(engine.MethodCase) }},
+									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.move"), OnClicked: func() { addMethod(engine.MethodMove) }},
+									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.remove"), OnClicked: func() { addMethod(engine.MethodRemove) }},
+									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.remove_pattern"), OnClicked: func() { addMethod(engine.MethodRemovePattern) }},
+									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.renumber"), OnClicked: func() { addMethod(engine.MethodRenumber) }},
+									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.replace"), OnClicked: func() { addMethod(engine.MethodReplace) }},
+									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.add_text"), OnClicked: func() { addMethod(engine.MethodPrefixSuffix) }},
+									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.script"), OnClicked: func() { addMethod(engine.MethodScript) }},
+									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.swap"), OnClicked: func() { addMethod(engine.MethodSwap) }},
+									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.trim"), OnClicked: func() { addMethod(engine.MethodTrim) }},
+									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.timestamp"), OnClicked: func() { addMethod(engine.MethodTimestamp) }},
 								},
 							},
-							Label{Text: i18n.T("tip.methods")},
+							Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("tip.methods")},
 							VSpacer{},
 						},
 					},
-					Composite{
+					Composite{Background: uiPanelBrush(darkTheme),
 						Layout: VBox{Spacing: 6},
 						Children: []Widget{
-							GroupBox{
+							GroupBox{Background: uiPanelBrush(darkTheme),
 								Title:  i18n.T("group.settings"),
 								Layout: VBox{},
 								Children: []Widget{
-									TabWidget{
+									TabWidget{Background: uiPanelBrush(darkTheme),
 										AssignTo: &editorTabs,
-										MinSize:  Size{650, 225},
+										MinSize:  Size{700, 250},
 										OnCurrentIndexChanged: func() {
 											if updatingMethodUI || editorTabs == nil || editingMethodIndex < 0 || editingMethodIndex >= len(methods) {
 												return
@@ -1345,8 +1394,8 @@ func main() {
 												Title:  i18n.T("method.new_name"),
 												Layout: Grid{Columns: 5, Spacing: 7},
 												Children: []Widget{
-													Label{Text: i18n.T("label.preset")},
-													ComboBox{AssignTo: &presetCB, Model: presetNames, CurrentIndex: 0, ColumnSpan: 4, OnCurrentIndexChanged: func() {
+													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.preset")},
+													ComboBox{Background: uiFieldBrush(darkTheme),AssignTo: &presetCB, Model: presetNames, CurrentIndex: 0, ColumnSpan: 4, OnCurrentIndexChanged: func() {
 														if updatingMethodUI || presetCB == nil || templateLE == nil {
 															return
 														}
@@ -1357,11 +1406,11 @@ func main() {
 															maybePreview()
 														}
 													}},
-													Label{Text: i18n.T("label.new_name")},
-													LineEdit{AssignTo: &templateLE, Text: methods[0].Template, ColumnSpan: 4, OnTextChanged: saveMethodEditor, OnEditingFinished: maybePreview},
-													Label{Text: i18n.T("label.insert_tag")},
-													ComboBox{AssignTo: &tokenCB, Model: templateTokens, CurrentIndex: 0, ColumnSpan: 2},
-													PushButton{Text: i18n.T("button.insert"), OnClicked: func() {
+													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.new_name")},
+													LineEdit{TextColor: uiTextColor(darkTheme), Background: uiFieldBrush(darkTheme),AssignTo: &templateLE, Text: methods[0].Template, ColumnSpan: 4, OnTextChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }, OnEditingFinished: maybePreview},
+													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.insert_tag")},
+													ComboBox{Background: uiFieldBrush(darkTheme),AssignTo: &tokenCB, Model: templateTokens, CurrentIndex: 0, ColumnSpan: 2},
+													PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("button.insert"), OnClicked: func() {
 														if tokenCB == nil || templateLE == nil {
 															return
 														}
@@ -1372,17 +1421,17 @@ func main() {
 															maybePreview()
 														}
 													}},
-													Label{Text: i18n.T("label.tags_caret")},
+													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.tags_caret")},
 												},
 											},
 											{
 												Title:  i18n.T("method.list"),
 												Layout: Grid{Columns: 4, Spacing: 7},
 												Children: []Widget{
-													Label{Text: i18n.T("label.list_info"), ColumnSpan: 4},
-													TextEdit{AssignTo: &listTE, VScroll: true, HScroll: true, MinSize: Size{0, 105}, ColumnSpan: 4, OnTextChanged: saveMethodEditor},
-													CheckBox{AssignTo: &listIncludeExtCB, Text: i18n.T("label.list_ext"), ColumnSpan: 4, OnCheckedChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
-													PushButton{Text: i18n.T("button.populate_list"), OnClicked: func() {
+													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.list_info"), ColumnSpan: 4},
+													TextEdit{TextColor: uiTextColor(darkTheme), Background: uiFieldBrush(darkTheme),AssignTo: &listTE, VScroll: true, HScroll: true, MinSize: Size{0, 105}, ColumnSpan: 4, OnTextChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
+													CheckBox{Background: uiPanelBrush(darkTheme),AssignTo: &listIncludeExtCB, Text: i18n.T("label.list_ext"), ColumnSpan: 4, OnCheckedChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
+													PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("button.populate_list"), OnClicked: func() {
 														if listTE == nil {
 															return
 														}
@@ -1402,7 +1451,7 @@ func main() {
 														saveMethodEditor()
 														maybePreview()
 													}},
-													PushButton{Text: i18n.T("button.load_list"), OnClicked: func() {
+													PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("button.load_list"), OnClicked: func() {
 														dlg := new(walk.FileDialog)
 														dlg.Title = "Load filename list"
 														dlg.Filter = "Text files (*.txt;*.csv)|*.txt;*.csv|All files (*.*)|*.*"
@@ -1419,7 +1468,7 @@ func main() {
 															maybePreview()
 														}
 													}},
-													PushButton{Text: i18n.T("button.save_list"), OnClicked: func() {
+													PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("button.save_list"), OnClicked: func() {
 														if listTE == nil {
 															return
 														}
@@ -1435,18 +1484,18 @@ func main() {
 															}
 														}
 													}},
-													PushButton{Text: i18n.T("button.apply"), OnClicked: func() { saveMethodEditor(); maybePreview() }},
+													PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("button.apply"), OnClicked: func() { saveMethodEditor(); maybePreview() }},
 												},
 											},
 											{
 												Title:  i18n.T("method.list_replace"),
 												Layout: Grid{Columns: 4, Spacing: 7},
 												Children: []Widget{
-													Label{Text: i18n.T("label.rules_info"), ColumnSpan: 4},
-													TextEdit{AssignTo: &listReplaceTE, VScroll: true, HScroll: true, MinSize: Size{0, 110}, ColumnSpan: 4, OnTextChanged: saveMethodEditor},
-													CheckBox{AssignTo: &listReplaceRegexCB, Text: "Regular expressions", ColumnSpan: 2, OnCheckedChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
-													CheckBox{AssignTo: &listReplaceCaseCB, Text: i18n.T("label.case_sensitive"), ColumnSpan: 2, OnCheckedChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
-													PushButton{Text: i18n.T("button.load_rules"), OnClicked: func() {
+													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.rules_info"), ColumnSpan: 4},
+													TextEdit{TextColor: uiTextColor(darkTheme), Background: uiFieldBrush(darkTheme),AssignTo: &listReplaceTE, VScroll: true, HScroll: true, MinSize: Size{0, 110}, ColumnSpan: 4, OnTextChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
+													CheckBox{Background: uiPanelBrush(darkTheme),AssignTo: &listReplaceRegexCB, Text: "Regular expressions", ColumnSpan: 2, OnCheckedChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
+													CheckBox{Background: uiPanelBrush(darkTheme),AssignTo: &listReplaceCaseCB, Text: i18n.T("label.case_sensitive"), ColumnSpan: 2, OnCheckedChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
+													PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("button.load_rules"), OnClicked: func() {
 														dlg := new(walk.FileDialog)
 														dlg.Title = "Load replace rules"
 														dlg.Filter = "Text files (*.txt;*.csv)|*.txt;*.csv|All files (*.*)|*.*"
@@ -1463,16 +1512,16 @@ func main() {
 															maybePreview()
 														}
 													}},
-													PushButton{Text: i18n.T("button.clear"), OnClicked: func() { if listReplaceTE != nil { listReplaceTE.SetText(""); saveMethodEditor(); maybePreview() } }},
-													PushButton{Text: i18n.T("button.apply"), OnClicked: func() { saveMethodEditor(); maybePreview() }},
+													PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("button.clear"), OnClicked: func() { if listReplaceTE != nil { listReplaceTE.SetText(""); saveMethodEditor(); maybePreview() } }},
+													PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("button.apply"), OnClicked: func() { saveMethodEditor(); maybePreview() }},
 												},
 											},
 											{
 												Title:  i18n.T("method.change_case"),
 												Layout: Grid{Columns: 2, Spacing: 7},
 												Children: []Widget{
-													Label{Text: i18n.T("label.case_to")},
-													ComboBox{AssignTo: &caseCB, Model: []string{"lower case", "UPPER CASE", "Title Case"}, CurrentIndex: 0, OnCurrentIndexChanged: func() {
+													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.case_to")},
+													ComboBox{Background: uiFieldBrush(darkTheme),AssignTo: &caseCB, Model: []string{"lower case", "UPPER CASE", "Title Case"}, CurrentIndex: 0, OnCurrentIndexChanged: func() {
 														if updatingMethodUI { return }
 														saveMethodEditor()
 														maybePreview()
@@ -1483,61 +1532,61 @@ func main() {
 												Title:  i18n.T("method.move"),
 												Layout: Grid{Columns: 6, Spacing: 7},
 												Children: []Widget{
-													Label{Text: i18n.T("label.start")},
-													NumberEdit{AssignTo: &moveStartNE, MinValue: 1, MaxValue: 99999, SpinButtonsVisible: true, OnValueChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
-													Label{Text: i18n.T("label.count")},
-													NumberEdit{AssignTo: &moveCountNE, MinValue: 1, MaxValue: 99999, SpinButtonsVisible: true, OnValueChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
-													Label{Text: i18n.T("label.move_to")},
-													NumberEdit{AssignTo: &moveToNE, MinValue: 1, MaxValue: 99999, SpinButtonsVisible: true, OnValueChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
-													Label{Text: "Positions are 1-based and apply to the filename without extension.", ColumnSpan: 6},
+													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.start")},
+													NumberEdit{TextColor: uiTextColor(darkTheme), Background: uiFieldBrush(darkTheme),AssignTo: &moveStartNE, MinValue: 1, MaxValue: 99999, SpinButtonsVisible: true, OnValueChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
+													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.count")},
+													NumberEdit{TextColor: uiTextColor(darkTheme), Background: uiFieldBrush(darkTheme),AssignTo: &moveCountNE, MinValue: 1, MaxValue: 99999, SpinButtonsVisible: true, OnValueChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
+													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.move_to")},
+													NumberEdit{TextColor: uiTextColor(darkTheme), Background: uiFieldBrush(darkTheme),AssignTo: &moveToNE, MinValue: 1, MaxValue: 99999, SpinButtonsVisible: true, OnValueChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
+													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: "Positions are 1-based and apply to the filename without extension.", ColumnSpan: 6},
 												},
 											},
 											{
 												Title:  i18n.T("method.remove"),
 												Layout: Grid{Columns: 4, Spacing: 7},
 												Children: []Widget{
-													Label{Text: i18n.T("label.start")},
-													NumberEdit{AssignTo: &removeStartNE, MinValue: 1, MaxValue: 99999, SpinButtonsVisible: true, OnValueChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
-													Label{Text: i18n.T("label.count")},
-													NumberEdit{AssignTo: &removeCountNE, MinValue: 1, MaxValue: 99999, SpinButtonsVisible: true, OnValueChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
-													Label{Text: "Removes characters from the base filename; extension is preserved.", ColumnSpan: 4},
+													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.start")},
+													NumberEdit{TextColor: uiTextColor(darkTheme), Background: uiFieldBrush(darkTheme),AssignTo: &removeStartNE, MinValue: 1, MaxValue: 99999, SpinButtonsVisible: true, OnValueChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
+													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.count")},
+													NumberEdit{TextColor: uiTextColor(darkTheme), Background: uiFieldBrush(darkTheme),AssignTo: &removeCountNE, MinValue: 1, MaxValue: 99999, SpinButtonsVisible: true, OnValueChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
+													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: "Removes characters from the base filename; extension is preserved.", ColumnSpan: 4},
 												},
 											},
 											{
 												Title:  i18n.T("method.remove_pattern"),
 												Layout: Grid{Columns: 4, Spacing: 7},
 												Children: []Widget{
-													Label{Text: i18n.T("label.pattern")},
-													LineEdit{AssignTo: &removePatternLE, CueBanner: "text or regex", ColumnSpan: 3, OnTextChanged: saveMethodEditor, OnEditingFinished: maybePreview},
-													CheckBox{AssignTo: &removePatternRegexCB, Text: i18n.T("label.regex"), ColumnSpan: 4, OnCheckedChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
+													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.pattern")},
+													LineEdit{TextColor: uiTextColor(darkTheme), Background: uiFieldBrush(darkTheme),AssignTo: &removePatternLE, CueBanner: "text or regex", ColumnSpan: 3, OnTextChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }, OnEditingFinished: maybePreview},
+													CheckBox{Background: uiPanelBrush(darkTheme),AssignTo: &removePatternRegexCB, Text: i18n.T("label.regex"), ColumnSpan: 4, OnCheckedChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
 												},
 											},
 											{
 												Title:  i18n.T("method.renumber"),
 												Layout: Grid{Columns: 6, Spacing: 7},
 												Children: []Widget{
-													Label{Text: i18n.T("label.start")},
-													NumberEdit{AssignTo: &renumberStartNE, MinValue: -999999, MaxValue: 999999, SpinButtonsVisible: true, OnValueChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
-													Label{Text: i18n.T("label.step")},
-													NumberEdit{AssignTo: &renumberStepNE, MinValue: -999999, MaxValue: 999999, SpinButtonsVisible: true, OnValueChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
-													Label{Text: i18n.T("label.padding")},
-													NumberEdit{AssignTo: &renumberPaddingNE, MinValue: 1, MaxValue: 12, SpinButtonsVisible: true, OnValueChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
-													Label{Text: i18n.T("label.position")},
-													ComboBox{AssignTo: &renumberPositionCB, Model: []string{"Prefix", "Suffix"}, CurrentIndex: 0, OnCurrentIndexChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
-													Label{Text: i18n.T("label.separator")},
-													LineEdit{AssignTo: &renumberSeparatorLE, Text: "-", OnTextChanged: saveMethodEditor, OnEditingFinished: maybePreview},
-													CheckBox{AssignTo: &renumberPerDirCB, Text: i18n.T("label.per_folder"), Checked: true, ColumnSpan: 2, OnCheckedChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
+													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.start")},
+													NumberEdit{TextColor: uiTextColor(darkTheme), Background: uiFieldBrush(darkTheme),AssignTo: &renumberStartNE, MinValue: -999999, MaxValue: 999999, SpinButtonsVisible: true, OnValueChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
+													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.step")},
+													NumberEdit{TextColor: uiTextColor(darkTheme), Background: uiFieldBrush(darkTheme),AssignTo: &renumberStepNE, MinValue: -999999, MaxValue: 999999, SpinButtonsVisible: true, OnValueChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
+													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.padding")},
+													NumberEdit{TextColor: uiTextColor(darkTheme), Background: uiFieldBrush(darkTheme),AssignTo: &renumberPaddingNE, MinValue: 1, MaxValue: 12, SpinButtonsVisible: true, OnValueChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
+													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.position")},
+													ComboBox{Background: uiFieldBrush(darkTheme),AssignTo: &renumberPositionCB, Model: []string{"Prefix", "Suffix"}, CurrentIndex: 0, OnCurrentIndexChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
+													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.separator")},
+													LineEdit{TextColor: uiTextColor(darkTheme), Background: uiFieldBrush(darkTheme),AssignTo: &renumberSeparatorLE, Text: "-", OnTextChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }, OnEditingFinished: maybePreview},
+													CheckBox{Background: uiPanelBrush(darkTheme),AssignTo: &renumberPerDirCB, Text: i18n.T("label.per_folder"), Checked: true, ColumnSpan: 2, OnCheckedChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
 												},
 											},
 											{
 												Title:  i18n.T("method.replace"),
 												Layout: Grid{Columns: 4, Spacing: 7},
 												Children: []Widget{
-													Label{Text: i18n.T("label.find")},
-													LineEdit{AssignTo: &findLE, CueBanner: "text or expression", OnTextChanged: saveMethodEditor, OnEditingFinished: maybePreview},
-													Label{Text: i18n.T("label.replace_with")},
-													LineEdit{AssignTo: &replaceLE, OnTextChanged: saveMethodEditor, OnEditingFinished: maybePreview},
-													CheckBox{AssignTo: &regexCB, Text: i18n.T("label.regex"), ColumnSpan: 4, OnCheckedChanged: func() {
+													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.find")},
+													LineEdit{TextColor: uiTextColor(darkTheme), Background: uiFieldBrush(darkTheme),AssignTo: &findLE, CueBanner: "text or expression", OnTextChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }, OnEditingFinished: maybePreview},
+													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.replace_with")},
+													LineEdit{TextColor: uiTextColor(darkTheme), Background: uiFieldBrush(darkTheme),AssignTo: &replaceLE, OnTextChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }, OnEditingFinished: maybePreview},
+													CheckBox{Background: uiPanelBrush(darkTheme),AssignTo: &regexCB, Text: i18n.T("label.regex"), ColumnSpan: 4, OnCheckedChanged: func() {
 														saveMethodEditor()
 														maybePreview()
 													}},
@@ -1547,69 +1596,70 @@ func main() {
 												Title:  i18n.T("method.add_text"),
 												Layout: Grid{Columns: 4, Spacing: 7},
 												Children: []Widget{
-													Label{Text: i18n.T("label.prefix")},
-													LineEdit{AssignTo: &prefixLE, CueBanner: "before name", OnTextChanged: saveMethodEditor, OnEditingFinished: maybePreview},
-													Label{Text: i18n.T("label.suffix")},
-													LineEdit{AssignTo: &suffixLE, CueBanner: "after name", OnTextChanged: saveMethodEditor, OnEditingFinished: maybePreview},
-													Label{Text: i18n.T("label.extension_preserved"), ColumnSpan: 4},
+													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.prefix")},
+													LineEdit{TextColor: uiTextColor(darkTheme), Background: uiFieldBrush(darkTheme),AssignTo: &prefixLE, CueBanner: "before name", OnTextChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }, OnEditingFinished: maybePreview},
+													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.suffix")},
+													LineEdit{TextColor: uiTextColor(darkTheme), Background: uiFieldBrush(darkTheme),AssignTo: &suffixLE, CueBanner: "after name", OnTextChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }, OnEditingFinished: maybePreview},
+													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.extension_preserved"), ColumnSpan: 4},
 												},
 											},
 											{
 												Title:  i18n.T("method.script"),
 												Layout: Grid{Columns: 4, Spacing: 7},
 												Children: []Widget{
-													Label{Text: i18n.T("label.expression")},
-													TextEdit{AssignTo: &scriptTE, VScroll: true, HScroll: true, MinSize: Size{0, 105}, ColumnSpan: 3, OnTextChanged: saveMethodEditor},
-													Label{Text: "Variables: Name, Ext, FullName, Index, DirIndex, DirName, UnixTimestamp, ModifiedUnix.", ColumnSpan: 4},
-													Label{Text: "Functions: lower(), upper(), trim(), replace(), concat(), substr(). Example: concat(lower(Name), '-', Index, Ext)", ColumnSpan: 4},
-													PushButton{Text: i18n.T("button.apply_script"), OnClicked: func() { saveMethodEditor(); maybePreview() }},
-													PushButton{Text: i18n.T("button.reset_example"), OnClicked: func() { if scriptTE != nil { scriptTE.SetText("concat(Name, Ext)"); saveMethodEditor(); maybePreview() } }},
+													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.expression")},
+													TextEdit{TextColor: uiTextColor(darkTheme), Background: uiFieldBrush(darkTheme),AssignTo: &scriptTE, VScroll: true, HScroll: true, MinSize: Size{0, 105}, ColumnSpan: 3, OnTextChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
+													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: "Variables: Name, Ext, FullName, Index, DirIndex, DirName, UnixTimestamp, ModifiedUnix.", ColumnSpan: 4},
+													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: "Functions: lower(), upper(), trim(), replace(), concat(), substr(). Example: concat(lower(Name), '-', Index, Ext)", ColumnSpan: 4},
+													PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("button.apply_script"), OnClicked: func() { saveMethodEditor(); maybePreview() }},
+													PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("button.reset_example"), OnClicked: func() { if scriptTE != nil { scriptTE.SetText("concat(Name, Ext)"); saveMethodEditor(); maybePreview() } }},
 												},
 											},
 											{
 												Title:  i18n.T("method.swap"),
 												Layout: Grid{Columns: 4, Spacing: 7},
 												Children: []Widget{
-													Label{Text: i18n.T("label.separator")},
-													LineEdit{AssignTo: &swapSeparatorLE, Text: " - ", OnTextChanged: saveMethodEditor, OnEditingFinished: maybePreview},
-													Label{Text: i18n.T("label.occurrence")},
-													NumberEdit{AssignTo: &swapOccurrenceNE, MinValue: 1, MaxValue: 9999, SpinButtonsVisible: true, OnValueChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
-													Label{Text: "Example: Michael Jackson - Thriller  ->  Thriller - Michael Jackson", ColumnSpan: 4},
+													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.separator")},
+													LineEdit{TextColor: uiTextColor(darkTheme), Background: uiFieldBrush(darkTheme),AssignTo: &swapSeparatorLE, Text: " - ", OnTextChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }, OnEditingFinished: maybePreview},
+													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.occurrence")},
+													NumberEdit{TextColor: uiTextColor(darkTheme), Background: uiFieldBrush(darkTheme),AssignTo: &swapOccurrenceNE, MinValue: 1, MaxValue: 9999, SpinButtonsVisible: true, OnValueChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
+													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: "Example: Michael Jackson - Thriller  ->  Thriller - Michael Jackson", ColumnSpan: 4},
 												},
 											},
 											{
 												Title:  i18n.T("method.trim"),
 												Layout: Grid{Columns: 2, Spacing: 7},
 												Children: []Widget{
-													Label{Text: i18n.T("label.trim_info"), ColumnSpan: 2},
-													CheckBox{AssignTo: &trimNormalizeCB, Text: i18n.T("label.trim_spaces"), Checked: true, ColumnSpan: 2, OnCheckedChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
+													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.trim_info"), ColumnSpan: 2},
+													CheckBox{Background: uiPanelBrush(darkTheme),AssignTo: &trimNormalizeCB, Text: i18n.T("label.trim_spaces"), Checked: true, ColumnSpan: 2, OnCheckedChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
 												},
 											},
 											{
 												Title:  i18n.T("method.timestamp"),
 												Layout: Grid{Columns: 4, Spacing: 7},
 												Children: []Widget{
-													Label{Text: i18n.T("label.source")},
-													ComboBox{AssignTo: &timestampSourceCB, Model: []string{"File modified time", "Batch time"}, CurrentIndex: 0, OnCurrentIndexChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
-													Label{Text: i18n.T("label.position")},
-													ComboBox{AssignTo: &timestampPositionCB, Model: []string{"Suffix", "Prefix"}, CurrentIndex: 0, OnCurrentIndexChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
-													Label{Text: i18n.T("label.format")},
-													LineEdit{AssignTo: &timestampFormatLE, Text: "yyyyMMdd-HHmmss", OnTextChanged: saveMethodEditor, OnEditingFinished: maybePreview},
-													Label{Text: i18n.T("label.separator")},
-													LineEdit{AssignTo: &timestampSeparatorLE, Text: "-", OnTextChanged: saveMethodEditor, OnEditingFinished: maybePreview},
-													Label{Text: "Format example: yyyyMMdd-HHmmss", ColumnSpan: 4},
+													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.source")},
+													ComboBox{Background: uiFieldBrush(darkTheme),AssignTo: &timestampSourceCB, Model: []string{"File modified time", "Batch time"}, CurrentIndex: 0, OnCurrentIndexChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
+													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.position")},
+													ComboBox{Background: uiFieldBrush(darkTheme),AssignTo: &timestampPositionCB, Model: []string{"Suffix", "Prefix"}, CurrentIndex: 0, OnCurrentIndexChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
+													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.format")},
+													LineEdit{TextColor: uiTextColor(darkTheme), Background: uiFieldBrush(darkTheme),AssignTo: &timestampFormatLE, Text: "yyyyMMdd-HHmmss", OnTextChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }, OnEditingFinished: maybePreview},
+													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.separator")},
+													LineEdit{TextColor: uiTextColor(darkTheme), Background: uiFieldBrush(darkTheme),AssignTo: &timestampSeparatorLE, Text: "-", OnTextChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }, OnEditingFinished: maybePreview},
+													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: "Format example: yyyyMMdd-HHmmss", ColumnSpan: 4},
 												},
 											},
 										},
 									},
 								},
 							},
-							TableView{
+							TableView{Background: uiFieldBrush(darkTheme),
 								AssignTo:                    &table,
 								AlternatingRowBG:             true,
 								CheckBoxes:                   true,
 								MultiSelection:               true,
 								SelectionHiddenWithoutFocus:  false,
+								CustomRowHeight:              28,
 								NotSortableByHeaderClick:     true,
 								ColumnsSizable:               true,
 								LastColumnStretched:          true,
@@ -1629,37 +1679,38 @@ func main() {
 									if style.Row() < 0 || style.Row() >= len(model.items) {
 										return
 									}
+									style.TextColor = uiTextColor(darkTheme)
 									it := model.items[style.Row()]
 									switch it.Status {
 									case engine.StatusConflict, engine.StatusInvalid:
-										style.TextColor = walk.RGB(190, 30, 30)
+										style.TextColor = uiDangerTextColor(darkTheme)
 									case engine.StatusUnchanged:
-										style.TextColor = walk.RGB(110, 110, 110)
+										style.TextColor = uiUnchangedTextColor(darkTheme)
 									}
 								},
 							},
-							Composite{
+							Composite{Background: uiPanelBrush(darkTheme),
 								Layout: HBox{Spacing: 6},
 								Children: []Widget{
-									PushButton{Text: i18n.T("button.select_valid"), OnClicked: func() {
+									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("button.select_valid"), OnClicked: func() {
 										for _, it := range model.items {
 											it.Checked = it.Status == engine.StatusOK
 										}
 										model.PublishRowsReset()
 										updateStatus()
 									}},
-									PushButton{Text: i18n.T("button.clear_selection"), OnClicked: func() {
+									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("button.clear_selection"), OnClicked: func() {
 										for _, it := range model.items {
 											it.Checked = false
 										}
 										model.PublishRowsReset()
 										updateStatus()
 									}},
-									PushButton{Text: i18n.T("button.open_selected"), OnClicked: openSelectedFile},
+									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("button.open_selected"), OnClicked: openSelectedFile},
 									HSpacer{},
-									Label{AssignTo: &collisionLbl, Text: i18n.T("status.waiting")},
-									Label{Text: "   "},
-									Label{AssignTo: &statusLbl, Text: fmt.Sprintf(i18n.T("status.summary"), 0, 0, 0, 0)},
+									Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),AssignTo: &collisionLbl, Text: i18n.T("status.waiting")},
+									Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: "   "},
+									Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),AssignTo: &statusLbl, Text: fmt.Sprintf(i18n.T("status.summary"), 0, 0, 0, 0)},
 								},
 							},
 						},
@@ -1667,8 +1718,14 @@ func main() {
 				},
 			},
 		},
-	}.Run()); err != nil {
+	}
+
+	if err := window.Create(); err != nil {
 		walk.MsgBox(nil, "EasyRenamer startup error", err.Error(), walk.MsgBoxIconError)
 		log.Print(err)
+		return
 	}
+
+	applyNativeTheme(uintptr(mw.Handle()), darkTheme)
+	mw.Run()
 }

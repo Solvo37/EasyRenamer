@@ -58,5 +58,11 @@ func init() {
 		"label.case_sensitive": "区分大小写", "button.populate_list": "填充列表", "button.load_list": "加载列表...",
 		"button.save_list": "保存列表...", "button.load_rules": "加载规则...", "button.apply_script": "应用脚本",
 		"button.reset_example": "重置示例",
+		"menu.theme": "主题",
+		"theme.system": "跟随系统",
+		"theme.light": "浅色",
+		"theme.dark": "深色",
+		"theme.restart": "主题已保存。请重启 EasyRenamer 以应用。",
+		"status.live_preview": "实时预览",
 	}
 }

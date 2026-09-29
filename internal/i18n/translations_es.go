@@ -58,5 +58,11 @@ func init() {
 		"label.case_sensitive": "Distinguir mayúsculas", "button.populate_list": "Rellenar lista", "button.load_list": "Cargar lista...",
 		"button.save_list": "Guardar lista...", "button.load_rules": "Cargar reglas...", "button.apply_script": "Aplicar script",
 		"button.reset_example": "Restablecer ejemplo",
+		"menu.theme": "Tema",
+		"theme.system": "Usar tema del sistema",
+		"theme.light": "Claro",
+		"theme.dark": "Oscuro",
+		"theme.restart": "Tema guardado. Reinicia EasyRenamer para aplicarlo.",
+		"status.live_preview": "Vista previa en vivo",
 	}
 }

@@ -86,5 +86,11 @@ func init() {
 		"label.case_sensitive": "Учитывать регистр", "button.populate_list": "Заполнить список", "button.load_list": "Загрузить список...",
 		"button.save_list": "Сохранить список...", "button.load_rules": "Загрузить правила...", "button.apply_script": "Применить скрипт",
 		"button.reset_example": "Сбросить пример",
+		"menu.theme": "Тема",
+		"theme.system": "Как в системе",
+		"theme.light": "Светлая",
+		"theme.dark": "Тёмная",
+		"theme.restart": "Тема сохранена. Перезапустите EasyRenamer, чтобы применить её.",
+		"status.live_preview": "Живой предпросмотр",
 	}
 }

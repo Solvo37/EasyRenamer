@@ -30,11 +30,8 @@ jobs:
           cache: true
       - name: Test core
         run: go test ./internal/...
-      - name: Resolve modules
-        shell: pwsh
-        run: |
-          go mod tidy
-          Get-Content go.sum
+      - name: Download modules
+        run: go mod download
       - name: Embed Windows manifest
         shell: pwsh
         run: |

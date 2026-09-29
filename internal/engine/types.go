@@ -17,10 +17,16 @@ const (
 type Method string
 
 const (
-	MethodTemplate     Method = "template"
-	MethodReplace      Method = "replace"
-	MethodPrefixSuffix Method = "prefix_suffix"
-	MethodCase         Method = "case"
+	MethodTemplate       Method = "template"
+	MethodReplace        Method = "replace"
+	MethodPrefixSuffix   Method = "prefix_suffix"
+	MethodCase           Method = "case"
+	MethodRemove         Method = "remove"
+	MethodRemovePattern  Method = "remove_pattern"
+	MethodRenumber       Method = "renumber"
+	MethodTrim           Method = "trim"
+	MethodTimestamp      Method = "timestamp"
+	MethodMove           Method = "move"
 )
 
 type CaseMode string
@@ -31,18 +37,54 @@ const (
 	CaseTitle CaseMode = "title"
 )
 
+const (
+	PositionPrefix = "prefix"
+	PositionSuffix = "suffix"
+
+	TimestampModified = "modified"
+	TimestampBatch    = "batch"
+)
+
 // RenameMethod describes one step in a rename pipeline.
 // Methods are applied from top to bottom to the name produced by the previous step.
 type RenameMethod struct {
-	Type        Method
-	Disabled    bool
-	Template    string
-	Find        string
-	ReplaceWith string
-	UseRegex    bool
-	Prefix      string
-	Suffix      string
-	CaseMode    CaseMode
+	Type     Method `json:"type"`
+	Disabled bool   `json:"disabled,omitempty"`
+
+	Template string `json:"template,omitempty"`
+
+	Find        string `json:"find,omitempty"`
+	ReplaceWith string `json:"replace_with,omitempty"`
+	UseRegex    bool   `json:"use_regex,omitempty"`
+
+	Prefix string `json:"prefix,omitempty"`
+	Suffix string `json:"suffix,omitempty"`
+
+	CaseMode CaseMode `json:"case_mode,omitempty"`
+
+	RemoveStart int `json:"remove_start,omitempty"`
+	RemoveCount int `json:"remove_count,omitempty"`
+
+	RemovePattern      string `json:"remove_pattern,omitempty"`
+	RemovePatternRegex bool   `json:"remove_pattern_regex,omitempty"`
+
+	RenumberStart     int    `json:"renumber_start,omitempty"`
+	RenumberStep      int    `json:"renumber_step,omitempty"`
+	RenumberPadding   int    `json:"renumber_padding,omitempty"`
+	RenumberPerDir    bool   `json:"renumber_per_dir,omitempty"`
+	RenumberPosition  string `json:"renumber_position,omitempty"`
+	RenumberSeparator string `json:"renumber_separator,omitempty"`
+
+	TrimNormalizeSpaces bool `json:"trim_normalize_spaces,omitempty"`
+
+	TimestampSource    string `json:"timestamp_source,omitempty"`
+	TimestampFormat    string `json:"timestamp_format,omitempty"`
+	TimestampPosition  string `json:"timestamp_position,omitempty"`
+	TimestampSeparator string `json:"timestamp_separator,omitempty"`
+
+	MoveStart int `json:"move_start,omitempty"`
+	MoveCount int `json:"move_count,omitempty"`
+	MoveTo    int `json:"move_to,omitempty"`
 }
 
 type Config struct {

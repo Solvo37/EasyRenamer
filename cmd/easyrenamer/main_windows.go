@@ -386,6 +386,9 @@ func insertIntoLineEdit(le *walk.LineEdit, value string) {
 func main() {
 	runtime.LockOSThread()
 
+	currentTheme := loadThemeMode()
+	darkTheme := effectiveDarkTheme(currentTheme)
+
 	var mw *walk.MainWindow
 	var customExtLE, templateLE, findLE, replaceLE, prefixLE, suffixLE *walk.LineEdit
 	var removePatternLE, renumberSeparatorLE, timestampFormatLE, timestampSeparatorLE, swapSeparatorLE *walk.LineEdit
@@ -410,6 +413,8 @@ func main() {
 	updatingMethodUI := false
 	busy := false
 	dragMethodIndex := -1
+	var previewTimer *time.Timer
+	previewPending := false
 
 	categoryNames := make([]string, 0)
 	for _, category := range engine.Categories() {
@@ -751,9 +756,23 @@ func main() {
 	}
 
 	maybePreview = func() {
-		if autoPreviewCB != nil && autoPreviewCB.Checked() && len(sources) > 0 && preview != nil && !busy {
-			preview()
+		if updatingMethodUI || autoPreviewCB == nil || !autoPreviewCB.Checked() || len(sources) == 0 || preview == nil || mw == nil {
+			return
 		}
+
+		previewPending = true
+		if previewTimer != nil {
+			previewTimer.Stop()
+		}
+		previewTimer = time.AfterFunc(140*time.Millisecond, func() {
+			mw.Synchronize(func() {
+				if !previewPending || busy {
+					return
+				}
+				previewPending = false
+				preview()
+			})
+		})
 	}
 	methodsModel.onToggle = maybePreview
 
@@ -822,11 +841,20 @@ func main() {
 				setBusy(false, "")
 				if err != nil {
 					walk.MsgBox(mw, "Preview error", err.Error(), walk.MsgBoxIconError)
+					if previewPending {
+						maybePreview()
+					}
 					return
 				}
 				model.SetItems(items)
+				if table != nil {
+					_ = table.Invalidate()
+				}
 				if len(items) == 0 {
 					walk.MsgBox(mw, "EasyRenamer", i18n.T("dialog.no_match"), walk.MsgBoxIconInformation)
+				}
+				if previewPending {
+					maybePreview()
 				}
 			})
 		}()
@@ -1129,12 +1157,13 @@ func main() {
 		_ = exec.Command("explorer.exe", "/select,"+filepath.Clean(path)).Start()
 	}
 
-	if _, err := (MainWindow{
+	window := MainWindow{
 		AssignTo: &mw,
-		Title:    "EasyRenamer " + version.Version + " — " + i18n.T("app.subtitle"),
-		MinSize:  Size{1060, 700},
-		Size:     Size{1480, 900},
-		Layout:   VBox{Margins: Margins{Left: 8, Top: 8, Right: 8, Bottom: 6}, Spacing: 6},
+		Title:      "EasyRenamer " + version.Version + " — " + i18n.T("app.subtitle"),
+		Background: uiWindowBrush(darkTheme),
+		MinSize:    Size{1160, 740},
+		Size:       Size{1560, 940},
+		Layout:     VBox{Margins: Margins{Left: 12, Top: 12, Right: 12, Bottom: 10}, Spacing: 10},
 		OnDropFiles: func(files []string) {
 			addSources(files)
 		},
@@ -1181,6 +1210,23 @@ func main() {
 				},
 			},
 			Menu{
+				Text: i18n.T("menu.theme"),
+				Items: []MenuItem{
+					Action{Text: i18n.T("theme.system"), OnTriggered: func() {
+						_ = saveThemeMode(themeSystem)
+						walk.MsgBox(mw, "EasyRenamer", i18n.T("theme.restart"), walk.MsgBoxIconInformation)
+					}},
+					Action{Text: i18n.T("theme.light"), OnTriggered: func() {
+						_ = saveThemeMode(themeLight)
+						walk.MsgBox(mw, "EasyRenamer", i18n.T("theme.restart"), walk.MsgBoxIconInformation)
+					}},
+					Action{Text: i18n.T("theme.dark"), OnTriggered: func() {
+						_ = saveThemeMode(themeDark)
+						walk.MsgBox(mw, "EasyRenamer", i18n.T("theme.restart"), walk.MsgBoxIconInformation)
+					}},
+				},
+			},
+			Menu{
 				Text: i18n.T("menu.help"),
 				Items: []MenuItem{
 					Action{Text: i18n.T("menu.tags"), OnTriggered: func() {
@@ -1202,14 +1248,14 @@ func main() {
 				Children: []Widget{
 					Label{Text: i18n.T("batch.mode")},
 					ComboBox{Model: []string{i18n.T("batch.rename")}, CurrentIndex: 0, MinSize: Size{130, 0}},
-					PushButton{Text: i18n.T("button.files"), ToolTipText: "Add individual files", OnClicked: addFiles},
-					PushButton{Text: i18n.T("button.folders"), ToolTipText: "Add one or more folders", OnClicked: addFolder},
-					PushButton{Text: i18n.T("button.clear"), ToolTipText: "Clear source list and preview", OnClicked: clearSources},
-					PushButton{AssignTo: &previewPB, Text: i18n.T("button.preview"), OnClicked: preview},
-					PushButton{AssignTo: &undoPB, Text: i18n.T("button.undo"), OnClicked: undo},
+					PushButton{Text: i18n.T("button.files"), MinSize: Size{92, 32}, ToolTipText: "Add individual files", OnClicked: addFiles},
+					PushButton{Text: i18n.T("button.folders"), MinSize: Size{92, 32}, ToolTipText: "Add one or more folders", OnClicked: addFolder},
+					PushButton{Text: i18n.T("button.clear"), MinSize: Size{82, 32}, ToolTipText: "Clear source list and preview", OnClicked: clearSources},
+					PushButton{AssignTo: &previewPB, Text: i18n.T("button.preview"), MinSize: Size{105, 32}, OnClicked: preview},
+					PushButton{AssignTo: &undoPB, Text: i18n.T("button.undo"), MinSize: Size{95, 32}, OnClicked: undo},
 					HSpacer{},
 					Label{AssignTo: &sourceCountLbl, Text: fmt.Sprintf(i18n.T("sources.count"), 0)},
-					PushButton{AssignTo: &renamePB, Text: i18n.T("button.start"), Enabled: false, MinSize: Size{155, 0}, OnClicked: rename},
+					PushButton{AssignTo: &renamePB, Text: i18n.T("button.start"), Enabled: false, MinSize: Size{170, 34}, OnClicked: rename},
 				},
 			},
 			Composite{
@@ -1224,8 +1270,8 @@ func main() {
 					}},
 					CheckBox{AssignTo: &recursiveCB, Text: i18n.T("filter.subfolders"), Checked: true, OnCheckedChanged: maybePreview},
 					Label{Text: i18n.T("filter.extensions")},
-					LineEdit{AssignTo: &customExtLE, Text: "psd, svg", Enabled: false, MinSize: Size{125, 0}, CueBanner: "jpg, png, psd", OnEditingFinished: maybePreview},
-					CheckBox{AssignTo: &autoPreviewCB, Text: i18n.T("filter.auto_test"), Checked: true},
+					LineEdit{AssignTo: &customExtLE, Text: "psd, svg", Enabled: false, MinSize: Size{125, 0}, CueBanner: "jpg, png, psd", OnTextChanged: maybePreview, OnEditingFinished: maybePreview},
+					CheckBox{AssignTo: &autoPreviewCB, Text: i18n.T("status.live_preview"), Checked: true},
 					Label{Text: i18n.T("collision.label")},
 					Label{Text: i18n.T("collision.prevent")},
 					HSpacer{},
@@ -1233,10 +1279,10 @@ func main() {
 				},
 			},
 			HSplitter{
-				HandleWidth: 5,
+				HandleWidth: 7,
 				Children: []Widget{
 					Composite{
-						MinSize: Size{285, 0},
+						MinSize: Size{320, 0},
 						Layout:  VBox{Spacing: 6},
 						Children: []Widget{
 							GroupBox{
@@ -1252,8 +1298,8 @@ func main() {
 										MultiSelection:              false,
 										NotSortableByHeaderClick:    true,
 										SelectionHiddenWithoutFocus: false,
-										CustomRowHeight:              27,
-										MinSize:                      Size{260, 230},
+										CustomRowHeight:              32,
+										MinSize:                      Size{295, 260},
 										Columns: []TableViewColumn{
 											{Title: i18n.T("column.method"), Width: 235},
 										},
@@ -1331,7 +1377,7 @@ func main() {
 								Children: []Widget{
 									TabWidget{
 										AssignTo: &editorTabs,
-										MinSize:  Size{650, 225},
+										MinSize:  Size{700, 250},
 										OnCurrentIndexChanged: func() {
 											if updatingMethodUI || editorTabs == nil || editingMethodIndex < 0 || editingMethodIndex >= len(methods) {
 												return
@@ -1358,7 +1404,7 @@ func main() {
 														}
 													}},
 													Label{Text: i18n.T("label.new_name")},
-													LineEdit{AssignTo: &templateLE, Text: methods[0].Template, ColumnSpan: 4, OnTextChanged: saveMethodEditor, OnEditingFinished: maybePreview},
+													LineEdit{AssignTo: &templateLE, Text: methods[0].Template, ColumnSpan: 4, OnTextChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }, OnEditingFinished: maybePreview},
 													Label{Text: i18n.T("label.insert_tag")},
 													ComboBox{AssignTo: &tokenCB, Model: templateTokens, CurrentIndex: 0, ColumnSpan: 2},
 													PushButton{Text: i18n.T("button.insert"), OnClicked: func() {
@@ -1380,7 +1426,7 @@ func main() {
 												Layout: Grid{Columns: 4, Spacing: 7},
 												Children: []Widget{
 													Label{Text: i18n.T("label.list_info"), ColumnSpan: 4},
-													TextEdit{AssignTo: &listTE, VScroll: true, HScroll: true, MinSize: Size{0, 105}, ColumnSpan: 4, OnTextChanged: saveMethodEditor},
+													TextEdit{AssignTo: &listTE, VScroll: true, HScroll: true, MinSize: Size{0, 105}, ColumnSpan: 4, OnTextChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
 													CheckBox{AssignTo: &listIncludeExtCB, Text: i18n.T("label.list_ext"), ColumnSpan: 4, OnCheckedChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
 													PushButton{Text: i18n.T("button.populate_list"), OnClicked: func() {
 														if listTE == nil {
@@ -1443,7 +1489,7 @@ func main() {
 												Layout: Grid{Columns: 4, Spacing: 7},
 												Children: []Widget{
 													Label{Text: i18n.T("label.rules_info"), ColumnSpan: 4},
-													TextEdit{AssignTo: &listReplaceTE, VScroll: true, HScroll: true, MinSize: Size{0, 110}, ColumnSpan: 4, OnTextChanged: saveMethodEditor},
+													TextEdit{AssignTo: &listReplaceTE, VScroll: true, HScroll: true, MinSize: Size{0, 110}, ColumnSpan: 4, OnTextChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
 													CheckBox{AssignTo: &listReplaceRegexCB, Text: "Regular expressions", ColumnSpan: 2, OnCheckedChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
 													CheckBox{AssignTo: &listReplaceCaseCB, Text: i18n.T("label.case_sensitive"), ColumnSpan: 2, OnCheckedChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
 													PushButton{Text: i18n.T("button.load_rules"), OnClicked: func() {
@@ -1508,7 +1554,7 @@ func main() {
 												Layout: Grid{Columns: 4, Spacing: 7},
 												Children: []Widget{
 													Label{Text: i18n.T("label.pattern")},
-													LineEdit{AssignTo: &removePatternLE, CueBanner: "text or regex", ColumnSpan: 3, OnTextChanged: saveMethodEditor, OnEditingFinished: maybePreview},
+													LineEdit{AssignTo: &removePatternLE, CueBanner: "text or regex", ColumnSpan: 3, OnTextChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }, OnEditingFinished: maybePreview},
 													CheckBox{AssignTo: &removePatternRegexCB, Text: i18n.T("label.regex"), ColumnSpan: 4, OnCheckedChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
 												},
 											},
@@ -1525,7 +1571,7 @@ func main() {
 													Label{Text: i18n.T("label.position")},
 													ComboBox{AssignTo: &renumberPositionCB, Model: []string{"Prefix", "Suffix"}, CurrentIndex: 0, OnCurrentIndexChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
 													Label{Text: i18n.T("label.separator")},
-													LineEdit{AssignTo: &renumberSeparatorLE, Text: "-", OnTextChanged: saveMethodEditor, OnEditingFinished: maybePreview},
+													LineEdit{AssignTo: &renumberSeparatorLE, Text: "-", OnTextChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }, OnEditingFinished: maybePreview},
 													CheckBox{AssignTo: &renumberPerDirCB, Text: i18n.T("label.per_folder"), Checked: true, ColumnSpan: 2, OnCheckedChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
 												},
 											},
@@ -1534,9 +1580,9 @@ func main() {
 												Layout: Grid{Columns: 4, Spacing: 7},
 												Children: []Widget{
 													Label{Text: i18n.T("label.find")},
-													LineEdit{AssignTo: &findLE, CueBanner: "text or expression", OnTextChanged: saveMethodEditor, OnEditingFinished: maybePreview},
+													LineEdit{AssignTo: &findLE, CueBanner: "text or expression", OnTextChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }, OnEditingFinished: maybePreview},
 													Label{Text: i18n.T("label.replace_with")},
-													LineEdit{AssignTo: &replaceLE, OnTextChanged: saveMethodEditor, OnEditingFinished: maybePreview},
+													LineEdit{AssignTo: &replaceLE, OnTextChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }, OnEditingFinished: maybePreview},
 													CheckBox{AssignTo: &regexCB, Text: i18n.T("label.regex"), ColumnSpan: 4, OnCheckedChanged: func() {
 														saveMethodEditor()
 														maybePreview()
@@ -1548,9 +1594,9 @@ func main() {
 												Layout: Grid{Columns: 4, Spacing: 7},
 												Children: []Widget{
 													Label{Text: i18n.T("label.prefix")},
-													LineEdit{AssignTo: &prefixLE, CueBanner: "before name", OnTextChanged: saveMethodEditor, OnEditingFinished: maybePreview},
+													LineEdit{AssignTo: &prefixLE, CueBanner: "before name", OnTextChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }, OnEditingFinished: maybePreview},
 													Label{Text: i18n.T("label.suffix")},
-													LineEdit{AssignTo: &suffixLE, CueBanner: "after name", OnTextChanged: saveMethodEditor, OnEditingFinished: maybePreview},
+													LineEdit{AssignTo: &suffixLE, CueBanner: "after name", OnTextChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }, OnEditingFinished: maybePreview},
 													Label{Text: i18n.T("label.extension_preserved"), ColumnSpan: 4},
 												},
 											},
@@ -1559,7 +1605,7 @@ func main() {
 												Layout: Grid{Columns: 4, Spacing: 7},
 												Children: []Widget{
 													Label{Text: i18n.T("label.expression")},
-													TextEdit{AssignTo: &scriptTE, VScroll: true, HScroll: true, MinSize: Size{0, 105}, ColumnSpan: 3, OnTextChanged: saveMethodEditor},
+													TextEdit{AssignTo: &scriptTE, VScroll: true, HScroll: true, MinSize: Size{0, 105}, ColumnSpan: 3, OnTextChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
 													Label{Text: "Variables: Name, Ext, FullName, Index, DirIndex, DirName, UnixTimestamp, ModifiedUnix.", ColumnSpan: 4},
 													Label{Text: "Functions: lower(), upper(), trim(), replace(), concat(), substr(). Example: concat(lower(Name), '-', Index, Ext)", ColumnSpan: 4},
 													PushButton{Text: i18n.T("button.apply_script"), OnClicked: func() { saveMethodEditor(); maybePreview() }},
@@ -1571,7 +1617,7 @@ func main() {
 												Layout: Grid{Columns: 4, Spacing: 7},
 												Children: []Widget{
 													Label{Text: i18n.T("label.separator")},
-													LineEdit{AssignTo: &swapSeparatorLE, Text: " - ", OnTextChanged: saveMethodEditor, OnEditingFinished: maybePreview},
+													LineEdit{AssignTo: &swapSeparatorLE, Text: " - ", OnTextChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }, OnEditingFinished: maybePreview},
 													Label{Text: i18n.T("label.occurrence")},
 													NumberEdit{AssignTo: &swapOccurrenceNE, MinValue: 1, MaxValue: 9999, SpinButtonsVisible: true, OnValueChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
 													Label{Text: "Example: Michael Jackson - Thriller  ->  Thriller - Michael Jackson", ColumnSpan: 4},
@@ -1594,9 +1640,9 @@ func main() {
 													Label{Text: i18n.T("label.position")},
 													ComboBox{AssignTo: &timestampPositionCB, Model: []string{"Suffix", "Prefix"}, CurrentIndex: 0, OnCurrentIndexChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
 													Label{Text: i18n.T("label.format")},
-													LineEdit{AssignTo: &timestampFormatLE, Text: "yyyyMMdd-HHmmss", OnTextChanged: saveMethodEditor, OnEditingFinished: maybePreview},
+													LineEdit{AssignTo: &timestampFormatLE, Text: "yyyyMMdd-HHmmss", OnTextChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }, OnEditingFinished: maybePreview},
 													Label{Text: i18n.T("label.separator")},
-													LineEdit{AssignTo: &timestampSeparatorLE, Text: "-", OnTextChanged: saveMethodEditor, OnEditingFinished: maybePreview},
+													LineEdit{AssignTo: &timestampSeparatorLE, Text: "-", OnTextChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }, OnEditingFinished: maybePreview},
 													Label{Text: "Format example: yyyyMMdd-HHmmss", ColumnSpan: 4},
 												},
 											},
@@ -1610,6 +1656,7 @@ func main() {
 								CheckBoxes:                   true,
 								MultiSelection:               true,
 								SelectionHiddenWithoutFocus:  false,
+								CustomRowHeight:              28,
 								NotSortableByHeaderClick:     true,
 								ColumnsSizable:               true,
 								LastColumnStretched:          true,
@@ -1629,12 +1676,13 @@ func main() {
 									if style.Row() < 0 || style.Row() >= len(model.items) {
 										return
 									}
+									style.TextColor = uiTextColor(darkTheme)
 									it := model.items[style.Row()]
 									switch it.Status {
 									case engine.StatusConflict, engine.StatusInvalid:
-										style.TextColor = walk.RGB(190, 30, 30)
+										style.TextColor = uiDangerTextColor(darkTheme)
 									case engine.StatusUnchanged:
-										style.TextColor = walk.RGB(110, 110, 110)
+										style.TextColor = uiUnchangedTextColor(darkTheme)
 									}
 								},
 							},
@@ -1667,8 +1715,14 @@ func main() {
 				},
 			},
 		},
-	}.Run()); err != nil {
+	}
+
+	if err := window.Create(); err != nil {
 		walk.MsgBox(nil, "EasyRenamer startup error", err.Error(), walk.MsgBoxIconError)
 		log.Print(err)
+		return
 	}
+
+	applyNativeTheme(uintptr(mw.Handle()), darkTheme)
+	mw.Run()
 }

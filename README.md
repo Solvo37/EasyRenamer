@@ -1,87 +1,110 @@
 # EasyRenamer
 
-EasyRenamer is an open-source batch file renamer for Windows. The goal is to keep the safety and power of tools like Advanced Renamer while staying free, transparent, portable, and easy to extend.
+EasyRenamer — бесплатная программа с открытым исходным кодом для массового переименования файлов в Windows. Основная идея проекта — дать удобный визуальный предпросмотр, набор последовательных методов переименования и безопасное выполнение без необходимости писать скрипты.
 
-> Status: early MVP. The core rename engine is usable and tested; the Windows desktop UI is under active development.
+> Проект находится в активной разработке. Базовый движок, предпросмотр, цепочки методов, откат последней операции и Windows-интерфейс уже работают.
 
-## What it can do
+## Возможности
 
-- Preview every rename before touching files.
-- Rename **all files** or filter by category: Images, Videos, Audio, Documents, Archives, or custom extensions.
-- Include subfolders and number files independently inside each folder.
-- Natural name ordering: `1`, `2`, `10` instead of `1`, `10`, `2`.
-- Template-based names with counters, parent folders, Unix timestamps, random strings, dates, original names, and extensions.
-- Text replacement with optional regular expressions.
-- Prefix / suffix operations.
-- Case conversion.
-- Per-row checkboxes so you can exclude individual files from a batch.
-- Conflict detection before execution.
-- Two-phase transactional rename to avoid collisions.
-- Undo the last rename operation.
-- Single Windows executable in releases; no installer is required.
+- добавление отдельных файлов и нескольких папок в одну задачу;
+- обработка вложенных папок;
+- фильтры: все файлы, изображения, видео, аудио, документы, архивы и произвольные расширения;
+- естественная сортировка имён: `1`, `2`, `10`, а не `1`, `10`, `2`;
+- предпросмотр нового имени до изменения файлов;
+- галочки для исключения отдельных файлов из операции;
+- несколько методов переименования, которые применяются сверху вниз;
+- изменение порядка методов;
+- шаблоны нового имени с токенами;
+- поиск и замена, в том числе по регулярным выражениям;
+- добавление префикса и суффикса;
+- изменение регистра;
+- проверка конфликтов и недопустимых имён Windows;
+- двухэтапное транзакционное переименование для защиты от коллизий;
+- отмена последней операции;
+- один переносимый `.exe` без установщика.
 
-## Built-in categories
+## Интерфейс
 
-| Category | Examples |
-| --- | --- |
-| Images | JPG, PNG, WebP, TIFF, HEIC, AVIF, RAW |
-| Videos | MP4, MKV, AVI, MOV, WebM, MTS |
-| Audio | MP3, FLAC, WAV, M4A, OGG, Opus |
-| Documents | PDF, DOCX, XLSX, PPTX, TXT, CSV, EPUB |
-| Archives | ZIP, 7Z, RAR, TAR, GZ, ZST |
-| Custom | Any extension list you provide |
+Интерфейс построен вокруг привычной схемы пакетных переименователей:
 
-## Template tokens
+1. Добавьте файлы и/или папки кнопками **Files** и **Folder**.
+2. Слева соберите список **Renaming methods**.
+3. Выберите метод и настройте его справа.
+4. Проверьте колонки **Filename** и **New filename**.
+5. Снимите галочки с файлов, которые не нужно менять.
+6. Нажмите **Start batch**.
 
-| Token | Meaning |
-| --- | --- |
-| `<Name>` | Original file name without extension |
-| `<Ext>` | Extension without the dot |
-| `<Inc:001>` | Global counter (`001`, `002`, ...) |
-| `<Inc NrDir:01>` | Counter that restarts in each folder (`01`, `02`, ...) |
-| `<DirName:1>` | Immediate parent folder name |
-| `<UnixTimestamp>` | One Unix timestamp for the preview batch |
-| `<Rand>` | One random digit |
-| `<Rand Str:8>` | Random lowercase letters and digits |
-| `<Rand Alpha:9>` | Random lowercase letters only |
-| `<Date:yyyyMMdd-HHmmss>` | Batch date/time |
+Методы можно переставлять кнопками **Up / Down**. Результат одного метода становится входом для следующего.
 
-### Marketplace photo preset
+## Методы переименования
 
-This is the safe-sort preset that started the project:
+### New Name
+
+Создаёт имя по шаблону. Например:
 
 ```text
-<Inc NrDir:01><Rand Alpha:9><UnixTimestamp>-<DirName:1>
+<Inc NrDir:01>-<Name>
 ```
 
-Example inside folder `24`:
+Результат:
 
 ```text
-1.jpg  -> 01abcdefghj1786009921-24.jpg
-2.jpg  -> 02kqmdfzxwe1786009921-24.jpg
-10.jpg -> 03rptncvbsa1786009921-24.jpg
+01-photo.jpg
+02-photo.jpg
+03-photo.jpg
 ```
 
-The counter follows the current natural filename order inside each directory. `<Rand Alpha:9>` uses letters only so Windows Explorer does not merge the counter with a random digit and reorder `01...` as `016...`.
+### Replace
 
-## Safety model
+Поиск и замена текста в имени. При необходимости можно включить регулярные выражения.
 
-EasyRenamer treats preview as a plan, not a suggestion:
+### Add text
 
-1. Scan and sort files.
-2. Build target names.
-3. Reject invalid Windows names and duplicate targets.
-4. Move selected sources to unique temporary names.
-5. Move temporary names to final names.
-6. Roll back automatically if a batch fails midway.
-7. Save the last successful operation for Undo.
+Добавляет префикс и/или суффикс к имени файла.
 
-## Build from source
+### Change case
 
-Requirements:
+Переводит основную часть имени в:
 
-- Go 1.23+
-- Windows for the desktop UI build
+- `lower case`;
+- `UPPER CASE`;
+- `Title Case`.
+
+## Токены шаблонов
+
+| Токен | Значение |
+| --- | --- |
+| `<Name>` | текущее имя без расширения |
+| `<Ext>` | расширение без точки |
+| `<Inc:001>` | общий счётчик (`001`, `002`, ...) |
+| `<Inc NrDir:01>` | счётчик, который начинается заново в каждой папке |
+| `<DirName:1>` | имя родительской папки |
+| `<UnixTimestamp>` | Unix timestamp текущего предпросмотра |
+| `<Rand>` | одна случайная цифра |
+| `<Rand Str:8>` | случайная строка из букв и цифр |
+| `<Rand Alpha:9>` | случайная строка только из букв |
+| `<Date:yyyyMMdd-HHmmss>` | дата и время |
+
+Подробности: [docs/TOKENS.md](docs/TOKENS.md).
+
+## Безопасность переименования
+
+EasyRenamer сначала строит полный план операции и только потом меняет файлы:
+
+1. собирает и сортирует список;
+2. применяет методы и строит новые имена;
+3. проверяет недопустимые символы и конфликты;
+4. временно переименовывает выбранные файлы в уникальные служебные имена;
+5. переводит их в конечные имена;
+6. при ошибке пытается вернуть уже изменённые файлы обратно;
+7. сохраняет успешную операцию для **Undo batch**.
+
+## Сборка из исходников
+
+Требования:
+
+- Go 1.23+;
+- Windows для сборки графического интерфейса.
 
 ```powershell
 git clone https://github.com/Solvo37/easyrenamer.git
@@ -90,27 +113,27 @@ go test ./internal/...
 go build -trimpath -ldflags "-H windowsgui" -o EasyRenamer.exe ./cmd/easyrenamer
 ```
 
-GitHub Actions builds the Windows executable automatically and creates release artifacts for version tags.
+GitHub Actions автоматически проверяет движок и собирает Windows-версию.
 
-## Project structure
+## Структура проекта
 
 ```text
-cmd/easyrenamer/       Windows desktop UI
-internal/engine/       scanning, categories, templates, preview, rename engine
-internal/history/      undo history
-internal/version/      build version
-docs/                  token reference and roadmap
-.github/workflows/     CI and release builds
+cmd/easyrenamer/       Windows GUI
+internal/engine/       поиск файлов, шаблоны, методы, предпросмотр, переименование
+internal/history/      история для отмены последней операции
+internal/version/      версия сборки
+docs/                  документация и roadmap
+.github/workflows/     CI и сборка релизов
 ```
 
-## Roadmap
+## Что дальше
 
-See [docs/ROADMAP.md](docs/ROADMAP.md). The next big areas are metadata renaming (EXIF/ID3), more composable rename methods, saved presets, folder renaming, CSV import/export, and richer history.
+План развития находится в [docs/ROADMAP.md](docs/ROADMAP.md). Среди следующих задач: сохранение наборов методов, переименование папок, метаданные EXIF/ID3, CSV import/export, история нескольких операций, drag-and-drop и дальнейшая полировка интерфейса.
 
-## Contributing
+## Участие в разработке
 
-Issues and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md).
+Issues и pull requests приветствуются. См. [CONTRIBUTING.md](CONTRIBUTING.md).
 
-## License
+## Лицензия
 
-MIT. See [LICENSE](LICENSE).
+MIT. См. [LICENSE](LICENSE).

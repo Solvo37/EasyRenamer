@@ -37,5 +37,12 @@ func init() {
 		"dialog.renamed": "Se renombraron %d archivos.", "dialog.restoring": "Restaurando nombres anteriores...",
 		"dialog.undone": "Se deshizo la última operación.",
 		"about.text": "EasyRenamer %s\n\nRenombrador para Windows completamente gratuito y de código abierto.\nSin anuncios, suscripciones, telemetría ni funciones de pago.\nLicencia MIT\nhttps://github.com/Solvo37/easyrenamer",
+		"category.all": "Todos los archivos",
+		"category.images": "Imágenes",
+		"category.videos": "Vídeos",
+		"category.audio": "Audio",
+		"category.documents": "Documentos",
+		"category.archives": "Archivos comprimidos",
+		"category.custom": "Personalizado",
 	}
 }

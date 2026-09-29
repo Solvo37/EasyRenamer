@@ -37,5 +37,12 @@ var translations = map[Language]map[string]string{
 		"dialog.renamed": "Renamed %d files.", "dialog.restoring": "Restoring previous names...",
 		"dialog.undone": "Last rename operation was undone.",
 		"about.text": "EasyRenamer %s\n\nCompletely free and open-source batch renamer for Windows.\nNo ads, subscriptions, telemetry, or paid features.\nMIT License\nhttps://github.com/Solvo37/easyrenamer",
+		"category.all": "All files",
+		"category.images": "Images",
+		"category.videos": "Videos",
+		"category.audio": "Audio",
+		"category.documents": "Documents",
+		"category.archives": "Archives",
+		"category.custom": "Custom",
 	},
 }

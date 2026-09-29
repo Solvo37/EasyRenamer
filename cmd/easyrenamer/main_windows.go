@@ -1303,6 +1303,9 @@ func main() {
 										Columns: []TableViewColumn{
 											{Title: i18n.T("column.method"), Width: 235},
 										},
+										StyleCell: func(style *walk.CellStyle) {
+											style.TextColor = uiTextColor(darkTheme)
+										},
 										OnCurrentIndexChanged: func() {
 											if updatingMethodUI || methodTable == nil {
 												return

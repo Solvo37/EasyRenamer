@@ -60,10 +60,11 @@ func (m *previewModel) Value(row, col int) interface{} {
 		}
 		return ""
 	case 7:
+		status := localizedItemStatus(it.Status)
 		if it.Error != "" {
-			return it.Status + ": " + it.Error
+			return status + ": " + localizedItemError(it.Error)
 		}
-		return it.Status
+		return status
 	default:
 		return ""
 	}
@@ -330,6 +331,42 @@ func knownMethod(method engine.Method) bool {
 		return true
 	default:
 		return false
+	}
+}
+
+func localizedItemStatus(status string) string {
+	switch status {
+	case engine.StatusOK:
+		return i18n.T("item.status.ok")
+	case engine.StatusUnchanged:
+		return i18n.T("item.status.unchanged")
+	case engine.StatusConflict:
+		return i18n.T("item.status.conflict")
+	case engine.StatusInvalid:
+		return i18n.T("item.status.invalid")
+	default:
+		return status
+	}
+}
+
+func localizedItemError(message string) string {
+	switch message {
+	case "duplicate target name":
+		return i18n.T("item.error.duplicate_target")
+	case "target already exists":
+		return i18n.T("item.error.target_exists")
+	case "empty file name":
+		return i18n.T("item.error.empty_name")
+	case "name contains Windows-forbidden characters":
+		return i18n.T("item.error.forbidden_chars")
+	case "name cannot end with a dot or space":
+		return i18n.T("item.error.trailing_dot_space")
+	case "name contains control characters":
+		return i18n.T("item.error.control_chars")
+	case "name is reserved by Windows":
+		return i18n.T("item.error.reserved_name")
+	default:
+		return message
 	}
 }
 

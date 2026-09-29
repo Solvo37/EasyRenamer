@@ -223,5 +223,6 @@ var translations = map[Language]map[string]string{
 		"case.lower": "lower case",
 		"case.upper": "UPPER CASE",
 		"case.title": "Title Case",
+		"dialog.startup_error": "EasyRenamer startup error",
 	},
 }

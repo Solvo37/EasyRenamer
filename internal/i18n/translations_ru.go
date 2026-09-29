@@ -65,5 +65,12 @@ func init() {
 		"dialog.restoring": "Восстановление предыдущих имён...",
 		"dialog.undone": "Последняя операция переименования отменена.",
 		"about.text": "EasyRenamer %s\n\nПолностью бесплатная программа с открытым исходным кодом для Windows.\nБез рекламы, подписок, телеметрии и платных функций.\nЛицензия MIT\nhttps://github.com/Solvo37/easyrenamer",
+		"category.all": "Все файлы",
+		"category.images": "Изображения",
+		"category.videos": "Видео",
+		"category.audio": "Аудио",
+		"category.documents": "Документы",
+		"category.archives": "Архивы",
+		"category.custom": "Свои расширения",
 	}
 }

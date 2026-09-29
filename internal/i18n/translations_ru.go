@@ -188,5 +188,6 @@ func init() {
 		"drop.remember": "Запомнить мой выбор",
 		"button.add": "Добавить",
 		"button.cancel": "Отмена",
+		"menu.drop_options": "Настройки перетаскивания...",
 	}
 }

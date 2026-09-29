@@ -487,7 +487,7 @@ func applyListReplace(base string, method RenameMethod) (string, error) {
 			result = strings.ReplaceAll(result, find, replace)
 		} else {
 			re := regexp.MustCompile("(?i)" + regexp.QuoteMeta(find))
-			result = re.ReplaceAllString(result, replace)
+			result = re.ReplaceAllStringFunc(result, func(string) string { return replace })
 		}
 	}
 	return result, nil

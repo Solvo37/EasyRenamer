@@ -264,3 +264,123 @@ func TestMoveMethod(t *testing.T) {
 		t.Fatalf("unexpected move result: %q", got)
 	}
 }
+
+func TestListMethod(t *testing.T) {
+	root := t.TempDir()
+	for _, name := range []string{"1.jpg", "2.jpg"} {
+		if err := os.WriteFile(filepath.Join(root, name), []byte("x"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	items, err := Preview(Config{
+		Root:      root,
+		Recursive: false,
+		Category:  CategoryImages,
+		Methods: []RenameMethod{{
+			Type: MethodList,
+			ListText: "alpha\nbeta",
+		}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(items) != 2 {
+		t.Fatalf("got %d items, want 2", len(items))
+	}
+	if items[0].NewName != "alpha.jpg" || items[1].NewName != "beta.jpg" {
+		t.Fatalf("unexpected list results: %q, %q", items[0].NewName, items[1].NewName)
+	}
+}
+
+func TestListReplaceMethod(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "Hello_red-blue.txt")
+	if err := os.WriteFile(path, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	items, err := Preview(Config{
+		Sources:  []string{path},
+		Category: CategoryAll,
+		Methods: []RenameMethod{{
+			Type: MethodListReplace,
+			ListReplaceText: "hello => hi\nred => green\n- => _",
+			ListReplaceCaseSensitive: false,
+		}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := items[0].NewName; got != "hi_green_blue.txt" {
+		t.Fatalf("unexpected list replace result: %q", got)
+	}
+}
+
+func TestSwapMethod(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "Michael Jackson - Thriller.mp3")
+	if err := os.WriteFile(path, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	items, err := Preview(Config{
+		Sources:  []string{path},
+		Category: CategoryAll,
+		Methods: []RenameMethod{{
+			Type: MethodSwap, SwapSeparator: " - ", SwapOccurrence: 1,
+		}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := items[0].NewName; got != "Thriller - Michael Jackson.mp3" {
+		t.Fatalf("unexpected swap result: %q", got)
+	}
+}
+
+func TestScriptExpressionMethod(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "Photo 01.JPG")
+	if err := os.WriteFile(path, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	items, err := Preview(Config{
+		Sources:  []string{path},
+		Category: CategoryImages,
+		Methods: []RenameMethod{{
+			Type: MethodScript,
+			ScriptExpression: "concat(lower(Name), '-', Index, Ext)",
+		}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := items[0].NewName; got != "photo 01-1.JPG" {
+		t.Fatalf("unexpected script result: %q", got)
+	}
+}
+
+func TestScriptPreservesExtensionWhenOmitted(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "Sample.txt")
+	if err := os.WriteFile(path, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	items, err := Preview(Config{
+		Sources:  []string{path},
+		Category: CategoryAll,
+		Methods: []RenameMethod{{
+			Type: MethodScript,
+			ScriptExpression: "upper(Name)",
+		}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := items[0].NewName; got != "SAMPLE.txt" {
+		t.Fatalf("unexpected script extension preservation: %q", got)
+	}
+}

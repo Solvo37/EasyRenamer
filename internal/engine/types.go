@@ -18,6 +18,8 @@ type Method string
 
 const (
 	MethodTemplate       Method = "template"
+	MethodList           Method = "list"
+	MethodListReplace    Method = "list_replace"
 	MethodReplace        Method = "replace"
 	MethodPrefixSuffix   Method = "prefix_suffix"
 	MethodCase           Method = "case"
@@ -27,6 +29,8 @@ const (
 	MethodTrim           Method = "trim"
 	MethodTimestamp      Method = "timestamp"
 	MethodMove           Method = "move"
+	MethodSwap           Method = "swap"
+	MethodScript         Method = "script"
 )
 
 type CaseMode string
@@ -52,6 +56,13 @@ type RenameMethod struct {
 	Disabled bool   `json:"disabled,omitempty"`
 
 	Template string `json:"template,omitempty"`
+
+	ListText             string `json:"list_text,omitempty"`
+	ListIncludeExtension bool   `json:"list_include_extension,omitempty"`
+
+	ListReplaceText          string `json:"list_replace_text,omitempty"`
+	ListReplaceRegex         bool   `json:"list_replace_regex,omitempty"`
+	ListReplaceCaseSensitive bool   `json:"list_replace_case_sensitive,omitempty"`
 
 	Find        string `json:"find,omitempty"`
 	ReplaceWith string `json:"replace_with,omitempty"`
@@ -85,6 +96,11 @@ type RenameMethod struct {
 	MoveStart int `json:"move_start,omitempty"`
 	MoveCount int `json:"move_count,omitempty"`
 	MoveTo    int `json:"move_to,omitempty"`
+
+	SwapSeparator  string `json:"swap_separator,omitempty"`
+	SwapOccurrence int    `json:"swap_occurrence,omitempty"`
+
+	ScriptExpression string `json:"script_expression,omitempty"`
 }
 
 type Config struct {

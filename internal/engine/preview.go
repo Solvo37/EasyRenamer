@@ -15,6 +15,8 @@ import (
 	"strings"
 	"time"
 	"unicode"
+
+	govaluate "gopkg.in/Knetic/govaluate.v3"
 )
 
 var invalidChars = regexp.MustCompile(`[<>:"/\\|?*]`)
@@ -261,6 +263,23 @@ func applyMethod(method RenameMethod, current, parent string, globalIndex, dirIn
 			DirIndex: dirIndex, GlobalIndex: globalIndex,
 			BatchTime: batchTime, Rand: rng,
 		})
+	case MethodList:
+		lines := splitMethodLines(method.ListText)
+		idx := globalIndex - 1
+		if idx < 0 || idx >= len(lines) {
+			return "", fmt.Errorf("list has no name for item %d", globalIndex)
+		}
+		name := lines[idx]
+		if method.ListIncludeExtension {
+			return name, nil
+		}
+		return name + ext, nil
+	case MethodListReplace:
+		renamed, err := applyListReplace(base, method)
+		if err != nil {
+			return "", err
+		}
+		return renamed + ext, nil
 	case MethodReplace:
 		if method.Find == "" {
 			return current, nil
@@ -351,6 +370,14 @@ func applyMethod(method RenameMethod, current, parent string, globalIndex, dirIn
 			return "", err
 		}
 		return moved + ext, nil
+	case MethodSwap:
+		swapped, err := swapBySeparator(base, method.SwapSeparator, method.SwapOccurrence)
+		if err != nil {
+			return "", err
+		}
+		return swapped + ext, nil
+	case MethodScript:
+		return evaluateScriptExpression(method.ScriptExpression, current, parent, globalIndex, dirIndex, batchTime, modified)
 	default:
 		return current, nil
 	}
@@ -411,6 +438,208 @@ func moveRuneRange(s string, start, count, destination int) (string, error) {
 	result = append(result, part...)
 	result = append(result, rest[insertAt:]...)
 	return string(result), nil
+}
+
+func splitMethodLines(text string) []string {
+	text = strings.ReplaceAll(text, "\r\n", "\n")
+	text = strings.ReplaceAll(text, "\r", "\n")
+	if text == "" {
+		return nil
+	}
+	return strings.Split(text, "\n")
+}
+
+func applyListReplace(base string, method RenameMethod) (string, error) {
+	result := base
+	lines := splitMethodLines(method.ListReplaceText)
+	for i, raw := range lines {
+		line := strings.TrimSpace(raw)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+
+		var find, replace string
+		if parts := strings.SplitN(raw, "\t", 2); len(parts) == 2 {
+			find, replace = parts[0], parts[1]
+		} else if parts := strings.SplitN(raw, "=>", 2); len(parts) == 2 {
+			find, replace = strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1])
+		} else {
+			return "", fmt.Errorf("invalid list replace rule on line %d; use find => replace", i+1)
+		}
+		if find == "" {
+			continue
+		}
+
+		if method.ListReplaceRegex {
+			pattern := find
+			if !method.ListReplaceCaseSensitive {
+				pattern = "(?i)" + pattern
+			}
+			re, err := regexp.Compile(pattern)
+			if err != nil {
+				return "", fmt.Errorf("invalid list replace regex on line %d: %w", i+1, err)
+			}
+			result = re.ReplaceAllString(result, replace)
+			continue
+		}
+
+		if method.ListReplaceCaseSensitive {
+			result = strings.ReplaceAll(result, find, replace)
+		} else {
+			re := regexp.MustCompile("(?i)" + regexp.QuoteMeta(find))
+			result = re.ReplaceAllStringFunc(result, func(string) string { return replace })
+		}
+	}
+	return result, nil
+}
+
+func swapBySeparator(base, separator string, occurrence int) (string, error) {
+	if separator == "" {
+		return "", errors.New("swap separator is required")
+	}
+	if occurrence < 1 {
+		occurrence = 1
+	}
+
+	start := 0
+	index := -1
+	for i := 0; i < occurrence; i++ {
+		found := strings.Index(base[start:], separator)
+		if found < 0 {
+			return base, nil
+		}
+		index = start + found
+		start = index + len(separator)
+	}
+
+	left := base[:index]
+	right := base[index+len(separator):]
+	return right + separator + left, nil
+}
+
+func evaluateScriptExpression(expr, current, parent string, globalIndex, dirIndex int, batchTime, modified time.Time) (string, error) {
+	expr = strings.TrimSpace(expr)
+	if expr == "" {
+		return current, nil
+	}
+
+	base, ext := BaseAndExt(current)
+	functions := map[string]govaluate.ExpressionFunction{
+		"lower": func(args ...interface{}) (interface{}, error) {
+			if len(args) != 1 {
+				return nil, errors.New("lower() expects 1 argument")
+			}
+			return strings.ToLower(fmt.Sprint(args[0])), nil
+		},
+		"upper": func(args ...interface{}) (interface{}, error) {
+			if len(args) != 1 {
+				return nil, errors.New("upper() expects 1 argument")
+			}
+			return strings.ToUpper(fmt.Sprint(args[0])), nil
+		},
+		"trim": func(args ...interface{}) (interface{}, error) {
+			if len(args) != 1 {
+				return nil, errors.New("trim() expects 1 argument")
+			}
+			return strings.TrimSpace(fmt.Sprint(args[0])), nil
+		},
+		"replace": func(args ...interface{}) (interface{}, error) {
+			if len(args) != 3 {
+				return nil, errors.New("replace() expects 3 arguments")
+			}
+			return strings.ReplaceAll(fmt.Sprint(args[0]), fmt.Sprint(args[1]), fmt.Sprint(args[2])), nil
+		},
+		"concat": func(args ...interface{}) (interface{}, error) {
+			var b strings.Builder
+			for _, arg := range args {
+				b.WriteString(fmt.Sprint(arg))
+			}
+			return b.String(), nil
+		},
+		"substr": func(args ...interface{}) (interface{}, error) {
+			if len(args) < 2 || len(args) > 3 {
+				return nil, errors.New("substr() expects 2 or 3 arguments")
+			}
+			s := []rune(fmt.Sprint(args[0]))
+			start, ok := numericArg(args[1])
+			if !ok {
+				return nil, errors.New("substr() start must be numeric")
+			}
+			if start < 0 {
+				start = 0
+			}
+			if start > len(s) {
+				start = len(s)
+			}
+			end := len(s)
+			if len(args) == 3 {
+				count, ok := numericArg(args[2])
+				if !ok {
+					return nil, errors.New("substr() count must be numeric")
+				}
+				if count < 0 {
+					count = 0
+				}
+				end = start + count
+				if end > len(s) {
+					end = len(s)
+				}
+			}
+			return string(s[start:end]), nil
+		},
+	}
+
+	evaluable, err := govaluate.NewEvaluableExpressionWithFunctions(expr, functions)
+	if err != nil {
+		return "", fmt.Errorf("invalid script expression: %w", err)
+	}
+
+	params := map[string]interface{}{
+		"Name":          base,
+		"Ext":           ext,
+		"FullName":      current,
+		"Index":         globalIndex,
+		"DirIndex":      dirIndex,
+		"DirName":       parent,
+		"UnixTimestamp": batchTime.Unix(),
+		"ModifiedUnix":  modified.Unix(),
+		"BatchDate":     batchTime.Format("2006-01-02 15:04:05"),
+		"ModifiedDate":  modified.Format("2006-01-02 15:04:05"),
+	}
+
+	value, err := evaluable.Evaluate(params)
+	if err != nil {
+		return "", fmt.Errorf("script evaluation failed: %w", err)
+	}
+	if value == nil {
+		return "", errors.New("script returned no value")
+	}
+
+	result := fmt.Sprint(value)
+	if result == "" {
+		return "", errors.New("script returned an empty filename")
+	}
+	if filepath.Ext(result) == "" && ext != "" {
+		result += ext
+	}
+	return result, nil
+}
+
+func numericArg(value interface{}) (int, bool) {
+	switch v := value.(type) {
+	case float64:
+		return int(v), true
+	case float32:
+		return int(v), true
+	case int:
+		return v, true
+	case int64:
+		return int(v), true
+	case int32:
+		return int(v), true
+	default:
+		return 0, false
+	}
 }
 
 func titleCase(s string) string {

@@ -159,6 +159,10 @@ func methodTitle(method engine.Method) string {
 	switch method {
 	case engine.MethodTemplate:
 		return "New Name"
+	case engine.MethodList:
+		return "List"
+	case engine.MethodListReplace:
+		return "List replace"
 	case engine.MethodCase:
 		return "Change case"
 	case engine.MethodMove:
@@ -173,6 +177,10 @@ func methodTitle(method engine.Method) string {
 		return "Replace"
 	case engine.MethodPrefixSuffix:
 		return "Add text"
+	case engine.MethodScript:
+		return "Script"
+	case engine.MethodSwap:
+		return "Swap"
 	case engine.MethodTrim:
 		return "Trim"
 	case engine.MethodTimestamp:
@@ -184,24 +192,32 @@ func methodTitle(method engine.Method) string {
 
 func methodTabIndex(method engine.Method) int {
 	switch method {
-	case engine.MethodCase:
+	case engine.MethodList:
 		return 1
-	case engine.MethodMove:
+	case engine.MethodListReplace:
 		return 2
-	case engine.MethodRemove:
+	case engine.MethodCase:
 		return 3
-	case engine.MethodRemovePattern:
+	case engine.MethodMove:
 		return 4
-	case engine.MethodRenumber:
+	case engine.MethodRemove:
 		return 5
-	case engine.MethodReplace:
+	case engine.MethodRemovePattern:
 		return 6
-	case engine.MethodPrefixSuffix:
+	case engine.MethodRenumber:
 		return 7
-	case engine.MethodTrim:
+	case engine.MethodReplace:
 		return 8
-	case engine.MethodTimestamp:
+	case engine.MethodPrefixSuffix:
 		return 9
+	case engine.MethodScript:
+		return 10
+	case engine.MethodSwap:
+		return 11
+	case engine.MethodTrim:
+		return 12
+	case engine.MethodTimestamp:
+		return 13
 	default:
 		return 0
 	}
@@ -210,22 +226,30 @@ func methodTabIndex(method engine.Method) int {
 func methodFromTab(index int) engine.Method {
 	switch index {
 	case 1:
-		return engine.MethodCase
+		return engine.MethodList
 	case 2:
-		return engine.MethodMove
+		return engine.MethodListReplace
 	case 3:
-		return engine.MethodRemove
+		return engine.MethodCase
 	case 4:
-		return engine.MethodRemovePattern
+		return engine.MethodMove
 	case 5:
-		return engine.MethodRenumber
+		return engine.MethodRemove
 	case 6:
-		return engine.MethodReplace
+		return engine.MethodRemovePattern
 	case 7:
-		return engine.MethodPrefixSuffix
+		return engine.MethodRenumber
 	case 8:
-		return engine.MethodTrim
+		return engine.MethodReplace
 	case 9:
+		return engine.MethodPrefixSuffix
+	case 10:
+		return engine.MethodScript
+	case 11:
+		return engine.MethodSwap
+	case 12:
+		return engine.MethodTrim
+	case 13:
 		return engine.MethodTimestamp
 	default:
 		return engine.MethodTemplate
@@ -234,6 +258,10 @@ func methodFromTab(index int) engine.Method {
 
 func defaultMethod(method engine.Method) engine.RenameMethod {
 	switch method {
+	case engine.MethodList:
+		return engine.RenameMethod{Type: method}
+	case engine.MethodListReplace:
+		return engine.RenameMethod{Type: method}
 	case engine.MethodCase:
 		return engine.RenameMethod{Type: method, CaseMode: engine.CaseLower}
 	case engine.MethodMove:
@@ -251,6 +279,10 @@ func defaultMethod(method engine.Method) engine.RenameMethod {
 		return engine.RenameMethod{Type: method}
 	case engine.MethodPrefixSuffix:
 		return engine.RenameMethod{Type: method}
+	case engine.MethodScript:
+		return engine.RenameMethod{Type: method, ScriptExpression: "concat(Name, Ext)"}
+	case engine.MethodSwap:
+		return engine.RenameMethod{Type: method, SwapSeparator: " - ", SwapOccurrence: 1}
 	case engine.MethodTrim:
 		return engine.RenameMethod{Type: method, TrimNormalizeSpaces: true}
 	case engine.MethodTimestamp:
@@ -265,9 +297,10 @@ func defaultMethod(method engine.Method) engine.RenameMethod {
 
 func knownMethod(method engine.Method) bool {
 	switch method {
-	case engine.MethodTemplate, engine.MethodCase, engine.MethodMove, engine.MethodRemove,
-		engine.MethodRemovePattern, engine.MethodRenumber, engine.MethodReplace,
-		engine.MethodPrefixSuffix, engine.MethodTrim, engine.MethodTimestamp:
+	case engine.MethodTemplate, engine.MethodList, engine.MethodListReplace, engine.MethodCase,
+		engine.MethodMove, engine.MethodRemove, engine.MethodRemovePattern, engine.MethodRenumber,
+		engine.MethodReplace, engine.MethodPrefixSuffix, engine.MethodScript, engine.MethodSwap,
+		engine.MethodTrim, engine.MethodTimestamp:
 		return true
 	default:
 		return false
@@ -324,13 +357,15 @@ func main() {
 
 	var mw *walk.MainWindow
 	var customExtLE, templateLE, findLE, replaceLE, prefixLE, suffixLE *walk.LineEdit
-	var removePatternLE, renumberSeparatorLE, timestampFormatLE, timestampSeparatorLE *walk.LineEdit
+	var removePatternLE, renumberSeparatorLE, timestampFormatLE, timestampSeparatorLE, swapSeparatorLE *walk.LineEdit
+	var listTE, listReplaceTE, scriptTE *walk.TextEdit
 	var recursiveCB, regexCB, autoPreviewCB *walk.CheckBox
 	var removePatternRegexCB, renumberPerDirCB, trimNormalizeCB *walk.CheckBox
+	var listIncludeExtCB, listReplaceRegexCB, listReplaceCaseCB *walk.CheckBox
 	var categoryCB, presetCB, caseCB, tokenCB *walk.ComboBox
 	var renumberPositionCB, timestampSourceCB, timestampPositionCB *walk.ComboBox
 	var removeStartNE, removeCountNE, renumberStartNE, renumberStepNE, renumberPaddingNE *walk.NumberEdit
-	var moveStartNE, moveCountNE, moveToNE *walk.NumberEdit
+	var moveStartNE, moveCountNE, moveToNE, swapOccurrenceNE *walk.NumberEdit
 	var methodTable, table *walk.TableView
 	var editorTabs *walk.TabWidget
 	var sourceCountLbl, statusLbl, collisionLbl *walk.Label
@@ -343,6 +378,7 @@ func main() {
 	editingMethodIndex := 0
 	updatingMethodUI := false
 	busy := false
+	dragMethodIndex := -1
 
 	categoryNames := make([]string, 0)
 	for _, c := range engine.Categories() {
@@ -407,6 +443,23 @@ func main() {
 		case engine.MethodTemplate:
 			if templateLE != nil {
 				method.Template = templateLE.Text()
+			}
+		case engine.MethodList:
+			if listTE != nil {
+				method.ListText = listTE.Text()
+			}
+			if listIncludeExtCB != nil {
+				method.ListIncludeExtension = listIncludeExtCB.Checked()
+			}
+		case engine.MethodListReplace:
+			if listReplaceTE != nil {
+				method.ListReplaceText = listReplaceTE.Text()
+			}
+			if listReplaceRegexCB != nil {
+				method.ListReplaceRegex = listReplaceRegexCB.Checked()
+			}
+			if listReplaceCaseCB != nil {
+				method.ListReplaceCaseSensitive = listReplaceCaseCB.Checked()
 			}
 		case engine.MethodCase:
 			if caseCB != nil {
@@ -481,6 +534,17 @@ func main() {
 			if suffixLE != nil {
 				method.Suffix = suffixLE.Text()
 			}
+		case engine.MethodScript:
+			if scriptTE != nil {
+				method.ScriptExpression = scriptTE.Text()
+			}
+		case engine.MethodSwap:
+			if swapSeparatorLE != nil {
+				method.SwapSeparator = swapSeparatorLE.Text()
+			}
+			if swapOccurrenceNE != nil {
+				method.SwapOccurrence = int(swapOccurrenceNE.Value())
+			}
 		case engine.MethodTrim:
 			if trimNormalizeCB != nil {
 				method.TrimNormalizeSpaces = trimNormalizeCB.Checked()
@@ -517,6 +581,21 @@ func main() {
 		_ = editorTabs.SetCurrentIndex(methodTabIndex(method.Type))
 		if templateLE != nil {
 			templateLE.SetText(method.Template)
+		}
+		if listTE != nil {
+			listTE.SetText(method.ListText)
+		}
+		if listIncludeExtCB != nil {
+			listIncludeExtCB.SetChecked(method.ListIncludeExtension)
+		}
+		if listReplaceTE != nil {
+			listReplaceTE.SetText(method.ListReplaceText)
+		}
+		if listReplaceRegexCB != nil {
+			listReplaceRegexCB.SetChecked(method.ListReplaceRegex)
+		}
+		if listReplaceCaseCB != nil {
+			listReplaceCaseCB.SetChecked(method.ListReplaceCaseSensitive)
 		}
 		if caseCB != nil {
 			caseIndex := 0
@@ -584,6 +663,15 @@ func main() {
 		}
 		if suffixLE != nil {
 			suffixLE.SetText(method.Suffix)
+		}
+		if scriptTE != nil {
+			scriptTE.SetText(method.ScriptExpression)
+		}
+		if swapSeparatorLE != nil {
+			swapSeparatorLE.SetText(method.SwapSeparator)
+		}
+		if swapOccurrenceNE != nil {
+			_ = swapOccurrenceNE.SetValue(float64(method.SwapOccurrence))
 		}
 		if trimNormalizeCB != nil {
 			trimNormalizeCB.SetChecked(method.TrimNormalizeSpaces)
@@ -907,18 +995,27 @@ func main() {
 		maybePreview()
 	}
 
+	moveMethodTo := func(from, target int) {
+		if from < 0 || from >= len(methods) || target < 0 || target >= len(methods) || from == target {
+			return
+		}
+		saveMethodEditor()
+		method := methods[from]
+		if from < target {
+			copy(methods[from:target], methods[from+1:target+1])
+		} else {
+			copy(methods[target+1:from+1], methods[target:from])
+		}
+		methods[target] = method
+		refreshMethodTable(target)
+		maybePreview()
+	}
+
 	moveMethod := func(delta int) {
 		if editingMethodIndex < 0 || editingMethodIndex >= len(methods) {
 			return
 		}
-		target := editingMethodIndex + delta
-		if target < 0 || target >= len(methods) {
-			return
-		}
-		saveMethodEditor()
-		methods[editingMethodIndex], methods[target] = methods[target], methods[editingMethodIndex]
-		refreshMethodTable(target)
-		maybePreview()
+		moveMethodTo(editingMethodIndex, editingMethodIndex+delta)
 	}
 
 	saveMethodStack := func() {
@@ -1007,6 +1104,9 @@ func main() {
 		MinSize:  Size{1060, 700},
 		Size:     Size{1480, 900},
 		Layout:   VBox{Margins: Margins{Left: 8, Top: 8, Right: 8, Bottom: 6}, Spacing: 6},
+		OnDropFiles: func(files []string) {
+			addSources(files)
+		},
 		MenuItems: []MenuItem{
 			Menu{
 				Text: "&File",
@@ -1115,6 +1215,22 @@ func main() {
 											editingMethodIndex = index
 											loadMethodEditor(editingMethodIndex)
 										},
+										OnMouseDown: func(x, y int, button walk.MouseButton) {
+											if button == walk.LeftButton && methodTable != nil {
+												dragMethodIndex = methodTable.IndexAt(x, y)
+											}
+										},
+										OnMouseUp: func(x, y int, button walk.MouseButton) {
+											if button != walk.LeftButton || methodTable == nil {
+												return
+											}
+											from := dragMethodIndex
+											dragMethodIndex = -1
+											target := methodTable.IndexAt(x, y)
+											if from >= 0 && target >= 0 && from != target {
+												moveMethodTo(from, target)
+											}
+										},
 									},
 									Composite{
 										Layout: HBox{Spacing: 4},
@@ -1133,6 +1249,8 @@ func main() {
 								Layout: Grid{Columns: 2, Spacing: 5},
 								Children: []Widget{
 									PushButton{Text: "New Name", OnClicked: func() { addMethod(engine.MethodTemplate) }},
+									PushButton{Text: "List", OnClicked: func() { addMethod(engine.MethodList) }},
+									PushButton{Text: "List replace", OnClicked: func() { addMethod(engine.MethodListReplace) }},
 									PushButton{Text: "Change case", OnClicked: func() { addMethod(engine.MethodCase) }},
 									PushButton{Text: "Move", OnClicked: func() { addMethod(engine.MethodMove) }},
 									PushButton{Text: "Remove", OnClicked: func() { addMethod(engine.MethodRemove) }},
@@ -1140,11 +1258,13 @@ func main() {
 									PushButton{Text: "Renumber", OnClicked: func() { addMethod(engine.MethodRenumber) }},
 									PushButton{Text: "Replace", OnClicked: func() { addMethod(engine.MethodReplace) }},
 									PushButton{Text: "Add text", OnClicked: func() { addMethod(engine.MethodPrefixSuffix) }},
+									PushButton{Text: "Script", OnClicked: func() { addMethod(engine.MethodScript) }},
+									PushButton{Text: "Swap", OnClicked: func() { addMethod(engine.MethodSwap) }},
 									PushButton{Text: "Trim", OnClicked: func() { addMethod(engine.MethodTrim) }},
 									PushButton{Text: "Timestamp", OnClicked: func() { addMethod(engine.MethodTimestamp) }},
 								},
 							},
-							Label{Text: "Tip: uncheck a method to disable it without deleting it."},
+							Label{Text: "Tip: uncheck to disable. Drag a method to reorder it."},
 							VSpacer{},
 						},
 					},
@@ -1199,6 +1319,98 @@ func main() {
 														}
 													}},
 													Label{Text: "Tags are inserted at the caret."},
+												},
+											},
+											{
+												Title:  "List",
+												Layout: Grid{Columns: 4, Spacing: 7},
+												Children: []Widget{
+													Label{Text: "One new name per item. Line 1 = item 1, line 2 = item 2, and so on.", ColumnSpan: 4},
+													TextEdit{AssignTo: &listTE, VScroll: true, HScroll: true, MinSize: Size{0, 105}, ColumnSpan: 4, OnTextChanged: saveMethodEditor},
+													CheckBox{AssignTo: &listIncludeExtCB, Text: "List entries include extension", ColumnSpan: 4, OnCheckedChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
+													PushButton{Text: "Populate list", OnClicked: func() {
+														if listTE == nil {
+															return
+														}
+														if len(model.items) == 0 {
+															walk.MsgBox(mw, "List", "Build a preview first, then populate the list.", walk.MsgBoxIconInformation)
+															return
+														}
+														lines := make([]string, 0, len(model.items))
+														for _, item := range model.items {
+															name := item.OldName
+															if listIncludeExtCB == nil || !listIncludeExtCB.Checked() {
+																name, _ = engine.BaseAndExt(name)
+															}
+															lines = append(lines, name)
+														}
+														listTE.SetText(strings.Join(lines, "\r\n"))
+														saveMethodEditor()
+														maybePreview()
+													}},
+													PushButton{Text: "Load list...", OnClicked: func() {
+														dlg := new(walk.FileDialog)
+														dlg.Title = "Load filename list"
+														dlg.Filter = "Text files (*.txt;*.csv)|*.txt;*.csv|All files (*.*)|*.*"
+														if ok, err := dlg.ShowOpen(mw); err != nil {
+															walk.MsgBox(mw, "List", err.Error(), walk.MsgBoxIconError)
+														} else if ok {
+															data, err := os.ReadFile(dlg.FilePath)
+															if err != nil {
+																walk.MsgBox(mw, "List", err.Error(), walk.MsgBoxIconError)
+																return
+															}
+															listTE.SetText(string(data))
+															saveMethodEditor()
+															maybePreview()
+														}
+													}},
+													PushButton{Text: "Save list...", OnClicked: func() {
+														if listTE == nil {
+															return
+														}
+														dlg := new(walk.FileDialog)
+														dlg.Title = "Save filename list"
+														dlg.Filter = "Text files (*.txt)|*.txt|All files (*.*)|*.*"
+														dlg.FilePath = "names.txt"
+														if ok, err := dlg.ShowSave(mw); err != nil {
+															walk.MsgBox(mw, "List", err.Error(), walk.MsgBoxIconError)
+														} else if ok {
+															if err := os.WriteFile(dlg.FilePath, []byte(listTE.Text()), 0o644); err != nil {
+																walk.MsgBox(mw, "List", err.Error(), walk.MsgBoxIconError)
+															}
+														}
+													}},
+													PushButton{Text: "Apply", OnClicked: func() { saveMethodEditor(); maybePreview() }},
+												},
+											},
+											{
+												Title:  "List replace",
+												Layout: Grid{Columns: 4, Spacing: 7},
+												Children: []Widget{
+													Label{Text: "One rule per line: find => replace. Tab-separated pairs are also accepted.", ColumnSpan: 4},
+													TextEdit{AssignTo: &listReplaceTE, VScroll: true, HScroll: true, MinSize: Size{0, 110}, ColumnSpan: 4, OnTextChanged: saveMethodEditor},
+													CheckBox{AssignTo: &listReplaceRegexCB, Text: "Regular expressions", ColumnSpan: 2, OnCheckedChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
+													CheckBox{AssignTo: &listReplaceCaseCB, Text: "Case sensitive", ColumnSpan: 2, OnCheckedChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
+													PushButton{Text: "Load rules...", OnClicked: func() {
+														dlg := new(walk.FileDialog)
+														dlg.Title = "Load replace rules"
+														dlg.Filter = "Text files (*.txt;*.csv)|*.txt;*.csv|All files (*.*)|*.*"
+														if ok, err := dlg.ShowOpen(mw); err != nil {
+															walk.MsgBox(mw, "List replace", err.Error(), walk.MsgBoxIconError)
+														} else if ok {
+															data, err := os.ReadFile(dlg.FilePath)
+															if err != nil {
+																walk.MsgBox(mw, "List replace", err.Error(), walk.MsgBoxIconError)
+																return
+															}
+															listReplaceTE.SetText(string(data))
+															saveMethodEditor()
+															maybePreview()
+														}
+													}},
+													PushButton{Text: "Clear", OnClicked: func() { if listReplaceTE != nil { listReplaceTE.SetText(""); saveMethodEditor(); maybePreview() } }},
+													PushButton{Text: "Apply", OnClicked: func() { saveMethodEditor(); maybePreview() }},
 												},
 											},
 											{
@@ -1289,6 +1501,29 @@ func main() {
 												},
 											},
 											{
+												Title:  "Script",
+												Layout: Grid{Columns: 4, Spacing: 7},
+												Children: []Widget{
+													Label{Text: "Expression:"},
+													TextEdit{AssignTo: &scriptTE, VScroll: true, HScroll: true, MinSize: Size{0, 105}, ColumnSpan: 3, OnTextChanged: saveMethodEditor},
+													Label{Text: "Variables: Name, Ext, FullName, Index, DirIndex, DirName, UnixTimestamp, ModifiedUnix.", ColumnSpan: 4},
+													Label{Text: "Functions: lower(), upper(), trim(), replace(), concat(), substr(). Example: concat(lower(Name), '-', Index, Ext)", ColumnSpan: 4},
+													PushButton{Text: "Apply script", OnClicked: func() { saveMethodEditor(); maybePreview() }},
+													PushButton{Text: "Reset example", OnClicked: func() { if scriptTE != nil { scriptTE.SetText("concat(Name, Ext)"); saveMethodEditor(); maybePreview() } }},
+												},
+											},
+											{
+												Title:  "Swap",
+												Layout: Grid{Columns: 4, Spacing: 7},
+												Children: []Widget{
+													Label{Text: "Separator:"},
+													LineEdit{AssignTo: &swapSeparatorLE, Text: " - ", OnTextChanged: saveMethodEditor, OnEditingFinished: maybePreview},
+													Label{Text: "Occurrence:"},
+													NumberEdit{AssignTo: &swapOccurrenceNE, Value: 1, MinValue: 1, MaxValue: 9999, SpinButtonsVisible: true, OnValueChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
+													Label{Text: "Example: Michael Jackson - Thriller  ->  Thriller - Michael Jackson", ColumnSpan: 4},
+												},
+											},
+											{
 												Title:  "Trim",
 												Layout: Grid{Columns: 2, Spacing: 7},
 												Children: []Widget{
@@ -1311,7 +1546,6 @@ func main() {
 													Label{Text: "Format example: yyyyMMdd-HHmmss", ColumnSpan: 4},
 												},
 											},
-
 										},
 									},
 								},

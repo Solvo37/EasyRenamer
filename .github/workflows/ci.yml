@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  core-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.x'
+          cache: true
+      - run: go test ./internal/...
+
+  windows-build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.x'
+          cache: true
+      - name: Test core
+        run: go test ./internal/...
+      - name: Download modules
+        run: go mod download
+      - name: Embed Windows manifest
+        shell: pwsh
+        run: |
+          go run github.com/akavel/rsrc@latest -manifest cmd/easyrenamer/easyrenamer.exe.manifest -o cmd/easyrenamer/rsrc.syso
+      - name: Build single executable
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist | Out-Null
+          go build -trimpath -ldflags "-H windowsgui -X github.com/Solvo37/easyrenamer/internal/version.Version=ci" -o dist/EasyRenamer.exe ./cmd/easyrenamer
+      - uses: actions/upload-artifact@v4
+        with:
+          name: EasyRenamer-windows-x64
+          path: dist/EasyRenamer.exe

@@ -104,3 +104,14 @@ EasyRenamer is intended to grow from a focused batch renamer into a serious open
 - [x] Always-enabled extension filter
 - [x] Typing extensions selects the Custom category
 - [x] ComboBox dropdown no longer closes because the owner window is re-themed while opening
+
+## v0.5.1 — Stability
+
+- [x] Cancellable preview scans
+- [x] Cancel stale live-preview work instead of queueing heavy scans
+- [x] Preview button switches to Cancel preview while scanning
+- [x] Explorer/open-source actions moved off the UI thread
+- [x] Window size derived from Windows work area and DPI
+- [x] Scrollable left method/settings pane for smaller screens
+- [x] Remove the redundant single-option Batch mode selector
+- [x] Rebuilt neutral dark palette

@@ -64,5 +64,11 @@ var translations = map[Language]map[string]string{
 		"theme.dark": "Dark",
 		"theme.restart": "Theme saved. Restart EasyRenamer to apply it.",
 		"status.live_preview": "Live preview",
+		"preset.sequence_original": "Sequence + original name",
+		"preset.original_sequence": "Original name + sequence",
+		"preset.parent_sequence": "Parent folder + sequence",
+		"preset.date_original": "Date + original name",
+		"drop.hint": "Drop files or folders here",
+		"drop.subhint": "or use + Files / + Folders",
 	},
 }

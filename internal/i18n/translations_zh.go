@@ -64,5 +64,11 @@ func init() {
 		"theme.dark": "深色",
 		"theme.restart": "主题已保存。请重启 EasyRenamer 以应用。",
 		"status.live_preview": "实时预览",
+		"preset.sequence_original": "编号 + 原始名称",
+		"preset.original_sequence": "原始名称 + 编号",
+		"preset.parent_sequence": "父文件夹 + 编号",
+		"preset.date_original": "日期 + 原始名称",
+		"drop.hint": "将文件或文件夹拖到这里",
+		"drop.subhint": "或使用 + 文件 / + 文件夹",
 	}
 }

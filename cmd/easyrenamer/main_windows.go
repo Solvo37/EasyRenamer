@@ -396,7 +396,7 @@ func main() {
 	var recursiveCB, regexCB, autoPreviewCB *walk.CheckBox
 	var removePatternRegexCB, renumberPerDirCB, trimNormalizeCB *walk.CheckBox
 	var listIncludeExtCB, listReplaceRegexCB, listReplaceCaseCB *walk.CheckBox
-	var categoryCB, presetCB, caseCB, tokenCB *walk.ComboBox
+	var categoryCB, presetCB, caseCB *walk.ComboBox
 	var renumberPositionCB, timestampSourceCB, timestampPositionCB *walk.ComboBox
 	var removeStartNE, removeCountNE, renumberStartNE, renumberStepNE, renumberPaddingNE *walk.NumberEdit
 	var moveStartNE, moveCountNE, moveToNE, swapOccurrenceNE *walk.NumberEdit
@@ -1160,6 +1160,15 @@ func main() {
 		_ = exec.Command("explorer.exe", "/select,"+filepath.Clean(path)).Start()
 	}
 
+	tagPages := buildTagPages(darkTheme, func(token string) {
+		if templateLE == nil || token == "" {
+			return
+		}
+		insertIntoLineEdit(templateLE, token)
+		saveMethodEditor()
+		maybePreview()
+	})
+
 	window := MainWindow{
 		AssignTo: &mw,
 		Title:      "EasyRenamer " + version.Version + " — " + i18n.T("app.subtitle"),
@@ -1168,7 +1177,33 @@ func main() {
 		Size:       Size{1560, 940},
 		Layout:     VBox{Margins: Margins{Left: 12, Top: 12, Right: 12, Bottom: 10}, Spacing: 10},
 		OnDropFiles: func(files []string) {
-			addSources(files)
+			initial := defaultDropDecision(recursiveCB != nil && recursiveCB.Checked())
+			decision, remembered := loadRememberedDropDecision()
+			accepted := remembered
+			if !remembered {
+				decision, accepted = showDropDecisionDialog(mw, darkTheme, initial)
+			}
+			if !accepted {
+				return
+			}
+
+			paths := filterDroppedPaths(files, decision.Mode)
+			if remembered && len(paths) == 0 {
+				decision.Remember = false
+				decision, accepted = showDropDecisionDialog(mw, darkTheme, decision)
+				if !accepted {
+					return
+				}
+				paths = filterDroppedPaths(files, decision.Mode)
+			}
+			if len(paths) == 0 {
+				return
+			}
+
+			if recursiveCB != nil && decision.Mode != dropModeFiles {
+				recursiveCB.SetChecked(decision.IncludeSubfolders)
+			}
+			addSources(paths)
 		},
 		MenuItems: []MenuItem{
 			Menu{
@@ -1250,7 +1285,7 @@ func main() {
 				Layout: HBox{Spacing: 6},
 				Children: []Widget{
 					Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("batch.mode")},
-					ComboBox{Background: uiFieldBrush(darkTheme),Model: []string{i18n.T("batch.rename")}, CurrentIndex: 0, MinSize: Size{130, 0}},
+					ComboBox{Background: uiFieldBrush(darkTheme),OnMouseDown: func(x, y int, button walk.MouseButton) { scheduleFloatingTheme(mw, darkTheme) },Model: []string{i18n.T("batch.rename")}, CurrentIndex: 0, MinSize: Size{130, 0}},
 					PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("button.files"), MinSize: Size{92, 32}, ToolTipText: "Add individual files", OnClicked: addFiles},
 					PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("button.folders"), MinSize: Size{92, 32}, ToolTipText: "Add one or more folders", OnClicked: addFolder},
 					PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("button.clear"), MinSize: Size{82, 32}, ToolTipText: "Clear source list and preview", OnClicked: clearSources},
@@ -1265,7 +1300,7 @@ func main() {
 				Layout: HBox{Spacing: 6},
 				Children: []Widget{
 					Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("filter.label")},
-					ComboBox{Background: uiFieldBrush(darkTheme),AssignTo: &categoryCB, Model: categoryNames, CurrentIndex: 0, MinSize: Size{130, 0}, OnCurrentIndexChanged: func() {
+					ComboBox{Background: uiFieldBrush(darkTheme),OnMouseDown: func(x, y int, button walk.MouseButton) { scheduleFloatingTheme(mw, darkTheme) },AssignTo: &categoryCB, Model: categoryNames, CurrentIndex: 0, MinSize: Size{130, 0}, OnCurrentIndexChanged: func() {
 						if customExtLE != nil {
 							customExtLE.SetEnabled(categoryCB.CurrentIndex() == len(categoryNames)-1)
 						}
@@ -1400,7 +1435,7 @@ func main() {
 												Layout: Grid{Columns: 5, Spacing: 7},
 												Children: []Widget{
 													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.preset")},
-													ComboBox{Background: uiFieldBrush(darkTheme),AssignTo: &presetCB, Model: presetNames, CurrentIndex: 0, ColumnSpan: 4, OnCurrentIndexChanged: func() {
+													ComboBox{Background: uiFieldBrush(darkTheme),OnMouseDown: func(x, y int, button walk.MouseButton) { scheduleFloatingTheme(mw, darkTheme) },AssignTo: &presetCB, Model: presetNames, CurrentIndex: 0, ColumnSpan: 4, OnCurrentIndexChanged: func() {
 														if updatingMethodUI || presetCB == nil || templateLE == nil {
 															return
 														}
@@ -1413,20 +1448,18 @@ func main() {
 													}},
 													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.new_name")},
 													LineEdit{TextColor: uiTextColor(darkTheme), Background: uiFieldBrush(darkTheme),AssignTo: &templateLE, Text: methods[0].Template, ColumnSpan: 4, OnTextChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }, OnEditingFinished: maybePreview},
-													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.insert_tag")},
-													ComboBox{Background: uiFieldBrush(darkTheme),AssignTo: &tokenCB, Model: templateTokens, CurrentIndex: 0, ColumnSpan: 2},
-													PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("button.insert"), OnClicked: func() {
-														if tokenCB == nil || templateLE == nil {
-															return
-														}
-														idx := tokenCB.CurrentIndex()
-														if idx >= 0 && idx < len(templateTokens) {
-															insertIntoLineEdit(templateLE, templateTokens[idx])
-															saveMethodEditor()
-															maybePreview()
-														}
-													}},
-													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.tags_caret")},
+													TabWidget{
+														Background: uiPanelBrush(darkTheme),
+														ColumnSpan: 5,
+														MinSize: Size{0, 235},
+														Pages: tagPages,
+													},
+													PushButton{
+														Background: uiPanelBrush(darkTheme),
+														Text: i18n.T("menu.tags"),
+														ColumnSpan: 5,
+														OnClicked: func() { openURL("https://github.com/Solvo37/easyrenamer/blob/main/docs/TAGS.md") },
+													},
 												},
 											},
 											{
@@ -1529,7 +1562,7 @@ func main() {
 												Layout: Grid{Columns: 2, Spacing: 7},
 												Children: []Widget{
 													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.case_to")},
-													ComboBox{Background: uiFieldBrush(darkTheme),AssignTo: &caseCB, Model: []string{"lower case", "UPPER CASE", "Title Case"}, CurrentIndex: 0, OnCurrentIndexChanged: func() {
+													ComboBox{Background: uiFieldBrush(darkTheme),OnMouseDown: func(x, y int, button walk.MouseButton) { scheduleFloatingTheme(mw, darkTheme) },AssignTo: &caseCB, Model: []string{"lower case", "UPPER CASE", "Title Case"}, CurrentIndex: 0, OnCurrentIndexChanged: func() {
 														if updatingMethodUI { return }
 														saveMethodEditor()
 														maybePreview()
@@ -1584,7 +1617,7 @@ func main() {
 													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.padding")},
 													NumberEdit{TextColor: uiTextColor(darkTheme), Background: uiFieldBrush(darkTheme),AssignTo: &renumberPaddingNE, MinValue: 1, MaxValue: 12, SpinButtonsVisible: true, OnValueChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
 													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.position")},
-													ComboBox{Background: uiFieldBrush(darkTheme),AssignTo: &renumberPositionCB, Model: []string{"Prefix", "Suffix"}, CurrentIndex: 0, OnCurrentIndexChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
+													ComboBox{Background: uiFieldBrush(darkTheme),OnMouseDown: func(x, y int, button walk.MouseButton) { scheduleFloatingTheme(mw, darkTheme) },AssignTo: &renumberPositionCB, Model: []string{"Prefix", "Suffix"}, CurrentIndex: 0, OnCurrentIndexChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
 													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.separator")},
 													LineEdit{TextColor: uiTextColor(darkTheme), Background: uiFieldBrush(darkTheme),AssignTo: &renumberSeparatorLE, Text: "-", OnTextChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }, OnEditingFinished: maybePreview},
 													CheckBox{Background: uiPanelBrush(darkTheme),AssignTo: &renumberPerDirCB, Text: i18n.T("label.per_folder"), Checked: true, ColumnSpan: 2, OnCheckedChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
@@ -1657,9 +1690,9 @@ func main() {
 												Layout: Grid{Columns: 4, Spacing: 7},
 												Children: []Widget{
 													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.source")},
-													ComboBox{Background: uiFieldBrush(darkTheme),AssignTo: &timestampSourceCB, Model: []string{"File modified time", "Batch time"}, CurrentIndex: 0, OnCurrentIndexChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
+													ComboBox{Background: uiFieldBrush(darkTheme),OnMouseDown: func(x, y int, button walk.MouseButton) { scheduleFloatingTheme(mw, darkTheme) },AssignTo: &timestampSourceCB, Model: []string{"File modified time", "Batch time"}, CurrentIndex: 0, OnCurrentIndexChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
 													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.position")},
-													ComboBox{Background: uiFieldBrush(darkTheme),AssignTo: &timestampPositionCB, Model: []string{"Suffix", "Prefix"}, CurrentIndex: 0, OnCurrentIndexChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
+													ComboBox{Background: uiFieldBrush(darkTheme),OnMouseDown: func(x, y int, button walk.MouseButton) { scheduleFloatingTheme(mw, darkTheme) },AssignTo: &timestampPositionCB, Model: []string{"Suffix", "Prefix"}, CurrentIndex: 0, OnCurrentIndexChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
 													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.format")},
 													LineEdit{TextColor: uiTextColor(darkTheme), Background: uiFieldBrush(darkTheme),AssignTo: &timestampFormatLE, Text: "yyyyMMdd-HHmmss", OnTextChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }, OnEditingFinished: maybePreview},
 													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.separator")},

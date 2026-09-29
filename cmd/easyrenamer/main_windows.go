@@ -444,6 +444,23 @@ func main() {
 			if templateLE != nil {
 				method.Template = templateLE.Text()
 			}
+		case engine.MethodList:
+			if listTE != nil {
+				method.ListText = listTE.Text()
+			}
+			if listIncludeExtCB != nil {
+				method.ListIncludeExtension = listIncludeExtCB.Checked()
+			}
+		case engine.MethodListReplace:
+			if listReplaceTE != nil {
+				method.ListReplaceText = listReplaceTE.Text()
+			}
+			if listReplaceRegexCB != nil {
+				method.ListReplaceRegex = listReplaceRegexCB.Checked()
+			}
+			if listReplaceCaseCB != nil {
+				method.ListReplaceCaseSensitive = listReplaceCaseCB.Checked()
+			}
 		case engine.MethodCase:
 			if caseCB != nil {
 				switch caseCB.CurrentIndex() {
@@ -517,6 +534,17 @@ func main() {
 			if suffixLE != nil {
 				method.Suffix = suffixLE.Text()
 			}
+		case engine.MethodScript:
+			if scriptTE != nil {
+				method.ScriptExpression = scriptTE.Text()
+			}
+		case engine.MethodSwap:
+			if swapSeparatorLE != nil {
+				method.SwapSeparator = swapSeparatorLE.Text()
+			}
+			if swapOccurrenceNE != nil {
+				method.SwapOccurrence = int(swapOccurrenceNE.Value())
+			}
 		case engine.MethodTrim:
 			if trimNormalizeCB != nil {
 				method.TrimNormalizeSpaces = trimNormalizeCB.Checked()
@@ -553,6 +581,21 @@ func main() {
 		_ = editorTabs.SetCurrentIndex(methodTabIndex(method.Type))
 		if templateLE != nil {
 			templateLE.SetText(method.Template)
+		}
+		if listTE != nil {
+			listTE.SetText(method.ListText)
+		}
+		if listIncludeExtCB != nil {
+			listIncludeExtCB.SetChecked(method.ListIncludeExtension)
+		}
+		if listReplaceTE != nil {
+			listReplaceTE.SetText(method.ListReplaceText)
+		}
+		if listReplaceRegexCB != nil {
+			listReplaceRegexCB.SetChecked(method.ListReplaceRegex)
+		}
+		if listReplaceCaseCB != nil {
+			listReplaceCaseCB.SetChecked(method.ListReplaceCaseSensitive)
 		}
 		if caseCB != nil {
 			caseIndex := 0
@@ -620,6 +663,15 @@ func main() {
 		}
 		if suffixLE != nil {
 			suffixLE.SetText(method.Suffix)
+		}
+		if scriptTE != nil {
+			scriptTE.SetText(method.ScriptExpression)
+		}
+		if swapSeparatorLE != nil {
+			swapSeparatorLE.SetText(method.SwapSeparator)
+		}
+		if swapOccurrenceNE != nil {
+			_ = swapOccurrenceNE.SetValue(float64(method.SwapOccurrence))
 		}
 		if trimNormalizeCB != nil {
 			trimNormalizeCB.SetChecked(method.TrimNormalizeSpaces)

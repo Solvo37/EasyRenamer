@@ -160,5 +160,6 @@ var translations = map[Language]map[string]string{
 		"drop.remember": "Remember this choice",
 		"button.add": "Add",
 		"button.cancel": "Cancel",
+		"menu.drop_options": "Drag && drop options...",
 	},
 }

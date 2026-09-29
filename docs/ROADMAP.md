@@ -62,6 +62,11 @@ EasyRenamer is intended to grow from a focused batch renamer into a serious open
 
 ## v0.5 — Polish
 
+- [x] Rebuilt workspace: methods + selected settings on the left, file list on the right
+- [x] Live language switching without restarting the process
+- [x] Live System / Light / Dark switching without restarting the process
+- [x] Preserve current sources, methods, filter and selected method across UI rebuild
+
 - [x] System / light / dark theme
 - [x] Localization (English / Russian / Spanish / Chinese)
 - [ ] Search/filter inside preview

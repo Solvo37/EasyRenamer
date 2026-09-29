@@ -1909,7 +1909,7 @@ GroupBox{Background: uiPanelBrush(darkTheme),
 	if err := window.Create(); err != nil {
 		walk.MsgBox(nil, "EasyRenamer startup error", err.Error(), walk.MsgBoxIconError)
 		log.Print(err)
-		return
+		return uiExit
 	}
 
 	selectedIndex := state.SelectedMethod

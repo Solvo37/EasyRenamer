@@ -1,35 +1,21 @@
-# EasyRenamer v0.4.0
+# EasyRenamer v0.4.1
 
-First public portable release.
+Hotfix release for the Windows startup crash in v0.4.0.
 
-## Highlights
+## Fixed
 
-- Completely free and open source under the MIT License.
-- No ads, subscriptions, telemetry, or paid features.
-- Portable Windows `.exe`: no installer required.
-- English, Русский, Español, 中文.
-- Safe preview and transactional rename with Undo.
-- Chained rename methods with enable/disable, copy, drag reorder, and saved method sets.
-- New Name, List, List Replace, Change Case, Move, Remove, Remove Pattern, Renumber, Replace, Add Text, Script, Swap, Trim, Timestamp.
-- Drag & drop files and folders.
-- Expanded Advanced Renamer-style tag engine:
-  - counters, words, substrings, random values, folders;
-  - fallback chains and modifiers;
-  - created/modified/batch date-time;
-  - file size, MD5, SHA1;
-  - JPEG/TIFF EXIF and GPS;
-  - MP3/FLAC metadata;
-  - MP4/MOV metadata;
-  - PDF, Office Open XML, EPUB, EML metadata;
-  - Windows EXE version resources.
-- Built-in tag and user-guide documentation.
+- Fixed `value out of range` during startup in the Walk `NumberEdit` controls.
+- The app now shows a visible startup error dialog if window creation fails instead of silently exiting.
+- CI and the release workflow now launch the freshly built Windows executable for a startup smoke test before accepting or publishing it.
+
+## Background
+
+v0.4.0 compiled and passed core tests, but several numeric editor defaults were assigned through Walk declarative properties during window initialization. On a real Windows launch this could conflict with the control's initialized range and terminate the app before the main window appeared.
+
+v0.4.1 removes those declarative default-value assignments. Method defaults are still applied when the corresponding method is selected.
 
 ## Downloads
 
 - **EasyRenamer.exe** — portable Windows x64 executable.
-- **EasyRenamer-v0.4.0-windows-x64.zip** — EXE + README + license + tag/user guide.
-- **SHA256SUMS.txt** — checksums for verification.
-
-## Notes
-
-EasyRenamer is an independent project. Compatibility work uses familiar public tag syntax so users can migrate existing naming patterns more easily. Some external-tool-specific features, such as arbitrary ExifTool fields or CSV column imports, remain future work.
+- **EasyRenamer-v0.4.1-windows-x64.zip** — EXE + README + license + documentation.
+- **SHA256SUMS.txt** — checksums.

@@ -1484,11 +1484,11 @@ func main() {
 												Layout: Grid{Columns: 6, Spacing: 7},
 												Children: []Widget{
 													Label{Text: i18n.T("label.start")},
-													NumberEdit{AssignTo: &moveStartNE, Value: 1, MinValue: 1, MaxValue: 99999, SpinButtonsVisible: true, OnValueChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
+													NumberEdit{AssignTo: &moveStartNE, MinValue: 1, MaxValue: 99999, SpinButtonsVisible: true, OnValueChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
 													Label{Text: i18n.T("label.count")},
-													NumberEdit{AssignTo: &moveCountNE, Value: 1, MinValue: 1, MaxValue: 99999, SpinButtonsVisible: true, OnValueChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
+													NumberEdit{AssignTo: &moveCountNE, MinValue: 1, MaxValue: 99999, SpinButtonsVisible: true, OnValueChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
 													Label{Text: i18n.T("label.move_to")},
-													NumberEdit{AssignTo: &moveToNE, Value: 1, MinValue: 1, MaxValue: 99999, SpinButtonsVisible: true, OnValueChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
+													NumberEdit{AssignTo: &moveToNE, MinValue: 1, MaxValue: 99999, SpinButtonsVisible: true, OnValueChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
 													Label{Text: "Positions are 1-based and apply to the filename without extension.", ColumnSpan: 6},
 												},
 											},
@@ -1497,9 +1497,9 @@ func main() {
 												Layout: Grid{Columns: 4, Spacing: 7},
 												Children: []Widget{
 													Label{Text: i18n.T("label.start")},
-													NumberEdit{AssignTo: &removeStartNE, Value: 1, MinValue: 1, MaxValue: 99999, SpinButtonsVisible: true, OnValueChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
+													NumberEdit{AssignTo: &removeStartNE, MinValue: 1, MaxValue: 99999, SpinButtonsVisible: true, OnValueChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
 													Label{Text: i18n.T("label.count")},
-													NumberEdit{AssignTo: &removeCountNE, Value: 1, MinValue: 1, MaxValue: 99999, SpinButtonsVisible: true, OnValueChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
+													NumberEdit{AssignTo: &removeCountNE, MinValue: 1, MaxValue: 99999, SpinButtonsVisible: true, OnValueChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
 													Label{Text: "Removes characters from the base filename; extension is preserved.", ColumnSpan: 4},
 												},
 											},
@@ -1517,11 +1517,11 @@ func main() {
 												Layout: Grid{Columns: 6, Spacing: 7},
 												Children: []Widget{
 													Label{Text: i18n.T("label.start")},
-													NumberEdit{AssignTo: &renumberStartNE, Value: 1, MinValue: -999999, MaxValue: 999999, SpinButtonsVisible: true, OnValueChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
+													NumberEdit{AssignTo: &renumberStartNE, MinValue: -999999, MaxValue: 999999, SpinButtonsVisible: true, OnValueChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
 													Label{Text: i18n.T("label.step")},
-													NumberEdit{AssignTo: &renumberStepNE, Value: 1, MinValue: -999999, MaxValue: 999999, SpinButtonsVisible: true, OnValueChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
+													NumberEdit{AssignTo: &renumberStepNE, MinValue: -999999, MaxValue: 999999, SpinButtonsVisible: true, OnValueChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
 													Label{Text: i18n.T("label.padding")},
-													NumberEdit{AssignTo: &renumberPaddingNE, Value: 2, MinValue: 1, MaxValue: 12, SpinButtonsVisible: true, OnValueChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
+													NumberEdit{AssignTo: &renumberPaddingNE, MinValue: 1, MaxValue: 12, SpinButtonsVisible: true, OnValueChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
 													Label{Text: i18n.T("label.position")},
 													ComboBox{AssignTo: &renumberPositionCB, Model: []string{"Prefix", "Suffix"}, CurrentIndex: 0, OnCurrentIndexChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
 													Label{Text: i18n.T("label.separator")},
@@ -1573,7 +1573,7 @@ func main() {
 													Label{Text: i18n.T("label.separator")},
 													LineEdit{AssignTo: &swapSeparatorLE, Text: " - ", OnTextChanged: saveMethodEditor, OnEditingFinished: maybePreview},
 													Label{Text: i18n.T("label.occurrence")},
-													NumberEdit{AssignTo: &swapOccurrenceNE, Value: 1, MinValue: 1, MaxValue: 9999, SpinButtonsVisible: true, OnValueChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
+													NumberEdit{AssignTo: &swapOccurrenceNE, MinValue: 1, MaxValue: 9999, SpinButtonsVisible: true, OnValueChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
 													Label{Text: "Example: Michael Jackson - Thriller  ->  Thriller - Michael Jackson", ColumnSpan: 4},
 												},
 											},
@@ -1668,6 +1668,7 @@ func main() {
 			},
 		},
 	}.Run()); err != nil {
-		log.Fatal(err)
+		walk.MsgBox(nil, "EasyRenamer startup error", err.Error(), walk.MsgBoxIconError)
+		log.Print(err)
 	}
 }

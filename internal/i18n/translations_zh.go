@@ -161,5 +161,7 @@ func init() {
 		"button.add": "添加",
 		"button.cancel": "取消",
 		"menu.drop_options": "拖放选项...",
+		"group.settings_selected": "设置：%s",
+		"filter.extensions_hint": "jpg, png, psd — 输入后自动切换到自定义",
 	}
 }

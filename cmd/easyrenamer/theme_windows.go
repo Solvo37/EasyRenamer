@@ -245,10 +245,11 @@ func scheduleFloatingTheme(owner walk.Form, dark bool) {
 	if owner == nil {
 		return
 	}
-	time.AfterFunc(35*time.Millisecond, func() {
+	time.AfterFunc(45*time.Millisecond, func() {
 		owner.Synchronize(func() {
+			// Theme only the transient popup. Re-theming the owner while a ComboBox
+			// is opening can cause the native dropdown to close immediately.
 			applyFloatingTheme(dark)
-			applyNativeTheme(uintptr(owner.Handle()), dark)
 		})
 	})
 }

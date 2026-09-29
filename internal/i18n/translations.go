@@ -161,5 +161,7 @@ var translations = map[Language]map[string]string{
 		"button.add": "Add",
 		"button.cancel": "Cancel",
 		"menu.drop_options": "Drag && drop options...",
+		"group.settings_selected": "Settings: %s",
+		"filter.extensions_hint": "jpg, png, psd — typing selects Custom",
 	},
 }

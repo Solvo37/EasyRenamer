@@ -161,5 +161,7 @@ func init() {
 		"button.add": "Añadir",
 		"button.cancel": "Cancelar",
 		"menu.drop_options": "Opciones de arrastrar y soltar...",
+		"group.settings_selected": "Configuración: %s",
+		"filter.extensions_hint": "jpg, png, psd — al escribir se activa Personalizado",
 	}
 }

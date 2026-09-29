@@ -402,6 +402,8 @@ func main() {
 	var moveStartNE, moveCountNE, moveToNE, swapOccurrenceNE *walk.NumberEdit
 	var methodTable, table *walk.TableView
 	var editorTabs *walk.TabWidget
+	var editorPages [14]*walk.TabPage
+	var methodSettingsGB *walk.GroupBox
 	var sourceCountLbl, statusLbl, collisionLbl, dropHintLbl *walk.Label
 	var previewPB, renamePB, undoPB *walk.PushButton
 
@@ -469,15 +471,15 @@ func main() {
 	var saveMethodEditor func()
 	var loadMethodEditor func(int)
 	var refreshMethodTable func(int)
+	var showMethodEditor func(engine.Method)
 	var preview func()
 	var maybePreview func()
 
 	saveMethodEditor = func() {
-		if updatingMethodUI || editorTabs == nil || editingMethodIndex < 0 || editingMethodIndex >= len(methods) {
+		if updatingMethodUI || editingMethodIndex < 0 || editingMethodIndex >= len(methods) {
 			return
 		}
 		method := &methods[editingMethodIndex]
-		method.Type = methodFromTab(editorTabs.CurrentIndex())
 		switch method.Type {
 		case engine.MethodTemplate:
 			if templateLE != nil {
@@ -609,6 +611,33 @@ func main() {
 		methodsModel.PublishRowChanged(editingMethodIndex)
 	}
 
+	showMethodEditor = func(methodType engine.Method) {
+		if editorTabs == nil {
+			return
+		}
+		pageIndex := methodTabIndex(methodType)
+		if pageIndex < 0 || pageIndex >= len(editorPages) || editorPages[pageIndex] == nil {
+			return
+		}
+		desired := editorPages[pageIndex]
+		pages := editorTabs.Pages()
+
+		for i := pages.Len() - 1; i >= 0; i-- {
+			if pages.At(i) != desired {
+				_ = pages.RemoveAt(i)
+			}
+		}
+		if !pages.Contains(desired) {
+			_ = pages.Add(desired)
+		}
+		if pages.Len() > 0 {
+			_ = editorTabs.SetCurrentIndex(0)
+		}
+		if methodSettingsGB != nil {
+			_ = methodSettingsGB.SetTitle(fmt.Sprintf(i18n.T("group.settings_selected"), methodTitle(methodType)))
+		}
+	}
+
 	loadMethodEditor = func(index int) {
 		if editorTabs == nil || index < 0 || index >= len(methods) {
 			return
@@ -617,7 +646,7 @@ func main() {
 		defer func() { updatingMethodUI = false }()
 
 		method := methods[index]
-		_ = editorTabs.SetCurrentIndex(methodTabIndex(method.Type))
+		showMethodEditor(method.Type)
 		if templateLE != nil {
 			templateLE.SetText(method.Template)
 		}
@@ -1311,14 +1340,19 @@ func main() {
 				Children: []Widget{
 					Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("filter.label")},
 					ComboBox{Background: uiFieldBrush(darkTheme),OnMouseDown: func(x, y int, button walk.MouseButton) { scheduleFloatingTheme(mw, darkTheme) },AssignTo: &categoryCB, Model: categoryNames, CurrentIndex: 0, MinSize: Size{130, 0}, OnCurrentIndexChanged: func() {
-						if customExtLE != nil {
-							customExtLE.SetEnabled(categoryCB.CurrentIndex() == len(categoryNames)-1)
-						}
 						maybePreview()
 					}},
 					CheckBox{Background: uiPanelBrush(darkTheme),AssignTo: &recursiveCB, Text: i18n.T("filter.subfolders"), Checked: true, OnCheckedChanged: maybePreview},
 					Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("filter.extensions")},
-					LineEdit{TextColor: uiTextColor(darkTheme), Background: uiFieldBrush(darkTheme),AssignTo: &customExtLE, Text: "psd, svg", Enabled: false, MinSize: Size{125, 0}, CueBanner: "jpg, png, psd", OnTextChanged: maybePreview, OnEditingFinished: maybePreview},
+					LineEdit{TextColor: uiTextColor(darkTheme), Background: uiFieldBrush(darkTheme),AssignTo: &customExtLE, MinSize: Size{165, 0}, CueBanner: i18n.T("filter.extensions_hint"), OnTextChanged: func() {
+						if updatingMethodUI || customExtLE == nil {
+							return
+						}
+						if strings.TrimSpace(customExtLE.Text()) != "" && categoryCB != nil && categoryCB.CurrentIndex() != len(categoryNames)-1 {
+							_ = categoryCB.SetCurrentIndex(len(categoryNames)-1)
+						}
+						maybePreview()
+					}, OnEditingFinished: maybePreview},
 					CheckBox{Background: uiPanelBrush(darkTheme),AssignTo: &autoPreviewCB, Text: i18n.T("status.live_preview"), Checked: true},
 					Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("collision.label")},
 					Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("collision.prevent")},
@@ -1424,22 +1458,16 @@ func main() {
 						Layout: VBox{Spacing: 6},
 						Children: []Widget{
 							GroupBox{Background: uiPanelBrush(darkTheme),
-								Title:  i18n.T("group.settings"),
+								AssignTo: &methodSettingsGB,
+								Title:  fmt.Sprintf(i18n.T("group.settings_selected"), methodTitle(methods[0].Type)),
 								Layout: VBox{},
 								Children: []Widget{
 									TabWidget{Background: uiPanelBrush(darkTheme),
 										AssignTo: &editorTabs,
 										MinSize:  Size{700, 250},
-										OnCurrentIndexChanged: func() {
-											if updatingMethodUI || editorTabs == nil || editingMethodIndex < 0 || editingMethodIndex >= len(methods) {
-												return
-											}
-											saveMethodEditor()
-											refreshMethodTable(editingMethodIndex)
-											maybePreview()
-										},
 										Pages: []TabPage{
 											{
+												AssignTo: &editorPages[0],
 												Background: uiPanelBrush(darkTheme),
 												Title:  i18n.T("method.new_name"),
 												Layout: Grid{Columns: 5, Spacing: 7},
@@ -1473,6 +1501,7 @@ func main() {
 												},
 											},
 											{
+												AssignTo: &editorPages[1],
 												Background: uiPanelBrush(darkTheme),
 												Title:  i18n.T("method.list"),
 												Layout: Grid{Columns: 4, Spacing: 7},
@@ -1537,6 +1566,7 @@ func main() {
 												},
 											},
 											{
+												AssignTo: &editorPages[2],
 												Background: uiPanelBrush(darkTheme),
 												Title:  i18n.T("method.list_replace"),
 												Layout: Grid{Columns: 4, Spacing: 7},
@@ -1567,6 +1597,7 @@ func main() {
 												},
 											},
 											{
+												AssignTo: &editorPages[3],
 												Background: uiPanelBrush(darkTheme),
 												Title:  i18n.T("method.change_case"),
 												Layout: Grid{Columns: 2, Spacing: 7},
@@ -1580,6 +1611,7 @@ func main() {
 												},
 											},
 											{
+												AssignTo: &editorPages[4],
 												Background: uiPanelBrush(darkTheme),
 												Title:  i18n.T("method.move"),
 												Layout: Grid{Columns: 6, Spacing: 7},
@@ -1594,6 +1626,7 @@ func main() {
 												},
 											},
 											{
+												AssignTo: &editorPages[5],
 												Background: uiPanelBrush(darkTheme),
 												Title:  i18n.T("method.remove"),
 												Layout: Grid{Columns: 4, Spacing: 7},
@@ -1606,6 +1639,7 @@ func main() {
 												},
 											},
 											{
+												AssignTo: &editorPages[6],
 												Background: uiPanelBrush(darkTheme),
 												Title:  i18n.T("method.remove_pattern"),
 												Layout: Grid{Columns: 4, Spacing: 7},
@@ -1616,6 +1650,7 @@ func main() {
 												},
 											},
 											{
+												AssignTo: &editorPages[7],
 												Background: uiPanelBrush(darkTheme),
 												Title:  i18n.T("method.renumber"),
 												Layout: Grid{Columns: 6, Spacing: 7},
@@ -1634,6 +1669,7 @@ func main() {
 												},
 											},
 											{
+												AssignTo: &editorPages[8],
 												Background: uiPanelBrush(darkTheme),
 												Title:  i18n.T("method.replace"),
 												Layout: Grid{Columns: 4, Spacing: 7},
@@ -1649,6 +1685,7 @@ func main() {
 												},
 											},
 											{
+												AssignTo: &editorPages[9],
 												Background: uiPanelBrush(darkTheme),
 												Title:  i18n.T("method.add_text"),
 												Layout: Grid{Columns: 4, Spacing: 7},
@@ -1661,6 +1698,7 @@ func main() {
 												},
 											},
 											{
+												AssignTo: &editorPages[10],
 												Background: uiPanelBrush(darkTheme),
 												Title:  i18n.T("method.script"),
 												Layout: Grid{Columns: 4, Spacing: 7},
@@ -1674,6 +1712,7 @@ func main() {
 												},
 											},
 											{
+												AssignTo: &editorPages[11],
 												Background: uiPanelBrush(darkTheme),
 												Title:  i18n.T("method.swap"),
 												Layout: Grid{Columns: 4, Spacing: 7},
@@ -1686,6 +1725,7 @@ func main() {
 												},
 											},
 											{
+												AssignTo: &editorPages[12],
 												Background: uiPanelBrush(darkTheme),
 												Title:  i18n.T("method.trim"),
 												Layout: Grid{Columns: 2, Spacing: 7},
@@ -1695,6 +1735,7 @@ func main() {
 												},
 											},
 											{
+												AssignTo: &editorPages[13],
 												Background: uiPanelBrush(darkTheme),
 												Title:  i18n.T("method.timestamp"),
 												Layout: Grid{Columns: 4, Spacing: 7},
@@ -1796,6 +1837,9 @@ func main() {
 		return
 	}
 
+	showMethodEditor(methods[0].Type)
+	loadMethodEditor(0)
+	refreshSourceCount()
 	applyNativeTheme(uintptr(mw.Handle()), darkTheme)
 	mw.Run()
 }

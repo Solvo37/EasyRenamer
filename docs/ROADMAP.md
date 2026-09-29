@@ -91,3 +91,11 @@ EasyRenamer is intended to grow from a focused batch renamer into a serious open
 - [ ] Arbitrary ExifTool fields without an external dependency
 - [ ] CSV column tag importer
 - [ ] Offline GPS country/city/state reverse-geocoding database
+
+## v0.4.5 — UX clarity
+
+- [x] Settings-only right pane: selected left-side method is the single source of truth
+- [x] Right editor can no longer change method type
+- [x] Always-enabled extension filter
+- [x] Typing extensions selects the Custom category
+- [x] ComboBox dropdown no longer closes because the owner window is re-themed while opening

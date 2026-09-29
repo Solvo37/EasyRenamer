@@ -1104,6 +1104,9 @@ func main() {
 		MinSize:  Size{1060, 700},
 		Size:     Size{1480, 900},
 		Layout:   VBox{Margins: Margins{Left: 8, Top: 8, Right: 8, Bottom: 6}, Spacing: 6},
+		OnDropFiles: func(files []string) {
+			addSources(files)
+		},
 		MenuItems: []MenuItem{
 			Menu{
 				Text: "&File",

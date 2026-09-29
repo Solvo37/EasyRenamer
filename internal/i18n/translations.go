@@ -220,5 +220,8 @@ var translations = map[Language]map[string]string{
 		"help.about": "About",
 		"help.guide_body": "QUICK START\n\n1. Add files or folders.\n2. Build the rename method stack on the left.\n3. Select a method and edit its settings.\n4. Check the live preview on the right.\n5. Uncheck files you do not want to rename.\n6. Click Start.\n\nMETHOD STACK\nMethods run from top to bottom. You can enable/disable, reorder, duplicate, save and load method sets.\n\nLIVE PREVIEW\nChanges are recalculated automatically. Heavy scans can be canceled with Cancel preview.\n\nDRAG & DROP\nDrop files or folders into the app. For folders you can choose whether to include subfolders.\n\nSAFETY\nEasyRenamer validates Windows names and collisions before renaming. Successful operations can be undone with Undo.\n\nTHEMES AND LANGUAGES\nTheme and language can be changed without restarting the program.",
 		"help.about_body": "EasyRenamer %s\n\nFree and open-source batch renamer for Windows.\n\nNo ads. No subscriptions. No telemetry. No paid edition.\n\nMIT License.\n\nAll help and tag reference content is built into this EXE.",
+		"case.lower": "lower case",
+		"case.upper": "UPPER CASE",
+		"case.title": "Title Case",
 	},
 }

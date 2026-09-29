@@ -31,6 +31,7 @@ var (
 	procEnumChildWindows      = user32Theme.NewProc("EnumChildWindows")
 	procSendMessageW          = user32Theme.NewProc("SendMessageW")
 	procInvalidateRect        = user32Theme.NewProc("InvalidateRect")
+	procGetClassNameW         = user32Theme.NewProc("GetClassNameW")
 )
 
 const wmThemeChanged = 0x031A
@@ -105,37 +106,50 @@ func windowsAppsUseDarkTheme() bool {
 
 func uiWindowBrush(dark bool) declarative.Brush {
 	if dark {
-		return declarative.SolidColorBrush{Color: walk.RGB(31, 31, 34)}
+		return declarative.SolidColorBrush{Color: walk.RGB(43, 44, 48)}
 	}
-	return declarative.SolidColorBrush{Color: walk.RGB(248, 249, 251)}
+	return declarative.SolidColorBrush{Color: walk.RGB(247, 248, 250)}
 }
 
 func uiPanelBrush(dark bool) declarative.Brush {
 	if dark {
-		return declarative.SolidColorBrush{Color: walk.RGB(38, 38, 42)}
+		return declarative.SolidColorBrush{Color: walk.RGB(49, 51, 55)}
 	}
 	return declarative.SolidColorBrush{Color: walk.RGB(255, 255, 255)}
 }
 
 func uiFieldBrush(dark bool) declarative.Brush {
 	if dark {
-		return declarative.SolidColorBrush{Color: walk.RGB(46, 46, 50)}
+		return declarative.SolidColorBrush{Color: walk.RGB(58, 60, 65)}
 	}
 	return declarative.SolidColorBrush{Color: walk.RGB(255, 255, 255)}
 }
 
 func uiTextColor(dark bool) walk.Color {
 	if dark {
-		return walk.RGB(238, 238, 242)
+		return walk.RGB(232, 233, 236)
 	}
 	return walk.RGB(28, 30, 34)
 }
 
 func uiMutedTextColor(dark bool) walk.Color {
 	if dark {
-		return walk.RGB(172, 174, 181)
+		return walk.RGB(183, 186, 193)
 	}
 	return walk.RGB(91, 96, 105)
+}
+
+func uiTableAltColor(dark bool, odd bool) walk.Color {
+	if dark {
+		if odd {
+			return walk.RGB(54, 56, 61)
+		}
+		return walk.RGB(59, 61, 66)
+	}
+	if odd {
+		return walk.RGB(247, 248, 250)
+	}
+	return walk.RGB(255, 255, 255)
 }
 
 func uiDangerTextColor(dark bool) walk.Color {
@@ -185,14 +199,35 @@ func applyNativeTheme(hwnd uintptr, dark bool) {
 }
 
 func applyThemeToHWND(hwnd uintptr, dark bool) {
+	className := windowClassName(hwnd)
 	name := "Explorer"
+
 	if dark {
-		name = "DarkMode_Explorer"
+		switch strings.ToLower(className) {
+		case "combobox", "edit", "richedit20w", "richedit50w":
+			name = "DarkMode_CFD"
+		default:
+			name = "DarkMode_Explorer"
+		}
 	}
+
 	ptr, err := syscall.UTF16PtrFromString(name)
 	if err == nil {
 		procSetWindowTheme.Call(hwnd, uintptr(unsafe.Pointer(ptr)), 0)
 	}
 	procSendMessageW.Call(hwnd, wmThemeChanged, 0, 0)
 	procInvalidateRect.Call(hwnd, 0, 1)
+}
+
+func windowClassName(hwnd uintptr) string {
+	var buf [128]uint16
+	n, _, _ := procGetClassNameW.Call(
+		hwnd,
+		uintptr(unsafe.Pointer(&buf[0])),
+		uintptr(len(buf)),
+	)
+	if n == 0 {
+		return ""
+	}
+	return syscall.UTF16ToString(buf[:n])
 }

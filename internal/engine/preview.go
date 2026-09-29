@@ -229,12 +229,17 @@ func buildName(cfg Config, path string, globalIndex, dirIndex int, rng *rand.Ran
 
 	current := filepath.Base(path)
 	parent := filepath.Base(filepath.Dir(path))
+	modified := cfg.BatchTime
+	if st, err := os.Stat(path); err == nil {
+		modified = st.ModTime()
+	}
+
 	for _, method := range methods {
 		if method.Disabled {
 			continue
 		}
 		var err error
-		current, err = applyMethod(method, current, parent, globalIndex, dirIndex, cfg.BatchTime, rng)
+		current, err = applyMethod(method, current, parent, globalIndex, dirIndex, cfg.BatchTime, modified, rng)
 		if err != nil {
 			return "", err
 		}
@@ -242,7 +247,7 @@ func buildName(cfg Config, path string, globalIndex, dirIndex int, rng *rand.Ran
 	return current, nil
 }
 
-func applyMethod(method RenameMethod, current, parent string, globalIndex, dirIndex int, batchTime time.Time, rng *rand.Rand) (string, error) {
+func applyMethod(method RenameMethod, current, parent string, globalIndex, dirIndex int, batchTime, modified time.Time, rng *rand.Rand) (string, error) {
 	base, ext := BaseAndExt(current)
 
 	switch method.Type {
@@ -284,9 +289,128 @@ func applyMethod(method RenameMethod, current, parent string, globalIndex, dirIn
 		default:
 			return current, nil
 		}
+	case MethodRemove:
+		return removeRuneRange(base, method.RemoveStart, method.RemoveCount) + ext, nil
+	case MethodRemovePattern:
+		if method.RemovePattern == "" {
+			return current, nil
+		}
+		if method.RemovePatternRegex {
+			re, err := regexp.Compile(method.RemovePattern)
+			if err != nil {
+				return "", fmt.Errorf("invalid remove regex: %w", err)
+			}
+			return re.ReplaceAllString(base, "") + ext, nil
+		}
+		return strings.ReplaceAll(base, method.RemovePattern, "") + ext, nil
+	case MethodRenumber:
+		start := method.RenumberStart
+		step := method.RenumberStep
+		padding := method.RenumberPadding
+		if step == 0 {
+			step = 1
+		}
+		if padding < 1 {
+			padding = 1
+		}
+		index := globalIndex
+		if method.RenumberPerDir {
+			index = dirIndex
+		}
+		value := start + (index-1)*step
+		number := fmt.Sprintf("%0*d", padding, value)
+		separator := method.RenumberSeparator
+		if method.RenumberPosition == PositionSuffix {
+			return base + separator + number + ext, nil
+		}
+		return number + separator + base + ext, nil
+	case MethodTrim:
+		trimmed := strings.TrimSpace(base)
+		if method.TrimNormalizeSpaces {
+			trimmed = strings.Join(strings.Fields(trimmed), " ")
+		}
+		return trimmed + ext, nil
+	case MethodTimestamp:
+		stampTime := modified
+		if method.TimestampSource == TimestampBatch {
+			stampTime = batchTime
+		}
+		format := strings.TrimSpace(method.TimestampFormat)
+		if format == "" {
+			format = "yyyyMMdd-HHmmss"
+		}
+		stamp := stampTime.Format(toGoTimeLayout(format))
+		separator := method.TimestampSeparator
+		if method.TimestampPosition == PositionPrefix {
+			return stamp + separator + base + ext, nil
+		}
+		return base + separator + stamp + ext, nil
+	case MethodMove:
+		moved, err := moveRuneRange(base, method.MoveStart, method.MoveCount, method.MoveTo)
+		if err != nil {
+			return "", err
+		}
+		return moved + ext, nil
 	default:
 		return current, nil
 	}
+}
+
+func removeRuneRange(s string, start, count int) string {
+	if count <= 0 {
+		return s
+	}
+	runes := []rune(s)
+	if len(runes) == 0 {
+		return s
+	}
+	if start < 1 {
+		start = 1
+	}
+	from := start - 1
+	if from >= len(runes) {
+		return s
+	}
+	to := from + count
+	if to > len(runes) {
+		to = len(runes)
+	}
+	return string(append(append([]rune(nil), runes[:from]...), runes[to:]...))
+}
+
+func moveRuneRange(s string, start, count, destination int) (string, error) {
+	if count <= 0 {
+		return s, nil
+	}
+	runes := []rune(s)
+	if start < 1 {
+		start = 1
+	}
+	from := start - 1
+	if from >= len(runes) {
+		return s, nil
+	}
+	to := from + count
+	if to > len(runes) {
+		to = len(runes)
+	}
+
+	part := append([]rune(nil), runes[from:to]...)
+	rest := append(append([]rune(nil), runes[:from]...), runes[to:]...)
+
+	if destination < 1 {
+		destination = 1
+	}
+	insertAt := destination - 1
+	if insertAt > len(rest) {
+		insertAt = len(rest)
+	}
+
+	result := make([]rune, 0, len(runes))
+	result = append(result, rest[:insertAt]...)
+	result = append(result, part...)
+	result = append(result, rest[insertAt:]...)
+	return string(result), nil
 }
 
 func titleCase(s string) string {

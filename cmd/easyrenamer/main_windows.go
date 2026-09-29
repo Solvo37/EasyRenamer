@@ -1150,7 +1150,7 @@ func runMainWindow(state *uiState) uiRunResult {
 		model.SetItems(nil)
 		refreshSourceCount()
 		if statusLbl != nil {
-			statusLbl.SetText("0 Items    0 Ready    0 Selected    0 Errors")
+			statusLbl.SetText(fmt.Sprintf(i18n.T("status.summary"), 0, 0, 0, 0))
 		}
 		updateStatus()
 	}
@@ -1245,7 +1245,7 @@ func runMainWindow(state *uiState) uiRunResult {
 	loadMethodStack := func() {
 		dlg := new(walk.FileDialog)
 		dlg.Title = i18n.T("menu.load_methods")
-		dlg.Filter = "EasyRenamer method set (*.json)|*.json|All files (*.*)|*.*"
+		dlg.Filter = fmt.Sprintf("%s (*.json)|*.json|%s (*.*)|*.*", i18n.T("file.method_set"), i18n.T("file.all"))
 		if ok, err := dlg.ShowOpen(mw); err != nil {
 			showAppError(mw, darkTheme, i18n.T("dialog.load_methods_error"), err.Error())
 		} else if ok {
@@ -1653,7 +1653,7 @@ Composite{Background: uiPanelBrush(darkTheme),
 													PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("button.load_rules"), OnClicked: func() {
 														dlg := new(walk.FileDialog)
 														dlg.Title = i18n.T("button.load_rules")
-														dlg.Filter = "Text files (*.txt;*.csv)|*.txt;*.csv|All files (*.*)|*.*"
+														dlg.Filter = fmt.Sprintf("%s (*.txt;*.csv)|*.txt;*.csv|%s (*.*)|*.*", i18n.T("file.text"), i18n.T("file.all"))
 														if ok, err := dlg.ShowOpen(mw); err != nil {
 															showAppError(mw, darkTheme, i18n.T("dialog.list_replace_error"), err.Error())
 														} else if ok {
@@ -1961,7 +1961,7 @@ Composite{Background: uiPanelBrush(darkTheme),
 	}
 
 	if err := window.Create(); err != nil {
-		walk.MsgBox(nil, "EasyRenamer startup error", err.Error(), walk.MsgBoxIconError)
+		walk.MsgBox(nil, i18n.T("dialog.startup_error"), err.Error(), walk.MsgBoxIconError)
 		log.Print(err)
 		return uiExit
 	}

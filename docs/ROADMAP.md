@@ -115,3 +115,11 @@ EasyRenamer is intended to grow from a focused batch renamer into a serious open
 - [x] Scrollable left method/settings pane for smaller screens
 - [x] Remove the redundant single-option Batch mode selector
 - [x] Rebuilt neutral dark palette
+
+## v0.5.2 — Flat workspace
+
+- [x] Replace framed left-side GroupBoxes with flat sections
+- [x] Bold section headings for Methods / Settings / Add method / Files
+- [x] Compact localized Add method selector
+- [x] Remove 14-button Add method grid
+- [x] Remove ambiguous Open source button from filter row

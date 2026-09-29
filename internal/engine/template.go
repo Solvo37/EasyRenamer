@@ -11,13 +11,23 @@ import (
 )
 
 type TemplateContext struct {
-	BaseName    string
-	Extension   string
-	ParentDir   string
-	DirIndex    int
-	GlobalIndex int
-	BatchTime   time.Time
-	Rand        *rand.Rand
+	Path         string
+	OriginalName string
+	BaseName     string
+	Extension    string
+	ParentDir    string
+	DirIndex     int
+	GlobalIndex  int
+	TotalItems   int
+	BatchTime    time.Time
+	ModifiedTime time.Time
+	CreatedTime  time.Time
+	FileSize     int64
+	Width        int
+	Height       int
+	MediaType    string
+	Metadata     map[string]string
+	Rand         *rand.Rand
 }
 
 var tokenRE = regexp.MustCompile(`<([^<>]+)>`)
@@ -29,6 +39,10 @@ func RenderTemplate(tpl string, ctx TemplateContext) (string, error) {
 	if ctx.Rand == nil {
 		ctx.Rand = rand.New(rand.NewSource(ctx.BatchTime.UnixNano()))
 	}
+	if ctx.OriginalName == "" {
+		ctx.OriginalName = ctx.BaseName + ctx.Extension
+	}
+	populateTemplateContext(&ctx, tpl)
 
 	var renderErr error
 	result := tokenRE.ReplaceAllStringFunc(tpl, func(raw string) string {
@@ -36,7 +50,7 @@ func RenderTemplate(tpl string, ctx TemplateContext) (string, error) {
 			return raw
 		}
 		body := strings.TrimSpace(strings.TrimSuffix(strings.TrimPrefix(raw, "<"), ">"))
-		val, err := renderToken(body, ctx)
+		val, err := renderToken(body, &ctx)
 		if err != nil {
 			renderErr = err
 			return raw
@@ -47,59 +61,51 @@ func RenderTemplate(tpl string, ctx TemplateContext) (string, error) {
 		return "", renderErr
 	}
 
-	if !containsToken(tpl, "Ext") {
+	if !templateContainsExtensionTag(tpl) {
 		result += ctx.Extension
 	}
 	return result, nil
 }
 
-func containsToken(tpl, token string) bool {
-	return strings.Contains(strings.ToLower(tpl), "<"+strings.ToLower(token)+">")
+func templateContainsExtensionTag(tpl string) bool {
+	for _, match := range tokenRE.FindAllStringSubmatch(tpl, -1) {
+		if len(match) < 2 {
+			continue
+		}
+		body := strings.TrimSpace(match[1])
+		lower := strings.ToLower(body)
+		if lower == "ext" || strings.HasPrefix(lower, "ext:") || strings.HasPrefix(lower, "ext|") {
+			return true
+		}
+	}
+	return false
 }
 
-func renderToken(body string, ctx TemplateContext) (string, error) {
-	lower := strings.ToLower(body)
-	switch lower {
-	case "name":
-		return ctx.BaseName, nil
-	case "ext":
-		return strings.TrimPrefix(ctx.Extension, "."), nil
-	case "unixtimestamp", "unix":
-		return strconv.FormatInt(ctx.BatchTime.Unix(), 10), nil
-	case "dirname:1", "parent":
-		return ctx.ParentDir, nil
-	case "rand":
-		return strconv.Itoa(ctx.Rand.Intn(10)), nil
+func formatCounterWithStep(index int, spec string, defaultStart, defaultStep int) string {
+	if index < 1 {
+		index = 1
 	}
-
-	if strings.HasPrefix(lower, "inc nrdir:") {
-		fmtSpec := strings.TrimSpace(body[len("Inc NrDir:"):])
-		return formatCounter(ctx.DirIndex, fmtSpec), nil
-	}
-	if strings.HasPrefix(lower, "inc:") {
-		fmtSpec := strings.TrimSpace(body[len("Inc:"):])
-		return formatCounter(ctx.GlobalIndex, fmtSpec), nil
-	}
-	if strings.HasPrefix(lower, "rand str:") {
-		n, err := strconv.Atoi(strings.TrimSpace(body[len("Rand Str:"):]))
-		if err != nil || n < 1 || n > 128 {
-			return "", fmt.Errorf("invalid random string length in <%s>", body)
+	start := defaultStart
+	step := defaultStep
+	width := 0
+	parts := strings.Split(spec, ":")
+	if len(parts) > 0 && strings.TrimSpace(parts[0]) != "" {
+		startText := strings.TrimSpace(parts[0])
+		width = len(startText)
+		if n, err := strconv.Atoi(startText); err == nil {
+			start = n
 		}
-		return randomChars(ctx.Rand, n, "abcdefghijklmnopqrstuvwxyz0123456789"), nil
 	}
-	if strings.HasPrefix(lower, "rand alpha:") {
-		n, err := strconv.Atoi(strings.TrimSpace(body[len("Rand Alpha:"):]))
-		if err != nil || n < 1 || n > 128 {
-			return "", fmt.Errorf("invalid random alpha length in <%s>", body)
+	if len(parts) > 1 && strings.TrimSpace(parts[1]) != "" {
+		if n, err := strconv.Atoi(strings.TrimSpace(parts[1])); err == nil {
+			step = n
 		}
-		return randomChars(ctx.Rand, n, "abcdefghijklmnopqrstuvwxyz"), nil
 	}
-	if strings.HasPrefix(lower, "date:") {
-		pattern := strings.TrimSpace(body[len("Date:"):])
-		return ctx.BatchTime.Format(toGoTimeLayout(pattern)), nil
+	value := start + (index-1)*step
+	if width > 1 && strings.HasPrefix(strings.TrimSpace(parts[0]), "0") {
+		return fmt.Sprintf("%0*d", width, value)
 	}
-
-	return "", fmt.Errorf("unknown token <%s>", body)
+	return strconv.Itoa(value)
 }
 
 func formatCounter(index int, spec string) string {

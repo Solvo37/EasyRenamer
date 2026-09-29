@@ -390,6 +390,7 @@ type uiState struct {
 	CustomExtensions string
 	Recursive        bool
 	AutoPreview      bool
+	SelectedMethod   int
 }
 
 type uiRunResult int
@@ -516,6 +517,7 @@ func runMainWindow(state *uiState) uiRunResult {
 		if autoPreviewCB != nil {
 			state.AutoPreview = autoPreviewCB.Checked()
 		}
+		state.SelectedMethod = editingMethodIndex
 	}
 
 	requestUIRebuild := func() {
@@ -1404,7 +1406,7 @@ func runMainWindow(state *uiState) uiRunResult {
 					PushButton{Background: uiPanelBrush(darkTheme),AssignTo: &undoPB, Text: i18n.T("button.undo"), MinSize: Size{95, 32}, OnClicked: undo},
 					HSpacer{},
 					Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),AssignTo: &sourceCountLbl, Text: fmt.Sprintf(i18n.T("sources.count"), 0)},
-					PushButton{Background: uiPanelBrush(darkTheme),AssignTo: &renamePB, Text: i18n.T("button.start"), Enabled: false, MinSize: Size{170, 34}, OnClicked: rename},
+					PushButton{Background: uiPanelBrush(darkTheme),AssignTo: &renamePB, Text: i18n.T("button.start"), Font: Font{PointSize: 11, Bold: true}, Enabled: false, MinSize: Size{190, 38}, OnClicked: rename},
 				},
 			},
 			Composite{Background: uiPanelBrush(darkTheme),
@@ -1436,7 +1438,7 @@ func runMainWindow(state *uiState) uiRunResult {
 				HandleWidth: 7,
 				Children: []Widget{
 					Composite{Background: uiPanelBrush(darkTheme),
-						MinSize: Size{320, 0},
+						MinSize: Size{500, 0},
 						Layout:  VBox{Spacing: 6},
 						Children: []Widget{
 							GroupBox{Background: uiPanelBrush(darkTheme),
@@ -1453,7 +1455,7 @@ func runMainWindow(state *uiState) uiRunResult {
 										NotSortableByHeaderClick:    true,
 										SelectionHiddenWithoutFocus: false,
 										CustomRowHeight:              32,
-										MinSize:                      Size{295, 260},
+										MinSize:                      Size{470, 165},
 										Columns: []TableViewColumn{
 											{Title: i18n.T("column.method"), Width: 235},
 										},
@@ -1502,41 +1504,14 @@ func runMainWindow(state *uiState) uiRunResult {
 									},
 								},
 							},
-							GroupBox{Background: uiPanelBrush(darkTheme),
-								Title:  i18n.T("group.add_method"),
-								Layout: Grid{Columns: 2, Spacing: 5},
-								Children: []Widget{
-									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.new_name"), OnClicked: func() { addMethod(engine.MethodTemplate) }},
-									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.list"), OnClicked: func() { addMethod(engine.MethodList) }},
-									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.list_replace"), OnClicked: func() { addMethod(engine.MethodListReplace) }},
-									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.change_case"), OnClicked: func() { addMethod(engine.MethodCase) }},
-									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.move"), OnClicked: func() { addMethod(engine.MethodMove) }},
-									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.remove"), OnClicked: func() { addMethod(engine.MethodRemove) }},
-									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.remove_pattern"), OnClicked: func() { addMethod(engine.MethodRemovePattern) }},
-									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.renumber"), OnClicked: func() { addMethod(engine.MethodRenumber) }},
-									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.replace"), OnClicked: func() { addMethod(engine.MethodReplace) }},
-									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.add_text"), OnClicked: func() { addMethod(engine.MethodPrefixSuffix) }},
-									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.script"), OnClicked: func() { addMethod(engine.MethodScript) }},
-									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.swap"), OnClicked: func() { addMethod(engine.MethodSwap) }},
-									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.trim"), OnClicked: func() { addMethod(engine.MethodTrim) }},
-									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.timestamp"), OnClicked: func() { addMethod(engine.MethodTimestamp) }},
-								},
-							},
-							Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("tip.methods")},
-							VSpacer{},
-						},
-					},
-					Composite{Background: uiPanelBrush(darkTheme),
-						Layout: VBox{Spacing: 6},
-						Children: []Widget{
-							GroupBox{Background: uiPanelBrush(darkTheme),
+GroupBox{Background: uiPanelBrush(darkTheme),
 								AssignTo: &methodSettingsGB,
 								Title:  fmt.Sprintf(i18n.T("group.settings_selected"), methodTitle(methods[0].Type)),
 								Layout: VBox{},
 								Children: []Widget{
 									TabWidget{Background: uiPanelBrush(darkTheme),
 										AssignTo: &editorTabs,
-										MinSize:  Size{700, 250},
+										MinSize:  Size{470, 260},
 										Pages: []TabPage{
 											{
 												AssignTo: &editorPages[0],
@@ -1827,6 +1802,34 @@ func runMainWindow(state *uiState) uiRunResult {
 									},
 								},
 							},
+							GroupBox{Background: uiPanelBrush(darkTheme),
+								Title:  i18n.T("group.add_method"),
+								Layout: Grid{Columns: 2, Spacing: 5},
+								Children: []Widget{
+									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.new_name"), OnClicked: func() { addMethod(engine.MethodTemplate) }},
+									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.list"), OnClicked: func() { addMethod(engine.MethodList) }},
+									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.list_replace"), OnClicked: func() { addMethod(engine.MethodListReplace) }},
+									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.change_case"), OnClicked: func() { addMethod(engine.MethodCase) }},
+									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.move"), OnClicked: func() { addMethod(engine.MethodMove) }},
+									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.remove"), OnClicked: func() { addMethod(engine.MethodRemove) }},
+									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.remove_pattern"), OnClicked: func() { addMethod(engine.MethodRemovePattern) }},
+									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.renumber"), OnClicked: func() { addMethod(engine.MethodRenumber) }},
+									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.replace"), OnClicked: func() { addMethod(engine.MethodReplace) }},
+									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.add_text"), OnClicked: func() { addMethod(engine.MethodPrefixSuffix) }},
+									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.script"), OnClicked: func() { addMethod(engine.MethodScript) }},
+									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.swap"), OnClicked: func() { addMethod(engine.MethodSwap) }},
+									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.trim"), OnClicked: func() { addMethod(engine.MethodTrim) }},
+									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.timestamp"), OnClicked: func() { addMethod(engine.MethodTimestamp) }},
+								},
+							},
+							Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("tip.methods")},
+							VSpacer{},
+						},
+					},
+					Composite{Background: uiPanelBrush(darkTheme),
+						Layout: VBox{Spacing: 6},
+						Children: []Widget{
+							
 							Label{
 								AssignTo:      &dropHintLbl,
 								Text:          i18n.T("drop.hint") + "   ·   " + i18n.T("drop.subhint"),
@@ -1909,10 +1912,16 @@ func runMainWindow(state *uiState) uiRunResult {
 		return
 	}
 
-	showMethodEditor(methods[0].Type)
-	loadMethodEditor(0)
+	selectedIndex := state.SelectedMethod
+	if selectedIndex < 0 || selectedIndex >= len(methods) {
+		selectedIndex = 0
+	}
+	refreshMethodTable(selectedIndex)
 	refreshSourceCount()
 	applyNativeTheme(uintptr(mw.Handle()), darkTheme)
+	if len(sources) > 0 {
+		preview()
+	}
 	mw.Run()
 
 	captureState()

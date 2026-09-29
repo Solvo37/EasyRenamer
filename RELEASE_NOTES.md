@@ -1,21 +1,31 @@
-# EasyRenamer v0.4.1
+# EasyRenamer v0.4.2
 
-Hotfix release for the Windows startup crash in v0.4.0.
+UX/UI and live-preview release.
+
+## Changed
+
+- Added **System / Light / Dark** theme modes.
+- System mode follows the Windows app theme at startup.
+- Added dark title-bar and native-control theming on supported Windows versions.
+- Refreshed spacing, row heights, window sizing, and control sizing for a less cramped interface.
+- Renamed the auto-preview option to **Live preview** for clearer behavior.
 
 ## Fixed
 
-- Fixed `value out of range` during startup in the Walk `NumberEdit` controls.
-- The app now shows a visible startup error dialog if window creation fails instead of silently exiting.
-- CI and the release workflow now launch the freshly built Windows executable for a startup smoke test before accepting or publishing it.
+- **New Name now updates while typing.**
+- Text-based method settings no longer wait for focus loss before recalculating preview.
+- Preview recalculation is debounced to avoid rebuilding the file list on every keystroke.
+- If another edit happens while preview generation is already running, the latest preview request is queued and recalculated afterwards.
+- The preview table is explicitly invalidated after model refresh to prevent stale **New filename** cells that only repainted after mouse movement.
 
-## Background
+## Quality
 
-v0.4.0 compiled and passed core tests, but several numeric editor defaults were assigned through Walk declarative properties during window initialization. On a real Windows launch this could conflict with the control's initialized range and terminate the app before the main window appeared.
-
-v0.4.1 removes those declarative default-value assignments. Method defaults are still applied when the corresponding method is selected.
+- Core tests pass.
+- Windows build passes.
+- The built executable passes the Windows startup smoke test before release publication.
 
 ## Downloads
 
 - **EasyRenamer.exe** — portable Windows x64 executable.
-- **EasyRenamer-v0.4.1-windows-x64.zip** — EXE + README + license + documentation.
+- **EasyRenamer-v0.4.2-windows-x64.zip** — EXE + README + license + documentation.
 - **SHA256SUMS.txt** — checksums.

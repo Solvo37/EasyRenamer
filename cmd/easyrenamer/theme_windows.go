@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
+	"time"
 	"unsafe"
 
 	"github.com/lxn/walk"
@@ -29,12 +30,20 @@ var (
 	procSetWindowTheme        = uxtheme.NewProc("SetWindowTheme")
 	user32Theme               = syscall.NewLazyDLL("user32.dll")
 	procEnumChildWindows      = user32Theme.NewProc("EnumChildWindows")
+	procEnumThreadWindows     = user32Theme.NewProc("EnumThreadWindows")
+	procGetCurrentThreadId    = syscall.NewLazyDLL("kernel32.dll").NewProc("GetCurrentThreadId")
 	procSendMessageW          = user32Theme.NewProc("SendMessageW")
 	procInvalidateRect        = user32Theme.NewProc("InvalidateRect")
 	procGetClassNameW         = user32Theme.NewProc("GetClassNameW")
 )
 
-const wmThemeChanged = 0x031A
+const (
+	wmThemeChanged     = 0x031A
+	lvmFirst           = 0x1000
+	lvmSetBkColor      = lvmFirst + 1
+	lvmSetTextColor    = lvmFirst + 36
+	lvmSetTextBkColor  = lvmFirst + 38
+)
 
 func loadThemeMode() themeMode {
 	path := themeSettingsPath()
@@ -199,12 +208,12 @@ func applyNativeTheme(hwnd uintptr, dark bool) {
 }
 
 func applyThemeToHWND(hwnd uintptr, dark bool) {
-	className := windowClassName(hwnd)
+	className := strings.ToLower(windowClassName(hwnd))
 	name := "Explorer"
 
 	if dark {
-		switch strings.ToLower(className) {
-		case "combobox", "edit", "richedit20w", "richedit50w":
+		switch className {
+		case "combobox", "combolbox", "listbox", "edit", "richedit20w", "richedit50w":
 			name = "DarkMode_CFD"
 		default:
 			name = "DarkMode_Explorer"
@@ -215,8 +224,49 @@ func applyThemeToHWND(hwnd uintptr, dark bool) {
 	if err == nil {
 		procSetWindowTheme.Call(hwnd, uintptr(unsafe.Pointer(ptr)), 0)
 	}
+
+	if className == "syslistview32" {
+		bg := colorRef(255, 255, 255)
+		text := colorRef(28, 30, 34)
+		if dark {
+			bg = colorRef(58, 60, 65)
+			text = colorRef(232, 233, 236)
+		}
+		procSendMessageW.Call(hwnd, lvmSetBkColor, 0, bg)
+		procSendMessageW.Call(hwnd, lvmSetTextBkColor, 0, bg)
+		procSendMessageW.Call(hwnd, lvmSetTextColor, 0, text)
+	}
+
 	procSendMessageW.Call(hwnd, wmThemeChanged, 0, 0)
 	procInvalidateRect.Call(hwnd, 0, 1)
+}
+
+func scheduleFloatingTheme(owner walk.Form, dark bool) {
+	if owner == nil {
+		return
+	}
+	time.AfterFunc(35*time.Millisecond, func() {
+		owner.Synchronize(func() {
+			applyFloatingTheme(dark)
+			applyNativeTheme(uintptr(owner.Handle()), dark)
+		})
+	})
+}
+
+func applyFloatingTheme(dark bool) {
+	threadID, _, _ := procGetCurrentThreadId.Call()
+	callback := syscall.NewCallback(func(hwnd, lparam uintptr) uintptr {
+		className := strings.ToLower(windowClassName(hwnd))
+		if className == "combolbox" || className == "#32768" {
+			applyThemeToHWND(hwnd, dark)
+		}
+		return 1
+	})
+	procEnumThreadWindows.Call(threadID, callback, 0)
+}
+
+func colorRef(r, g, b byte) uintptr {
+	return uintptr(uint32(r) | uint32(g)<<8 | uint32(b)<<16)
 }
 
 func windowClassName(hwnd uintptr) string {

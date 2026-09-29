@@ -130,6 +130,12 @@ func resolveTagCore(expr string, ctx *TemplateContext) (string, error) {
 	name, args := splitTagNameArgs(expr)
 	lowerName := strings.ToLower(strings.TrimSpace(name))
 
+	if lowerName == "date" && strings.EqualFold(filepath.Ext(ctx.Path), ".eml") {
+		if value := metadataValue(ctx.Metadata, "date"); value != "" {
+			return value, nil
+		}
+	}
+
 	switch lowerName {
 	case "name":
 		return ctx.BaseName, nil
@@ -298,7 +304,13 @@ func resolveTagCore(expr string, ctx *TemplateContext) (string, error) {
 		"pages", "creator", "subject", "date", "from", "fromname", "fromemail",
 		"to", "toname", "toemail", "cc", "ccname", "ccemail", "bcc", "bccname", "bccemail",
 		"author", "copyright":
-		value := metadataValue(ctx.Metadata, lowerName)
+		key := lowerName
+		if len(args) > 0 && (lowerName == "to" || lowerName == "toname" || lowerName == "toemail" ||
+			lowerName == "cc" || lowerName == "ccname" || lowerName == "ccemail" ||
+			lowerName == "bcc" || lowerName == "bccname" || lowerName == "bccemail") {
+			key += " " + strings.TrimSpace(args[0])
+		}
+		value := metadataValue(ctx.Metadata, key)
 		if value != "" && (lowerName == "track" || lowerName == "trackcount" || lowerName == "disc" || lowerName == "disccount" || lowerName == "pages") {
 			if n, err := strconv.ParseInt(value, 10, 64); err == nil {
 				value = padNumber(n, firstArg(args))

@@ -16,15 +16,8 @@ import (
 var invalidChars = regexp.MustCompile(`[<>:"/\\|?*]`)
 
 func Preview(cfg Config) ([]*Item, error) {
-	if cfg.Root == "" {
-		return nil, errors.New("folder is required")
-	}
-	st, err := os.Stat(cfg.Root)
-	if err != nil {
-		return nil, err
-	}
-	if !st.IsDir() {
-		return nil, errors.New("selected path is not a folder")
+	if len(cfg.Sources) == 0 && strings.TrimSpace(cfg.Root) == "" {
+		return nil, errors.New("at least one file or folder is required")
 	}
 	if cfg.BatchTime.IsZero() {
 		cfg.BatchTime = time.Now()
@@ -106,79 +99,155 @@ func Preview(cfg Config) ([]*Item, error) {
 }
 
 func scanFiles(cfg Config) ([]string, error) {
-	var out []string
-	if cfg.Recursive {
-		err := filepath.WalkDir(cfg.Root, func(path string, d os.DirEntry, err error) error {
-			if err != nil {
-				return err
-			}
-			if d.IsDir() {
-				return nil
-			}
-			if MatchesCategory(cfg.Category, cfg.CustomExtensions, filepath.Ext(d.Name())) {
-				out = append(out, path)
-			}
-			return nil
-		})
-		return out, err
+	sources := append([]string(nil), cfg.Sources...)
+	if len(sources) == 0 && strings.TrimSpace(cfg.Root) != "" {
+		sources = []string{cfg.Root}
 	}
-	entries, err := os.ReadDir(cfg.Root)
-	if err != nil {
-		return nil, err
+
+	seen := make(map[string]struct{})
+	out := make([]string, 0)
+	add := func(path string) {
+		abs, err := filepath.Abs(path)
+		if err == nil {
+			path = abs
+		}
+		path = filepath.Clean(path)
+		key := strings.ToLower(path)
+		if _, ok := seen[key]; ok {
+			return
+		}
+		seen[key] = struct{}{}
+		out = append(out, path)
 	}
-	for _, e := range entries {
-		if e.IsDir() {
+
+	for _, source := range sources {
+		source = strings.TrimSpace(source)
+		if source == "" {
 			continue
 		}
-		if MatchesCategory(cfg.Category, cfg.CustomExtensions, filepath.Ext(e.Name())) {
-			out = append(out, filepath.Join(cfg.Root, e.Name()))
+		st, err := os.Stat(source)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", source, err)
+		}
+
+		if !st.IsDir() {
+			if MatchesCategory(cfg.Category, cfg.CustomExtensions, filepath.Ext(source)) {
+				add(source)
+			}
+			continue
+		}
+
+		if cfg.Recursive {
+			err := filepath.WalkDir(source, func(path string, d os.DirEntry, err error) error {
+				if err != nil {
+					return err
+				}
+				if d.IsDir() {
+					return nil
+				}
+				if MatchesCategory(cfg.Category, cfg.CustomExtensions, filepath.Ext(d.Name())) {
+					add(path)
+				}
+				return nil
+			})
+			if err != nil {
+				return nil, err
+			}
+			continue
+		}
+
+		entries, err := os.ReadDir(source)
+		if err != nil {
+			return nil, err
+		}
+		for _, e := range entries {
+			if e.IsDir() {
+				continue
+			}
+			if MatchesCategory(cfg.Category, cfg.CustomExtensions, filepath.Ext(e.Name())) {
+				add(filepath.Join(source, e.Name()))
+			}
 		}
 	}
+
 	return out, nil
 }
 
 func buildName(cfg Config, path string, globalIndex, dirIndex int, rng *rand.Rand) (string, error) {
-	old := filepath.Base(path)
-	base, ext := BaseAndExt(old)
-	parent := filepath.Base(filepath.Dir(path))
+	methods := cfg.Methods
+	if len(methods) == 0 {
+		methodType := cfg.Method
+		if methodType == "" {
+			methodType = MethodTemplate
+		}
+		methods = []RenameMethod{{
+			Type:        methodType,
+			Template:    cfg.Template,
+			Find:        cfg.Find,
+			ReplaceWith: cfg.ReplaceWith,
+			UseRegex:    cfg.UseRegex,
+			Prefix:      cfg.Prefix,
+			Suffix:      cfg.Suffix,
+			CaseMode:    cfg.CaseMode,
+		}}
+	}
 
-	switch cfg.Method {
+	current := filepath.Base(path)
+	parent := filepath.Base(filepath.Dir(path))
+	for _, method := range methods {
+		var err error
+		current, err = applyMethod(method, current, parent, globalIndex, dirIndex, cfg.BatchTime, rng)
+		if err != nil {
+			return "", err
+		}
+	}
+	return current, nil
+}
+
+func applyMethod(method RenameMethod, current, parent string, globalIndex, dirIndex int, batchTime time.Time, rng *rand.Rand) (string, error) {
+	base, ext := BaseAndExt(current)
+
+	switch method.Type {
 	case MethodTemplate:
-		return RenderTemplate(cfg.Template, TemplateContext{
+		tpl := method.Template
+		if tpl == "" {
+			tpl = "<Name>"
+		}
+		return RenderTemplate(tpl, TemplateContext{
 			BaseName: base, Extension: ext, ParentDir: parent,
 			DirIndex: dirIndex, GlobalIndex: globalIndex,
-			BatchTime: cfg.BatchTime, Rand: rng,
+			BatchTime: batchTime, Rand: rng,
 		})
 	case MethodReplace:
-		if cfg.Find == "" {
-			return old, nil
+		if method.Find == "" {
+			return current, nil
 		}
 		var renamed string
-		if cfg.UseRegex {
-			re, err := regexp.Compile(cfg.Find)
+		if method.UseRegex {
+			re, err := regexp.Compile(method.Find)
 			if err != nil {
 				return "", fmt.Errorf("invalid regex: %w", err)
 			}
-			renamed = re.ReplaceAllString(base, cfg.ReplaceWith)
+			renamed = re.ReplaceAllString(base, method.ReplaceWith)
 		} else {
-			renamed = strings.ReplaceAll(base, cfg.Find, cfg.ReplaceWith)
+			renamed = strings.ReplaceAll(base, method.Find, method.ReplaceWith)
 		}
 		return renamed + ext, nil
 	case MethodPrefixSuffix:
-		return cfg.Prefix + base + cfg.Suffix + ext, nil
+		return method.Prefix + base + method.Suffix + ext, nil
 	case MethodCase:
-		switch cfg.CaseMode {
-		case CaseLower:
-			return strings.ToLower(base) + ext, nil
+		switch method.CaseMode {
 		case CaseUpper:
 			return strings.ToUpper(base) + ext, nil
 		case CaseTitle:
 			return titleCase(base) + ext, nil
+		case CaseLower, "":
+			return strings.ToLower(base) + ext, nil
 		default:
-			return old, nil
+			return current, nil
 		}
 	default:
-		return old, nil
+		return current, nil
 	}
 }
 

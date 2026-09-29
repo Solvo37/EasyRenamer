@@ -251,5 +251,6 @@ func init() {
 		"case.lower": "нижний регистр",
 		"case.upper": "ВЕРХНИЙ РЕГИСТР",
 		"case.title": "Каждое Слово С Заглавной",
+		"dialog.startup_error": "Ошибка запуска EasyRenamer",
 	}
 }

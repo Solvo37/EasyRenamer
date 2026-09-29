@@ -433,8 +433,7 @@ func runMainWindow(state *uiState) uiRunResult {
 	var removeStartNE, removeCountNE, renumberStartNE, renumberStepNE, renumberPaddingNE *walk.NumberEdit
 	var moveStartNE, moveCountNE, moveToNE, swapOccurrenceNE *walk.NumberEdit
 	var methodTable, table *walk.TableView
-	var editorTabs *walk.TabWidget
-	var editorPages [14]*walk.TabPage
+	var editorPanels [14]*walk.Composite
 	var methodSettingsTitleLbl *walk.Label
 	var sourceCountLbl, statusLbl, collisionLbl, dropHintLbl *walk.Label
 	var previewPB, renamePB, undoPB *walk.PushButton
@@ -700,26 +699,14 @@ func runMainWindow(state *uiState) uiRunResult {
 	}
 
 	showMethodEditor = func(methodType engine.Method) {
-		if editorTabs == nil {
+		panelIndex := methodTabIndex(methodType)
+		if panelIndex < 0 || panelIndex >= len(editorPanels) {
 			return
 		}
-		pageIndex := methodTabIndex(methodType)
-		if pageIndex < 0 || pageIndex >= len(editorPages) || editorPages[pageIndex] == nil {
-			return
-		}
-		desired := editorPages[pageIndex]
-		pages := editorTabs.Pages()
-
-		for i := pages.Len() - 1; i >= 0; i-- {
-			if pages.At(i) != desired {
-				_ = pages.RemoveAt(i)
+		for i, panel := range editorPanels {
+			if panel != nil {
+				panel.SetVisible(i == panelIndex)
 			}
-		}
-		if !pages.Contains(desired) {
-			_ = pages.Add(desired)
-		}
-		if pages.Len() > 0 {
-			_ = editorTabs.SetCurrentIndex(0)
 		}
 		if methodSettingsTitleLbl != nil {
 			methodSettingsTitleLbl.SetText(fmt.Sprintf(i18n.T("group.settings_selected"), methodTitle(methodType)))
@@ -727,7 +714,7 @@ func runMainWindow(state *uiState) uiRunResult {
 	}
 
 	loadMethodEditor = func(index int) {
-		if editorTabs == nil || index < 0 || index >= len(methods) {
+		if index < 0 || index >= len(methods) {
 			return
 		}
 		updatingMethodUI = true
@@ -1593,14 +1580,14 @@ Composite{Background: uiPanelBrush(darkTheme),
 										TextColor:   uiTextColor(darkTheme),
 										Background:  uiPanelBrush(darkTheme),
 									},
-									TabWidget{Background: uiPanelBrush(darkTheme),
-										AssignTo: &editorTabs,
-										MinSize:  Size{360, 210},
-										Pages: []TabPage{
-											{
-												AssignTo: &editorPages[0],
+									Composite{Background: uiPanelBrush(darkTheme),
+										MinSize: Size{360, 210},
+										Layout:  VBox{Spacing: 0},
+										Children: []Widget{
+											Composite{
+												AssignTo: &editorPanels[0],
 												Background: uiPanelBrush(darkTheme),
-												Title:  i18n.T("method.new_name"),
+												Visible: true,
 												Layout: Grid{Columns: 5, Spacing: 7},
 												Children: []Widget{
 													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.preset")},
@@ -1631,10 +1618,10 @@ Composite{Background: uiPanelBrush(darkTheme),
 													},
 												},
 											},
-											{
-												AssignTo: &editorPages[1],
+											Composite{
+												AssignTo: &editorPanels[1],
 												Background: uiPanelBrush(darkTheme),
-												Title:  i18n.T("method.list"),
+												Visible: false,
 												Layout: Grid{Columns: 4, Spacing: 7},
 												Children: []Widget{
 													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.list_info"), ColumnSpan: 4},
@@ -1696,10 +1683,10 @@ Composite{Background: uiPanelBrush(darkTheme),
 													PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("button.apply"), OnClicked: func() { saveMethodEditor(); maybePreview() }},
 												},
 											},
-											{
-												AssignTo: &editorPages[2],
+											Composite{
+												AssignTo: &editorPanels[2],
 												Background: uiPanelBrush(darkTheme),
-												Title:  i18n.T("method.list_replace"),
+												Visible: false,
 												Layout: Grid{Columns: 4, Spacing: 7},
 												Children: []Widget{
 													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.rules_info"), ColumnSpan: 4},
@@ -1727,10 +1714,10 @@ Composite{Background: uiPanelBrush(darkTheme),
 													PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("button.apply"), OnClicked: func() { saveMethodEditor(); maybePreview() }},
 												},
 											},
-											{
-												AssignTo: &editorPages[3],
+											Composite{
+												AssignTo: &editorPanels[3],
 												Background: uiPanelBrush(darkTheme),
-												Title:  i18n.T("method.change_case"),
+												Visible: false,
 												Layout: Grid{Columns: 2, Spacing: 7},
 												Children: []Widget{
 													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.case_to")},
@@ -1741,10 +1728,10 @@ Composite{Background: uiPanelBrush(darkTheme),
 													}},
 												},
 											},
-											{
-												AssignTo: &editorPages[4],
+											Composite{
+												AssignTo: &editorPanels[4],
 												Background: uiPanelBrush(darkTheme),
-												Title:  i18n.T("method.move"),
+												Visible: false,
 												Layout: Grid{Columns: 6, Spacing: 7},
 												Children: []Widget{
 													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.start")},
@@ -1756,10 +1743,10 @@ Composite{Background: uiPanelBrush(darkTheme),
 													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: "Positions are 1-based and apply to the filename without extension.", ColumnSpan: 6},
 												},
 											},
-											{
-												AssignTo: &editorPages[5],
+											Composite{
+												AssignTo: &editorPanels[5],
 												Background: uiPanelBrush(darkTheme),
-												Title:  i18n.T("method.remove"),
+												Visible: false,
 												Layout: Grid{Columns: 4, Spacing: 7},
 												Children: []Widget{
 													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.start")},
@@ -1769,10 +1756,10 @@ Composite{Background: uiPanelBrush(darkTheme),
 													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: "Removes characters from the base filename; extension is preserved.", ColumnSpan: 4},
 												},
 											},
-											{
-												AssignTo: &editorPages[6],
+											Composite{
+												AssignTo: &editorPanels[6],
 												Background: uiPanelBrush(darkTheme),
-												Title:  i18n.T("method.remove_pattern"),
+												Visible: false,
 												Layout: Grid{Columns: 4, Spacing: 7},
 												Children: []Widget{
 													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.pattern")},
@@ -1780,10 +1767,10 @@ Composite{Background: uiPanelBrush(darkTheme),
 													CheckBox{Background: uiPanelBrush(darkTheme),AssignTo: &removePatternRegexCB, Text: i18n.T("label.regex"), ColumnSpan: 4, OnCheckedChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
 												},
 											},
-											{
-												AssignTo: &editorPages[7],
+											Composite{
+												AssignTo: &editorPanels[7],
 												Background: uiPanelBrush(darkTheme),
-												Title:  i18n.T("method.renumber"),
+												Visible: false,
 												Layout: Grid{Columns: 6, Spacing: 7},
 												Children: []Widget{
 													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.start")},
@@ -1799,10 +1786,10 @@ Composite{Background: uiPanelBrush(darkTheme),
 													CheckBox{Background: uiPanelBrush(darkTheme),AssignTo: &renumberPerDirCB, Text: i18n.T("label.per_folder"), Checked: true, ColumnSpan: 2, OnCheckedChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
 												},
 											},
-											{
-												AssignTo: &editorPages[8],
+											Composite{
+												AssignTo: &editorPanels[8],
 												Background: uiPanelBrush(darkTheme),
-												Title:  i18n.T("method.replace"),
+												Visible: false,
 												Layout: Grid{Columns: 4, Spacing: 7},
 												Children: []Widget{
 													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.find")},
@@ -1815,10 +1802,10 @@ Composite{Background: uiPanelBrush(darkTheme),
 													}},
 												},
 											},
-											{
-												AssignTo: &editorPages[9],
+											Composite{
+												AssignTo: &editorPanels[9],
 												Background: uiPanelBrush(darkTheme),
-												Title:  i18n.T("method.add_text"),
+												Visible: false,
 												Layout: Grid{Columns: 4, Spacing: 7},
 												Children: []Widget{
 													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.prefix")},
@@ -1828,10 +1815,10 @@ Composite{Background: uiPanelBrush(darkTheme),
 													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.extension_preserved"), ColumnSpan: 4},
 												},
 											},
-											{
-												AssignTo: &editorPages[10],
+											Composite{
+												AssignTo: &editorPanels[10],
 												Background: uiPanelBrush(darkTheme),
-												Title:  i18n.T("method.script"),
+												Visible: false,
 												Layout: Grid{Columns: 4, Spacing: 7},
 												Children: []Widget{
 													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.expression")},
@@ -1842,10 +1829,10 @@ Composite{Background: uiPanelBrush(darkTheme),
 													PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("button.reset_example"), OnClicked: func() { if scriptTE != nil { scriptTE.SetText("concat(Name, Ext)"); saveMethodEditor(); maybePreview() } }},
 												},
 											},
-											{
-												AssignTo: &editorPages[11],
+											Composite{
+												AssignTo: &editorPanels[11],
 												Background: uiPanelBrush(darkTheme),
-												Title:  i18n.T("method.swap"),
+												Visible: false,
 												Layout: Grid{Columns: 4, Spacing: 7},
 												Children: []Widget{
 													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.separator")},
@@ -1855,20 +1842,20 @@ Composite{Background: uiPanelBrush(darkTheme),
 													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: "Example: Michael Jackson - Thriller  ->  Thriller - Michael Jackson", ColumnSpan: 4},
 												},
 											},
-											{
-												AssignTo: &editorPages[12],
+											Composite{
+												AssignTo: &editorPanels[12],
 												Background: uiPanelBrush(darkTheme),
-												Title:  i18n.T("method.trim"),
+												Visible: false,
 												Layout: Grid{Columns: 2, Spacing: 7},
 												Children: []Widget{
 													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.trim_info"), ColumnSpan: 2},
 													CheckBox{Background: uiPanelBrush(darkTheme),AssignTo: &trimNormalizeCB, Text: i18n.T("label.trim_spaces"), Checked: true, ColumnSpan: 2, OnCheckedChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
 												},
 											},
-											{
-												AssignTo: &editorPages[13],
+											Composite{
+												AssignTo: &editorPanels[13],
 												Background: uiPanelBrush(darkTheme),
-												Title:  i18n.T("method.timestamp"),
+												Visible: false,
 												Layout: Grid{Columns: 4, Spacing: 7},
 												Children: []Widget{
 													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.source")},

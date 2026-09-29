@@ -25,7 +25,7 @@ EasyRenamer is intended to grow from a focused batch renamer into a serious open
 
 - [x] Chained rename methods (method stack)
 - [x] Move / reorder methods in the stack
-- [ ] Enable/disable individual methods without deleting them
+- [x] Enable/disable individual methods without deleting them
 - [ ] Remove characters by position
 - [ ] Trim / normalize whitespace
 - [ ] Extension-specific transformations
@@ -57,6 +57,7 @@ EasyRenamer is intended to grow from a focused batch renamer into a serious open
 - [ ] Dark mode
 - [ ] Localization (English / Russian)
 - [ ] Search/filter inside preview
+- [x] File size and image dimensions in preview table
 - [ ] Keyboard shortcuts
 - [ ] Context-menu integration (optional)
 - [ ] Signed Windows releases when infrastructure is available

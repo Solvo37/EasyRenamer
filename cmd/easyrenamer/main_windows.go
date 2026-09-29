@@ -1507,7 +1507,7 @@ func main() {
 													Label{Text: "Expression:"},
 													TextEdit{AssignTo: &scriptTE, VScroll: true, HScroll: true, MinSize: Size{0, 105}, ColumnSpan: 3, OnTextChanged: saveMethodEditor},
 													Label{Text: "Variables: Name, Ext, FullName, Index, DirIndex, DirName, UnixTimestamp, ModifiedUnix.", ColumnSpan: 4},
-													Label{Text: "Functions: lower(), upper(), trim(), replace(), concat(), substr(). Example: concat(lower(Name), "-", Index, Ext)", ColumnSpan: 4},
+													Label{Text: "Functions: lower(), upper(), trim(), replace(), concat(), substr(). Example: concat(lower(Name), '-', Index, Ext)", ColumnSpan: 4},
 													PushButton{Text: "Apply script", OnClicked: func() { saveMethodEditor(); maybePreview() }},
 													PushButton{Text: "Reset example", OnClicked: func() { if scriptTE != nil { scriptTE.SetText("concat(Name, Ext)"); saveMethodEditor(); maybePreview() } }},
 												},

@@ -220,5 +220,8 @@ func init() {
 		"help.about": "Acerca de",
 		"help.guide_body": "INICIO RÁPIDO\n\n1. Añade archivos o carpetas.\n2. Crea la cadena de métodos a la izquierda.\n3. Selecciona un método y ajusta sus opciones.\n4. Comprueba la vista previa a la derecha.\n5. Desmarca los archivos que no quieras cambiar.\n6. Pulsa Iniciar.\n\nCADENA DE MÉTODOS\nLos métodos se ejecutan de arriba abajo. Puedes activarlos, desactivarlos, reordenarlos, duplicarlos y guardar/cargar conjuntos.\n\nVISTA PREVIA\nLos cambios se recalculan automáticamente. Los análisis pesados se pueden cancelar.\n\nARRASTRAR Y SOLTAR\nArrastra archivos o carpetas a la aplicación. Para carpetas puedes incluir subcarpetas.\n\nSEGURIDAD\nEasyRenamer valida nombres de Windows y colisiones antes de renombrar. Las operaciones correctas se pueden deshacer.\n\nTEMA E IDIOMA\nSe pueden cambiar sin reiniciar el programa.",
 		"help.about_body": "EasyRenamer %s\n\nRenombrador por lotes gratuito y de código abierto para Windows.\n\nSin anuncios. Sin suscripciones. Sin telemetría. Sin edición de pago.\n\nLicencia MIT.\n\nLa ayuda y la referencia de etiquetas están integradas en este EXE.",
+		"case.lower": "minúsculas",
+		"case.upper": "MAYÚSCULAS",
+		"case.title": "Iniciales En Mayúscula",
 	}
 }

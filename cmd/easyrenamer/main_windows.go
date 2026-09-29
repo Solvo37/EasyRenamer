@@ -3,6 +3,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -125,6 +126,11 @@ func (m *methodModel) SetChecked(row int, checked bool) error {
 	return nil
 }
 
+type methodStackFile struct {
+	Version int
+	Methods []engine.RenameMethod
+}
+
 var presets = []struct {
 	Name     string
 	Template string
@@ -153,12 +159,24 @@ func methodTitle(method engine.Method) string {
 	switch method {
 	case engine.MethodTemplate:
 		return "New Name"
+	case engine.MethodCase:
+		return "Change case"
+	case engine.MethodMove:
+		return "Move"
+	case engine.MethodRemove:
+		return "Remove"
+	case engine.MethodRemovePattern:
+		return "Remove pattern"
+	case engine.MethodRenumber:
+		return "Renumber"
 	case engine.MethodReplace:
 		return "Replace"
 	case engine.MethodPrefixSuffix:
 		return "Add text"
-	case engine.MethodCase:
-		return "Change case"
+	case engine.MethodTrim:
+		return "Trim"
+	case engine.MethodTimestamp:
+		return "Timestamp"
 	default:
 		return "Method"
 	}
@@ -166,12 +184,24 @@ func methodTitle(method engine.Method) string {
 
 func methodTabIndex(method engine.Method) int {
 	switch method {
-	case engine.MethodReplace:
-		return 1
-	case engine.MethodPrefixSuffix:
-		return 2
 	case engine.MethodCase:
+		return 1
+	case engine.MethodMove:
+		return 2
+	case engine.MethodRemove:
 		return 3
+	case engine.MethodRemovePattern:
+		return 4
+	case engine.MethodRenumber:
+		return 5
+	case engine.MethodReplace:
+		return 6
+	case engine.MethodPrefixSuffix:
+		return 7
+	case engine.MethodTrim:
+		return 8
+	case engine.MethodTimestamp:
+		return 9
 	default:
 		return 0
 	}
@@ -180,11 +210,23 @@ func methodTabIndex(method engine.Method) int {
 func methodFromTab(index int) engine.Method {
 	switch index {
 	case 1:
-		return engine.MethodReplace
-	case 2:
-		return engine.MethodPrefixSuffix
-	case 3:
 		return engine.MethodCase
+	case 2:
+		return engine.MethodMove
+	case 3:
+		return engine.MethodRemove
+	case 4:
+		return engine.MethodRemovePattern
+	case 5:
+		return engine.MethodRenumber
+	case 6:
+		return engine.MethodReplace
+	case 7:
+		return engine.MethodPrefixSuffix
+	case 8:
+		return engine.MethodTrim
+	case 9:
+		return engine.MethodTimestamp
 	default:
 		return engine.MethodTemplate
 	}
@@ -192,14 +234,43 @@ func methodFromTab(index int) engine.Method {
 
 func defaultMethod(method engine.Method) engine.RenameMethod {
 	switch method {
+	case engine.MethodCase:
+		return engine.RenameMethod{Type: method, CaseMode: engine.CaseLower}
+	case engine.MethodMove:
+		return engine.RenameMethod{Type: method, MoveStart: 1, MoveCount: 1, MoveTo: 1}
+	case engine.MethodRemove:
+		return engine.RenameMethod{Type: method, RemoveStart: 1, RemoveCount: 1}
+	case engine.MethodRemovePattern:
+		return engine.RenameMethod{Type: method}
+	case engine.MethodRenumber:
+		return engine.RenameMethod{
+			Type: method, RenumberStart: 1, RenumberStep: 1, RenumberPadding: 2,
+			RenumberPerDir: true, RenumberPosition: engine.PositionPrefix, RenumberSeparator: "-",
+		}
 	case engine.MethodReplace:
 		return engine.RenameMethod{Type: method}
 	case engine.MethodPrefixSuffix:
 		return engine.RenameMethod{Type: method}
-	case engine.MethodCase:
-		return engine.RenameMethod{Type: method, CaseMode: engine.CaseLower}
+	case engine.MethodTrim:
+		return engine.RenameMethod{Type: method, TrimNormalizeSpaces: true}
+	case engine.MethodTimestamp:
+		return engine.RenameMethod{
+			Type: method, TimestampSource: engine.TimestampModified,
+			TimestampFormat: "yyyyMMdd-HHmmss", TimestampPosition: engine.PositionSuffix, TimestampSeparator: "-",
+		}
 	default:
 		return engine.RenameMethod{Type: engine.MethodTemplate, Template: presets[0].Template}
+	}
+}
+
+func knownMethod(method engine.Method) bool {
+	switch method {
+	case engine.MethodTemplate, engine.MethodCase, engine.MethodMove, engine.MethodRemove,
+		engine.MethodRemovePattern, engine.MethodRenumber, engine.MethodReplace,
+		engine.MethodPrefixSuffix, engine.MethodTrim, engine.MethodTimestamp:
+		return true
+	default:
+		return false
 	}
 }
 
@@ -253,8 +324,13 @@ func main() {
 
 	var mw *walk.MainWindow
 	var customExtLE, templateLE, findLE, replaceLE, prefixLE, suffixLE *walk.LineEdit
+	var removePatternLE, renumberSeparatorLE, timestampFormatLE, timestampSeparatorLE *walk.LineEdit
 	var recursiveCB, regexCB, autoPreviewCB *walk.CheckBox
+	var removePatternRegexCB, renumberPerDirCB, trimNormalizeCB *walk.CheckBox
 	var categoryCB, presetCB, caseCB, tokenCB *walk.ComboBox
+	var renumberPositionCB, timestampSourceCB, timestampPositionCB *walk.ComboBox
+	var removeStartNE, removeCountNE, renumberStartNE, renumberStepNE, renumberPaddingNE *walk.NumberEdit
+	var moveStartNE, moveCountNE, moveToNE *walk.NumberEdit
 	var methodTable, table *walk.TableView
 	var editorTabs *walk.TabWidget
 	var sourceCountLbl, statusLbl, collisionLbl *walk.Label
@@ -332,6 +408,62 @@ func main() {
 			if templateLE != nil {
 				method.Template = templateLE.Text()
 			}
+		case engine.MethodCase:
+			if caseCB != nil {
+				switch caseCB.CurrentIndex() {
+				case 1:
+					method.CaseMode = engine.CaseUpper
+				case 2:
+					method.CaseMode = engine.CaseTitle
+				default:
+					method.CaseMode = engine.CaseLower
+				}
+			}
+		case engine.MethodMove:
+			if moveStartNE != nil {
+				method.MoveStart = int(moveStartNE.Value())
+			}
+			if moveCountNE != nil {
+				method.MoveCount = int(moveCountNE.Value())
+			}
+			if moveToNE != nil {
+				method.MoveTo = int(moveToNE.Value())
+			}
+		case engine.MethodRemove:
+			if removeStartNE != nil {
+				method.RemoveStart = int(removeStartNE.Value())
+			}
+			if removeCountNE != nil {
+				method.RemoveCount = int(removeCountNE.Value())
+			}
+		case engine.MethodRemovePattern:
+			if removePatternLE != nil {
+				method.RemovePattern = removePatternLE.Text()
+			}
+			if removePatternRegexCB != nil {
+				method.RemovePatternRegex = removePatternRegexCB.Checked()
+			}
+		case engine.MethodRenumber:
+			if renumberStartNE != nil {
+				method.RenumberStart = int(renumberStartNE.Value())
+			}
+			if renumberStepNE != nil {
+				method.RenumberStep = int(renumberStepNE.Value())
+			}
+			if renumberPaddingNE != nil {
+				method.RenumberPadding = int(renumberPaddingNE.Value())
+			}
+			if renumberPerDirCB != nil {
+				method.RenumberPerDir = renumberPerDirCB.Checked()
+			}
+			if renumberPositionCB != nil && renumberPositionCB.CurrentIndex() == 1 {
+				method.RenumberPosition = engine.PositionSuffix
+			} else {
+				method.RenumberPosition = engine.PositionPrefix
+			}
+			if renumberSeparatorLE != nil {
+				method.RenumberSeparator = renumberSeparatorLE.Text()
+			}
 		case engine.MethodReplace:
 			if findLE != nil {
 				method.Find = findLE.Text()
@@ -349,16 +481,26 @@ func main() {
 			if suffixLE != nil {
 				method.Suffix = suffixLE.Text()
 			}
-		case engine.MethodCase:
-			if caseCB != nil {
-				switch caseCB.CurrentIndex() {
-				case 1:
-					method.CaseMode = engine.CaseUpper
-				case 2:
-					method.CaseMode = engine.CaseTitle
-				default:
-					method.CaseMode = engine.CaseLower
-				}
+		case engine.MethodTrim:
+			if trimNormalizeCB != nil {
+				method.TrimNormalizeSpaces = trimNormalizeCB.Checked()
+			}
+		case engine.MethodTimestamp:
+			if timestampSourceCB != nil && timestampSourceCB.CurrentIndex() == 1 {
+				method.TimestampSource = engine.TimestampBatch
+			} else {
+				method.TimestampSource = engine.TimestampModified
+			}
+			if timestampFormatLE != nil {
+				method.TimestampFormat = timestampFormatLE.Text()
+			}
+			if timestampPositionCB != nil && timestampPositionCB.CurrentIndex() == 1 {
+				method.TimestampPosition = engine.PositionPrefix
+			} else {
+				method.TimestampPosition = engine.PositionSuffix
+			}
+			if timestampSeparatorLE != nil {
+				method.TimestampSeparator = timestampSeparatorLE.Text()
 			}
 		}
 		methodsModel.PublishRowChanged(editingMethodIndex)
@@ -376,6 +518,58 @@ func main() {
 		if templateLE != nil {
 			templateLE.SetText(method.Template)
 		}
+		if caseCB != nil {
+			caseIndex := 0
+			if method.CaseMode == engine.CaseUpper {
+				caseIndex = 1
+			} else if method.CaseMode == engine.CaseTitle {
+				caseIndex = 2
+			}
+			_ = caseCB.SetCurrentIndex(caseIndex)
+		}
+		if moveStartNE != nil {
+			_ = moveStartNE.SetValue(float64(method.MoveStart))
+		}
+		if moveCountNE != nil {
+			_ = moveCountNE.SetValue(float64(method.MoveCount))
+		}
+		if moveToNE != nil {
+			_ = moveToNE.SetValue(float64(method.MoveTo))
+		}
+		if removeStartNE != nil {
+			_ = removeStartNE.SetValue(float64(method.RemoveStart))
+		}
+		if removeCountNE != nil {
+			_ = removeCountNE.SetValue(float64(method.RemoveCount))
+		}
+		if removePatternLE != nil {
+			removePatternLE.SetText(method.RemovePattern)
+		}
+		if removePatternRegexCB != nil {
+			removePatternRegexCB.SetChecked(method.RemovePatternRegex)
+		}
+		if renumberStartNE != nil {
+			_ = renumberStartNE.SetValue(float64(method.RenumberStart))
+		}
+		if renumberStepNE != nil {
+			_ = renumberStepNE.SetValue(float64(method.RenumberStep))
+		}
+		if renumberPaddingNE != nil {
+			_ = renumberPaddingNE.SetValue(float64(method.RenumberPadding))
+		}
+		if renumberPerDirCB != nil {
+			renumberPerDirCB.SetChecked(method.RenumberPerDir)
+		}
+		if renumberPositionCB != nil {
+			pos := 0
+			if method.RenumberPosition == engine.PositionSuffix {
+				pos = 1
+			}
+			_ = renumberPositionCB.SetCurrentIndex(pos)
+		}
+		if renumberSeparatorLE != nil {
+			renumberSeparatorLE.SetText(method.RenumberSeparator)
+		}
 		if findLE != nil {
 			findLE.SetText(method.Find)
 		}
@@ -391,14 +585,28 @@ func main() {
 		if suffixLE != nil {
 			suffixLE.SetText(method.Suffix)
 		}
-		if caseCB != nil {
-			caseIndex := 0
-			if method.CaseMode == engine.CaseUpper {
-				caseIndex = 1
-			} else if method.CaseMode == engine.CaseTitle {
-				caseIndex = 2
+		if trimNormalizeCB != nil {
+			trimNormalizeCB.SetChecked(method.TrimNormalizeSpaces)
+		}
+		if timestampSourceCB != nil {
+			source := 0
+			if method.TimestampSource == engine.TimestampBatch {
+				source = 1
 			}
-			_ = caseCB.SetCurrentIndex(caseIndex)
+			_ = timestampSourceCB.SetCurrentIndex(source)
+		}
+		if timestampFormatLE != nil {
+			timestampFormatLE.SetText(method.TimestampFormat)
+		}
+		if timestampPositionCB != nil {
+			pos := 0
+			if method.TimestampPosition == engine.PositionPrefix {
+				pos = 1
+			}
+			_ = timestampPositionCB.SetCurrentIndex(pos)
+		}
+		if timestampSeparatorLE != nil {
+			timestampSeparatorLE.SetText(method.TimestampSeparator)
 		}
 	}
 
@@ -713,6 +921,63 @@ func main() {
 		maybePreview()
 	}
 
+	saveMethodStack := func() {
+		saveMethodEditor()
+		dlg := new(walk.FileDialog)
+		dlg.Title = "Save method set"
+		dlg.Filter = "EasyRenamer method set (*.json)|*.json|All files (*.*)|*.*"
+		dlg.FilePath = "easyrenamer-methods.json"
+		if ok, err := dlg.ShowSave(mw); err != nil {
+			walk.MsgBox(mw, "Save methods", err.Error(), walk.MsgBoxIconError)
+		} else if ok {
+			path := dlg.FilePath
+			if filepath.Ext(path) == "" {
+				path += ".json"
+			}
+			data, err := json.MarshalIndent(methodStackFile{Version: 1, Methods: methods}, "", "  ")
+			if err == nil {
+				err = os.WriteFile(path, data, 0o644)
+			}
+			if err != nil {
+				walk.MsgBox(mw, "Save methods", err.Error(), walk.MsgBoxIconError)
+			}
+		}
+	}
+
+	loadMethodStack := func() {
+		dlg := new(walk.FileDialog)
+		dlg.Title = "Load method set"
+		dlg.Filter = "EasyRenamer method set (*.json)|*.json|All files (*.*)|*.*"
+		if ok, err := dlg.ShowOpen(mw); err != nil {
+			walk.MsgBox(mw, "Load methods", err.Error(), walk.MsgBoxIconError)
+		} else if ok {
+			data, err := os.ReadFile(dlg.FilePath)
+			if err != nil {
+				walk.MsgBox(mw, "Load methods", err.Error(), walk.MsgBoxIconError)
+				return
+			}
+			var stack methodStackFile
+			if err := json.Unmarshal(data, &stack); err != nil {
+				walk.MsgBox(mw, "Load methods", err.Error(), walk.MsgBoxIconError)
+				return
+			}
+			if len(stack.Methods) == 0 {
+				walk.MsgBox(mw, "Load methods", "The method set is empty.", walk.MsgBoxIconInformation)
+				return
+			}
+			for _, method := range stack.Methods {
+				if !knownMethod(method.Type) {
+					walk.MsgBox(mw, "Load methods", "The file contains an unsupported method: "+string(method.Type), walk.MsgBoxIconError)
+					return
+				}
+			}
+			methods = append([]engine.RenameMethod(nil), stack.Methods...)
+			editingMethodIndex = 0
+			refreshMethodTable(0)
+			maybePreview()
+		}
+	}
+
 	openSourceFolder := func() {
 		if len(sources) == 0 {
 			return
@@ -748,6 +1013,9 @@ func main() {
 				Items: []MenuItem{
 					Action{Text: "Add files...", OnTriggered: addFiles},
 					Action{Text: "Add folder...", OnTriggered: addFolder},
+					Separator{},
+					Action{Text: "Save method set...", OnTriggered: saveMethodStack},
+					Action{Text: "Load method set...", OnTriggered: loadMethodStack},
 					Separator{},
 					Action{Text: "Clear list", OnTriggered: clearSources},
 				},
@@ -865,9 +1133,15 @@ func main() {
 								Layout: Grid{Columns: 2, Spacing: 5},
 								Children: []Widget{
 									PushButton{Text: "New Name", OnClicked: func() { addMethod(engine.MethodTemplate) }},
+									PushButton{Text: "Change case", OnClicked: func() { addMethod(engine.MethodCase) }},
+									PushButton{Text: "Move", OnClicked: func() { addMethod(engine.MethodMove) }},
+									PushButton{Text: "Remove", OnClicked: func() { addMethod(engine.MethodRemove) }},
+									PushButton{Text: "Remove pattern", OnClicked: func() { addMethod(engine.MethodRemovePattern) }},
+									PushButton{Text: "Renumber", OnClicked: func() { addMethod(engine.MethodRenumber) }},
 									PushButton{Text: "Replace", OnClicked: func() { addMethod(engine.MethodReplace) }},
 									PushButton{Text: "Add text", OnClicked: func() { addMethod(engine.MethodPrefixSuffix) }},
-									PushButton{Text: "Change case", OnClicked: func() { addMethod(engine.MethodCase) }},
+									PushButton{Text: "Trim", OnClicked: func() { addMethod(engine.MethodTrim) }},
+									PushButton{Text: "Timestamp", OnClicked: func() { addMethod(engine.MethodTimestamp) }},
 								},
 							},
 							Label{Text: "Tip: uncheck a method to disable it without deleting it."},
@@ -883,7 +1157,7 @@ func main() {
 								Children: []Widget{
 									TabWidget{
 										AssignTo: &editorTabs,
-										MinSize:  Size{650, 185},
+										MinSize:  Size{650, 225},
 										OnCurrentIndexChanged: func() {
 											if updatingMethodUI || editorTabs == nil || editingMethodIndex < 0 || editingMethodIndex >= len(methods) {
 												return
@@ -928,6 +1202,68 @@ func main() {
 												},
 											},
 											{
+												Title:  "Change case",
+												Layout: Grid{Columns: 2, Spacing: 7},
+												Children: []Widget{
+													Label{Text: "Convert base name to:"},
+													ComboBox{AssignTo: &caseCB, Model: []string{"lower case", "UPPER CASE", "Title Case"}, CurrentIndex: 0, OnCurrentIndexChanged: func() {
+														if updatingMethodUI { return }
+														saveMethodEditor()
+														maybePreview()
+													}},
+												},
+											},
+											{
+												Title:  "Move",
+												Layout: Grid{Columns: 6, Spacing: 7},
+												Children: []Widget{
+													Label{Text: "Start:"},
+													NumberEdit{AssignTo: &moveStartNE, Value: 1, MinValue: 1, MaxValue: 99999, SpinButtonsVisible: true, OnValueChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
+													Label{Text: "Count:"},
+													NumberEdit{AssignTo: &moveCountNE, Value: 1, MinValue: 1, MaxValue: 99999, SpinButtonsVisible: true, OnValueChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
+													Label{Text: "Move to:"},
+													NumberEdit{AssignTo: &moveToNE, Value: 1, MinValue: 1, MaxValue: 99999, SpinButtonsVisible: true, OnValueChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
+													Label{Text: "Positions are 1-based and apply to the filename without extension.", ColumnSpan: 6},
+												},
+											},
+											{
+												Title:  "Remove",
+												Layout: Grid{Columns: 4, Spacing: 7},
+												Children: []Widget{
+													Label{Text: "Start:"},
+													NumberEdit{AssignTo: &removeStartNE, Value: 1, MinValue: 1, MaxValue: 99999, SpinButtonsVisible: true, OnValueChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
+													Label{Text: "Count:"},
+													NumberEdit{AssignTo: &removeCountNE, Value: 1, MinValue: 1, MaxValue: 99999, SpinButtonsVisible: true, OnValueChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
+													Label{Text: "Removes characters from the base filename; extension is preserved.", ColumnSpan: 4},
+												},
+											},
+											{
+												Title:  "Remove pattern",
+												Layout: Grid{Columns: 4, Spacing: 7},
+												Children: []Widget{
+													Label{Text: "Pattern:"},
+													LineEdit{AssignTo: &removePatternLE, CueBanner: "text or regex", ColumnSpan: 3, OnTextChanged: saveMethodEditor, OnEditingFinished: maybePreview},
+													CheckBox{AssignTo: &removePatternRegexCB, Text: "Regular expression", ColumnSpan: 4, OnCheckedChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
+												},
+											},
+											{
+												Title:  "Renumber",
+												Layout: Grid{Columns: 6, Spacing: 7},
+												Children: []Widget{
+													Label{Text: "Start:"},
+													NumberEdit{AssignTo: &renumberStartNE, Value: 1, MinValue: -999999, MaxValue: 999999, SpinButtonsVisible: true, OnValueChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
+													Label{Text: "Step:"},
+													NumberEdit{AssignTo: &renumberStepNE, Value: 1, MinValue: -999999, MaxValue: 999999, SpinButtonsVisible: true, OnValueChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
+													Label{Text: "Padding:"},
+													NumberEdit{AssignTo: &renumberPaddingNE, Value: 2, MinValue: 1, MaxValue: 12, SpinButtonsVisible: true, OnValueChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
+													Label{Text: "Position:"},
+													ComboBox{AssignTo: &renumberPositionCB, Model: []string{"Prefix", "Suffix"}, CurrentIndex: 0, OnCurrentIndexChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
+													Label{Text: "Separator:"},
+													LineEdit{AssignTo: &renumberSeparatorLE, Text: "-", OnTextChanged: saveMethodEditor, OnEditingFinished: maybePreview},
+													CheckBox{AssignTo: &renumberPerDirCB, Text: "Restart numbering in each folder", Checked: true, ColumnSpan: 2, OnCheckedChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
+												},
+											},
+											{
 												Title:  "Replace",
 												Layout: Grid{Columns: 4, Spacing: 7},
 												Children: []Widget{
@@ -953,19 +1289,29 @@ func main() {
 												},
 											},
 											{
-												Title:  "Change case",
+												Title:  "Trim",
 												Layout: Grid{Columns: 2, Spacing: 7},
 												Children: []Widget{
-													Label{Text: "Convert base name to:"},
-													ComboBox{AssignTo: &caseCB, Model: []string{"lower case", "UPPER CASE", "Title Case"}, CurrentIndex: 0, OnCurrentIndexChanged: func() {
-														if updatingMethodUI {
-															return
-														}
-														saveMethodEditor()
-														maybePreview()
-													}},
+													Label{Text: "Leading and trailing whitespace is always removed.", ColumnSpan: 2},
+													CheckBox{AssignTo: &trimNormalizeCB, Text: "Collapse repeated whitespace to one space", Checked: true, ColumnSpan: 2, OnCheckedChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
 												},
 											},
+											{
+												Title:  "Timestamp",
+												Layout: Grid{Columns: 4, Spacing: 7},
+												Children: []Widget{
+													Label{Text: "Source:"},
+													ComboBox{AssignTo: &timestampSourceCB, Model: []string{"File modified time", "Batch time"}, CurrentIndex: 0, OnCurrentIndexChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
+													Label{Text: "Position:"},
+													ComboBox{AssignTo: &timestampPositionCB, Model: []string{"Suffix", "Prefix"}, CurrentIndex: 0, OnCurrentIndexChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
+													Label{Text: "Format:"},
+													LineEdit{AssignTo: &timestampFormatLE, Text: "yyyyMMdd-HHmmss", OnTextChanged: saveMethodEditor, OnEditingFinished: maybePreview},
+													Label{Text: "Separator:"},
+													LineEdit{AssignTo: &timestampSeparatorLE, Text: "-", OnTextChanged: saveMethodEditor, OnEditingFinished: maybePreview},
+													Label{Text: "Format example: yyyyMMdd-HHmmss", ColumnSpan: 4},
+												},
+											},
+
 										},
 									},
 								},

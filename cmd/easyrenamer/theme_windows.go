@@ -36,6 +36,7 @@ var (
 	procInvalidateRect        = user32Theme.NewProc("InvalidateRect")
 	procGetClassNameW         = user32Theme.NewProc("GetClassNameW")
 	procSystemParametersInfoW = user32Theme.NewProc("SystemParametersInfoW")
+	procGetDpiForSystem       = user32Theme.NewProc("GetDpiForSystem")
 )
 
 const (
@@ -306,8 +307,17 @@ func initialWindowDimensions() (int, int) {
 	workW := int(rc.Right - rc.Left)
 	workH := int(rc.Bottom - rc.Top)
 
-	width := workW - 72
-	height := workH - 72
+	dpi := 96
+	if procGetDpiForSystem.Find() == nil {
+		if value, _, _ := procGetDpiForSystem.Call(); value >= 96 {
+			dpi = int(value)
+		}
+	}
+	workW = workW * 96 / dpi
+	workH = workH * 96 / dpi
+
+	width := workW - 64
+	height := workH - 64
 
 	if width > 1380 {
 		width = 1380

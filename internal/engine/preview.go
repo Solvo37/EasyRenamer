@@ -266,7 +266,6 @@ func applyMethod(method RenameMethod, current, parent string, globalIndex, dirIn
 			if err != nil {
 				return "", fmt.Errorf("invalid regex: %w", err)
 			}
-			renamed = re.ReplaceAllString(base, method.Find)
 			renamed = re.ReplaceAllString(base, method.ReplaceWith)
 		} else {
 			renamed = strings.ReplaceAll(base, method.Find, method.ReplaceWith)

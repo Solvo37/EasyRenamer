@@ -37,5 +37,12 @@ func init() {
 		"dialog.renamed": "已重命名 %d 个文件。", "dialog.restoring": "正在恢复之前的名称...",
 		"dialog.undone": "已撤销上次重命名操作。",
 		"about.text": "EasyRenamer %s\n\n完全免费、开源的 Windows 批量重命名工具。\n无广告、无订阅、无遥测、无付费功能。\nMIT 许可证\nhttps://github.com/Solvo37/easyrenamer",
+		"category.all": "所有文件",
+		"category.images": "图像",
+		"category.videos": "视频",
+		"category.audio": "音频",
+		"category.documents": "文档",
+		"category.archives": "压缩包",
+		"category.custom": "自定义",
 	}
 }

@@ -201,10 +201,10 @@ func buildTagPage(category tagCategory, dark bool, insert func(string)) declarat
 				ColumnsSizable:               true,
 				LastColumnStretched:          true,
 				CustomRowHeight:              25,
-				MinSize:                      declarative.Size{0, 175},
+				MinSize:                      declarative.Size{0, 155},
 				Columns: []declarative.TableViewColumn{
-					{Title: i18n.T("tag.column_token"), Width: 185},
-					{Title: i18n.T("tag.column_meaning"), Width: 360},
+					{Title: i18n.T("tag.column_token"), Width: 145},
+					{Title: i18n.T("tag.column_meaning"), Width: 285},
 				},
 				StyleCell: func(style *walk.CellStyle) {
 					style.BackgroundColor = uiTableAltColor(dark, style.Row()%2 == 1)

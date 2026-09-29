@@ -92,5 +92,11 @@ func init() {
 		"theme.dark": "Тёмная",
 		"theme.restart": "Тема сохранена. Перезапустите EasyRenamer, чтобы применить её.",
 		"status.live_preview": "Живой предпросмотр",
+		"preset.sequence_original": "Номер + исходное имя",
+		"preset.original_sequence": "Исходное имя + номер",
+		"preset.parent_sequence": "Родительская папка + номер",
+		"preset.date_original": "Дата + исходное имя",
+		"drop.hint": "Перетащите сюда файлы или папки",
+		"drop.subhint": "или используйте + Файлы / + Папки",
 	}
 }

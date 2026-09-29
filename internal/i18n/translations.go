@@ -163,5 +163,7 @@ var translations = map[Language]map[string]string{
 		"menu.drop_options": "Drag && drop options...",
 		"group.settings_selected": "Settings: %s",
 		"filter.extensions_hint": "jpg, png, psd — typing selects Custom",
+		"button.cancel_preview": "Cancel preview",
+		"dialog.canceling_preview": "Canceling preview...",
 	},
 }

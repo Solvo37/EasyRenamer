@@ -160,5 +160,6 @@ func init() {
 		"drop.remember": "Recordar esta elección",
 		"button.add": "Añadir",
 		"button.cancel": "Cancelar",
+		"menu.drop_options": "Opciones de arrastrar y soltar...",
 	}
 }

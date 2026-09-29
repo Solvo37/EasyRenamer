@@ -143,3 +143,124 @@ func TestPreviewReadsPNGDimensions(t *testing.T) {
 		t.Fatal("expected file size metadata")
 	}
 }
+
+func TestAdvancedRenameMethods(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "  Sample 123 File  .txt")
+	if err := os.WriteFile(path, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	items, err := Preview(Config{
+		Sources:  []string{path},
+		Category: CategoryAll,
+		Methods: []RenameMethod{
+			{Type: MethodTrim, TrimNormalizeSpaces: true},
+			{Type: MethodRemovePattern, RemovePattern: "Sample "},
+			{Type: MethodRemove, RemoveStart: 1, RemoveCount: 4},
+			{Type: MethodRenumber, RenumberStart: 7, RenumberStep: 2, RenumberPadding: 3, RenumberPosition: PositionPrefix, RenumberSeparator: "-"},
+		},
+		BatchTime: time.Unix(1786000000, 0),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(items) != 1 {
+		t.Fatalf("got %d items, want 1", len(items))
+	}
+	if got := items[0].NewName; got != "007-File.txt" {
+		t.Fatalf("unexpected advanced pipeline result: %q", got)
+	}
+}
+
+func TestTimestampUsesModifiedTime(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "photo.jpg")
+	if err := os.WriteFile(path, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	modified := time.Date(2024, 3, 4, 5, 6, 7, 0, time.Local)
+	if err := os.Chtimes(path, modified, modified); err != nil {
+		t.Fatal(err)
+	}
+
+	items, err := Preview(Config{
+		Sources:  []string{path},
+		Category: CategoryImages,
+		Methods: []RenameMethod{{
+			Type:               MethodTimestamp,
+			TimestampSource:    TimestampModified,
+			TimestampFormat:    "yyyyMMdd-HHmmss",
+			TimestampPosition:  PositionSuffix,
+			TimestampSeparator: "-",
+		}},
+		BatchTime: time.Date(2030, 1, 1, 0, 0, 0, 0, time.Local),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := items[0].NewName; got != "photo-20240304-050607.jpg" {
+		t.Fatalf("unexpected timestamp result: %q", got)
+	}
+}
+
+func TestRenumberPerDirectory(t *testing.T) {
+	root := t.TempDir()
+	for _, dir := range []string{"a", "b"} {
+		if err := os.Mkdir(filepath.Join(root, dir), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		for _, name := range []string{"one.txt", "two.txt"} {
+			if err := os.WriteFile(filepath.Join(root, dir, name), []byte("x"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+
+	items, err := Preview(Config{
+		Root:      root,
+		Recursive: true,
+		Category:  CategoryAll,
+		Methods: []RenameMethod{{
+			Type:              MethodRenumber,
+			RenumberStart:     1,
+			RenumberStep:      1,
+			RenumberPadding:   2,
+			RenumberPerDir:    true,
+			RenumberPosition:  PositionPrefix,
+			RenumberSeparator: "_",
+		}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"01_one.txt", "02_two.txt", "01_one.txt", "02_two.txt"}
+	for i, expected := range want {
+		if items[i].NewName != expected {
+			t.Fatalf("item %d: got %q want %q", i, items[i].NewName, expected)
+		}
+	}
+}
+
+func TestMoveMethod(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "abcdef.txt")
+	if err := os.WriteFile(path, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	items, err := Preview(Config{
+		Sources:  []string{path},
+		Category: CategoryAll,
+		Methods: []RenameMethod{{
+			Type: MethodMove, MoveStart: 2, MoveCount: 2, MoveTo: 4,
+		}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := items[0].NewName; got != "adebcf.txt" {
+		t.Fatalf("unexpected move result: %q", got)
+	}
+}

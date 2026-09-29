@@ -26,11 +26,14 @@ EasyRenamer is intended to grow from a focused batch renamer into a serious open
 - [x] Chained rename methods (method stack)
 - [x] Move / reorder methods in the stack
 - [x] Enable/disable individual methods without deleting them
-- [ ] Remove characters by position
-- [ ] Trim / normalize whitespace
+- [x] Remove characters by position
+- [x] Move filename fragments by position
+- [x] Remove text / regex patterns
+- [x] Timestamp method using file modified time or batch time
+- [x] Trim / normalize whitespace
 - [ ] Extension-specific transformations
 - [ ] Search/replace presets
-- [ ] Dedicated numbering method: start, step, padding, per-folder/global
+- [x] Dedicated numbering method: start, step, padding, per-folder/global
 - [ ] Optional transliteration
 - [ ] Filename sanitization profiles
 
@@ -44,7 +47,7 @@ EasyRenamer is intended to grow from a focused batch renamer into a serious open
 
 ## v0.4 — Workflow
 
-- [ ] Save and load method stacks / presets
+- [x] Save and load method stacks / presets
 - [ ] Rename history browser (not only last operation)
 - [ ] CSV import/export
 - [ ] Drag-and-drop files and folders

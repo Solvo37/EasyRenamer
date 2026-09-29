@@ -1,40 +1,49 @@
-# EasyRenamer v0.5.0
+# EasyRenamer v0.5.1
 
-Major desktop UX rebuild.
+Stability and desktop-layout hotfix after v0.5.0.
 
-## Workspace
+## Responsiveness
 
-- The window is reorganized around a professional batch-renamer workflow.
-- Left side: rename method stack, settings for the selected method, and Add method.
-- Right side: the large file preview/list area.
-- The right side is no longer consumed by a second method-selection UI.
-- Start batch is more visually prominent.
-- The selected method is preserved when the UI is rebuilt.
+- Preview scans are now cancellable.
+- The Preview button becomes **Cancel preview** while a scan is running.
+- Live preview cancels stale work instead of allowing expensive scans to pile up.
+- Explorer/open-source actions no longer perform file-system checks on the UI thread.
+- Opening a source or selected file is dispatched asynchronously so Explorer cannot freeze the EasyRenamer window.
 
-## Language and theme
+## Window sizing
 
-- Language changes apply without restarting EasyRenamer.
-- System / Light / Dark theme changes apply without restarting EasyRenamer.
-- EasyRenamer recreates its window inside the same running process so all translated labels and Win32 theme surfaces are rebuilt consistently.
-- Current sources, method stack, selected method, file filter, custom extensions, recursive setting, and live-preview setting are preserved.
-- If files are already loaded, preview is rebuilt automatically after the UI refresh.
+- The initial window size is calculated from the Windows work area.
+- DPI scaling is taken into account.
+- The minimum size is reduced.
+- The left method/settings workspace is vertically scrollable on smaller screens.
+- This avoids first-launch windows extending under the taskbar or placing the close button off-screen.
 
-## Existing v0.4.5 fixes retained
+## Toolbar
 
-- The method stack remains the single source of truth.
-- Only the selected method settings are shown.
-- Extensions are always editable.
-- Typing extensions switches to the Custom filter.
-- Filter dropdown no longer immediately closes in dark mode.
+- Removed the redundant Batch mode dropdown. EasyRenamer currently has one real batch operation: Rename.
+
+## Dark theme
+
+- Rebuilt the dark palette around neutral charcoal surfaces:
+  - window: near #202123;
+  - panels: softer raised graphite;
+  - fields: slightly lighter than panels;
+  - high-contrast white blocks are avoided where Walk/Win32 allows it.
+- Existing native dark ListView/ComboBox theming remains enabled.
+
+## Engine
+
+- Added context-aware preview scanning with cancellation checks during recursive directory walking and item processing.
+- Existing `Preview` API remains compatible.
 
 ## Quality
 
-- Core tests must pass.
-- Windows build must pass.
-- The produced EXE must pass the startup smoke test before publication.
+- Core tests pass.
+- Windows build passes.
+- Startup smoke test passes.
 
 ## Downloads
 
 - **EasyRenamer.exe** — portable Windows x64 executable.
-- **EasyRenamer-v0.5.0-windows-x64.zip** — EXE + README + license + documentation.
+- **EasyRenamer-v0.5.1-windows-x64.zip** — EXE + README + license + documentation.
 - **SHA256SUMS.txt** — checksums.

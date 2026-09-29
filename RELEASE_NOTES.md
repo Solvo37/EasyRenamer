@@ -1,30 +1,45 @@
-# EasyRenamer v0.5.2
+# EasyRenamer v0.6.0
 
-Desktop workspace cleanup.
+Major desktop-shell modernization.
 
-## Left workspace
+## Main window
 
-- Removed the old framed GroupBox look from the main method workflow.
-- Methods, selected-method settings, and Add method now read as one continuous working column.
-- Removed the redundant single visible method tab inside the selected-method editor; the settings heading is now the only method title.
-- Section headings use a stronger visual hierarchy instead of native group frames.
-- The 14-button Add method grid is replaced with one localized method selector and an **Add** button.
-- The compact selector saves substantial vertical space on smaller displays.
+- Removed the native Win32 menu bar, eliminating the white menu strip in dark mode.
+- Replaced it with a dark in-app command bar.
+- Language and theme selectors live directly in the app toolbar and still apply without restarting.
+- Save/load method-set controls remain inside the working UI.
+- Drag/drop preferences remain accessible without the old menu.
 
-## File list
+## Built-in help
 
-- Added a clear Files heading above the preview area.
-- Removed the ambiguous Open source button from the filter row.
-- Open selected remains next to the file list and opens the currently selected item in Explorer.
+- Added an internal Help window with:
+  - Guide;
+  - localized Tag reference;
+  - About.
+- The tag reference no longer opens GitHub.
+- Help content is available directly from the EXE.
 
-## Existing v0.5.1 improvements retained
+## Dialogs
+
+- Replaced normal user-facing Win32 message boxes with themed EasyRenamer dialogs.
+- Rename confirmation, Undo, preview errors, file/method-set errors and normal information messages now follow the selected theme.
+- The native white Undo popup shown in earlier versions is removed from normal operation.
+
+## Localization
+
+- Removed the remaining hard-coded English labels from the main workflow.
+- Localized method options, help text, confirmation dialogs, file filters and error titles.
+- Russian, English, Spanish and Chinese are covered.
+- Added an automated translation-completeness test so a new English UI key cannot silently be missing from another supported language.
+
+## Existing stability work retained
 
 - Cancellable preview scanning.
-- Stale live preview work is canceled.
-- Responsive Explorer actions.
+- Automatic cancellation of stale live-preview scans.
+- Async Explorer actions.
 - DPI/work-area-aware window sizing.
-- Scrollable left workspace.
-- Neutral dark palette.
+- Scrollable method/settings workspace.
+- Neutral graphite dark palette.
 
 ## Quality
 
@@ -35,5 +50,5 @@ Desktop workspace cleanup.
 ## Downloads
 
 - **EasyRenamer.exe** — portable Windows x64 executable.
-- **EasyRenamer-v0.5.2-windows-x64.zip** — EXE + README + license + documentation.
+- **EasyRenamer-v0.6.0-windows-x64.zip** — EXE + README + license + documentation.
 - **SHA256SUMS.txt** — checksums.

@@ -10,6 +10,11 @@ import (
 	"github.com/Solvo37/easyrenamer/internal/engine"
 )
 
+var (
+	ErrNoOperation = errors.New("no rename operation to undo")
+	ErrEmptyHistory = errors.New("undo history is empty")
+)
+
 type Record struct {
 	CreatedAt time.Time           `json:"created_at"`
 	Pairs     []engine.RenamePair `json:"pairs"`
@@ -48,7 +53,7 @@ func Load() (Record, error) {
 	data, err := os.ReadFile(p)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return rec, errors.New("no rename operation to undo")
+			return rec, ErrNoOperation
 		}
 		return rec, err
 	}
@@ -56,7 +61,7 @@ func Load() (Record, error) {
 		return rec, err
 	}
 	if len(rec.Pairs) == 0 {
-		return rec, errors.New("undo history is empty")
+		return rec, ErrEmptyHistory
 	}
 	return rec, nil
 }

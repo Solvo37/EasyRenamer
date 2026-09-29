@@ -218,6 +218,8 @@ func applyThemeToHWND(hwnd uintptr, dark bool) {
 		switch className {
 		case "combobox", "combolbox", "listbox", "edit", "richedit20w", "richedit50w":
 			name = "DarkMode_CFD"
+		case "sysheader32":
+			name = "DarkMode_ItemsView"
 		default:
 			name = "DarkMode_Explorer"
 		}

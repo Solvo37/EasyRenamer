@@ -123,3 +123,15 @@ EasyRenamer is intended to grow from a focused batch renamer into a serious open
 - [x] Compact localized Add method selector
 - [x] Remove 14-button Add method grid
 - [x] Remove ambiguous Open source button from filter row
+
+## v0.6.0 — Modern shell
+
+- [x] Remove native Win32 menu strip from the main window
+- [x] Dark in-app command bar with live language/theme selectors
+- [x] Built-in Guide / Tags / About help
+- [x] No external GitHub link required for tag documentation
+- [x] Themed in-app info/error/confirmation dialogs
+- [x] Localize remaining hard-coded UI text in all four languages
+- [x] Translation completeness test for Russian / Spanish / Chinese
+- [x] Save/load method-set controls inside the main workspace
+- [x] Keep drag/drop settings accessible without the native menu

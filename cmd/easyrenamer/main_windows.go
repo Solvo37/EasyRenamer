@@ -60,10 +60,11 @@ func (m *previewModel) Value(row, col int) interface{} {
 		}
 		return ""
 	case 7:
+		status := localizedItemStatus(it.Status)
 		if it.Error != "" {
-			return it.Status + ": " + it.Error
+			return status + ": " + localizedItemError(it.Error)
 		}
-		return it.Status
+		return status
 	default:
 		return ""
 	}
@@ -216,13 +217,6 @@ func categoryTitle(category engine.Category) string {
 	}
 }
 
-func openURL(url string) {
-	if strings.TrimSpace(url) == "" {
-		return
-	}
-	_ = exec.Command("rundll32.exe", "url.dll,FileProtocolHandler", url).Start()
-}
-
 func methodTabIndex(method engine.Method) int {
 	switch method {
 	case engine.MethodList:
@@ -340,6 +334,42 @@ func knownMethod(method engine.Method) bool {
 	}
 }
 
+func localizedItemStatus(status string) string {
+	switch status {
+	case engine.StatusOK:
+		return i18n.T("item.status.ok")
+	case engine.StatusUnchanged:
+		return i18n.T("item.status.unchanged")
+	case engine.StatusConflict:
+		return i18n.T("item.status.conflict")
+	case engine.StatusInvalid:
+		return i18n.T("item.status.invalid")
+	default:
+		return status
+	}
+}
+
+func localizedItemError(message string) string {
+	switch message {
+	case "duplicate target name":
+		return i18n.T("item.error.duplicate_target")
+	case "target already exists":
+		return i18n.T("item.error.target_exists")
+	case "empty file name":
+		return i18n.T("item.error.empty_name")
+	case "name contains Windows-forbidden characters":
+		return i18n.T("item.error.forbidden_chars")
+	case "name cannot end with a dot or space":
+		return i18n.T("item.error.trailing_dot_space")
+	case "name contains control characters":
+		return i18n.T("item.error.control_chars")
+	case "name is reserved by Windows":
+		return i18n.T("item.error.reserved_name")
+	default:
+		return message
+	}
+}
+
 func formatBytes(size int64) string {
 	switch {
 	case size >= 1024*1024*1024:
@@ -428,7 +458,7 @@ func runMainWindow(state *uiState) uiRunResult {
 	var recursiveCB, regexCB, autoPreviewCB *walk.CheckBox
 	var removePatternRegexCB, renumberPerDirCB, trimNormalizeCB *walk.CheckBox
 	var listIncludeExtCB, listReplaceRegexCB, listReplaceCaseCB *walk.CheckBox
-	var categoryCB, presetCB, caseCB, addMethodCB *walk.ComboBox
+	var categoryCB, presetCB, caseCB, addMethodCB, languageCB, themeCB *walk.ComboBox
 	var renumberPositionCB, timestampSourceCB, timestampPositionCB *walk.ComboBox
 	var removeStartNE, removeCountNE, renumberStartNE, renumberStepNE, renumberPaddingNE *walk.NumberEdit
 	var moveStartNE, moveCountNE, moveToNE, swapOccurrenceNE *walk.NumberEdit
@@ -436,7 +466,8 @@ func runMainWindow(state *uiState) uiRunResult {
 	var editorPanels [14]*walk.Composite
 	var methodSettingsTitleLbl *walk.Label
 	var sourceCountLbl, statusLbl, collisionLbl, dropHintLbl *walk.Label
-	var previewPB, renamePB, undoPB *walk.PushButton
+	var previewPB, undoPB *walk.ToolButton
+	var renamePB *walk.PushButton
 
 	model := &previewModel{}
 	sources := append([]string(nil), state.Sources...)
@@ -951,7 +982,7 @@ func runMainWindow(state *uiState) uiRunResult {
 			return
 		}
 		if len(sources) == 0 {
-			walk.MsgBox(mw, "EasyRenamer", i18n.T("dialog.no_sources"), walk.MsgBoxIconInformation)
+			showAppInfo(mw, darkTheme, "EasyRenamer", i18n.T("dialog.no_sources"))
 			return
 		}
 
@@ -981,7 +1012,7 @@ func runMainWindow(state *uiState) uiRunResult {
 					return
 				}
 				if err != nil {
-					walk.MsgBox(mw, "Preview error", err.Error(), walk.MsgBoxIconError)
+					showAppError(mw, darkTheme, i18n.T("dialog.preview_error"), err.Error())
 					if previewPending {
 						previewPending = false
 						preview()
@@ -994,7 +1025,7 @@ func runMainWindow(state *uiState) uiRunResult {
 					_ = table.Invalidate()
 				}
 				if len(items) == 0 {
-					walk.MsgBox(mw, "EasyRenamer", i18n.T("dialog.no_match"), walk.MsgBoxIconInformation)
+					showAppInfo(mw, darkTheme, "EasyRenamer", i18n.T("dialog.no_match"))
 				}
 				if previewPending {
 					previewPending = false
@@ -1030,7 +1061,7 @@ func runMainWindow(state *uiState) uiRunResult {
 		if count == 0 {
 			return
 		}
-		if walk.MsgBox(mw, "Confirm rename", fmt.Sprintf("Rename %d selected files?\n\nThe operation is transactional and can be undone.", count), walk.MsgBoxYesNo|walk.MsgBoxIconQuestion) != walk.DlgCmdYes {
+		if !showAppConfirm(mw, darkTheme, i18n.T("dialog.confirm_rename_title"), fmt.Sprintf(i18n.T("dialog.confirm_rename_body"), count)) {
 			return
 		}
 		setBusy(true, fmt.Sprintf(i18n.T("dialog.renaming"), count))
@@ -1044,15 +1075,15 @@ func runMainWindow(state *uiState) uiRunResult {
 			mw.Synchronize(func() {
 				setBusy(false, "")
 				if execErr != nil {
-					walk.MsgBox(mw, "Rename error", execErr.Error(), walk.MsgBoxIconError)
+					showAppError(mw, darkTheme, i18n.T("dialog.rename_error"), execErr.Error())
 					return
 				}
 				rewriteExplicitSources(pairs, false)
 				refreshSourceCount()
 				if historyErr != nil {
-					walk.MsgBox(mw, "EasyRenamer", fmt.Sprintf("Renamed %d files, but undo history could not be saved:\n%s", len(pairs), historyErr), walk.MsgBoxIconWarning)
+					showAppError(mw, darkTheme, "EasyRenamer", fmt.Sprintf(i18n.T("dialog.rename_history_warning"), len(pairs), historyErr))
 				} else {
-					walk.MsgBox(mw, "EasyRenamer", fmt.Sprintf(i18n.T("dialog.renamed"), len(pairs)), walk.MsgBoxIconInformation)
+					showAppInfo(mw, darkTheme, "EasyRenamer", fmt.Sprintf(i18n.T("dialog.renamed"), len(pairs)))
 				}
 				preview()
 			})
@@ -1062,10 +1093,14 @@ func runMainWindow(state *uiState) uiRunResult {
 	undo := func() {
 		rec, err := history.Load()
 		if err != nil {
-			walk.MsgBox(mw, "Undo", err.Error(), walk.MsgBoxIconInformation)
+			if errors.Is(err, history.ErrNoOperation) || errors.Is(err, history.ErrEmptyHistory) {
+				showAppInfo(mw, darkTheme, i18n.T("dialog.undo_title"), i18n.T("dialog.no_undo"))
+			} else {
+				showAppError(mw, darkTheme, i18n.T("dialog.undo_error"), err.Error())
+			}
 			return
 		}
-		if walk.MsgBox(mw, "Undo last rename", fmt.Sprintf("Restore %d files from the last operation?", len(rec.Pairs)), walk.MsgBoxYesNo|walk.MsgBoxIconQuestion) != walk.DlgCmdYes {
+		if !showAppConfirm(mw, darkTheme, i18n.T("dialog.undo_title"), fmt.Sprintf(i18n.T("dialog.undo_confirm"), len(rec.Pairs))) {
 			return
 		}
 		setBusy(true, i18n.T("dialog.restoring"))
@@ -1078,15 +1113,15 @@ func runMainWindow(state *uiState) uiRunResult {
 			mw.Synchronize(func() {
 				setBusy(false, "")
 				if undoErr != nil {
-					walk.MsgBox(mw, "Undo error", undoErr.Error(), walk.MsgBoxIconError)
+					showAppError(mw, darkTheme, i18n.T("dialog.undo_error"), undoErr.Error())
 					return
 				}
 				rewriteExplicitSources(rec.Pairs, true)
 				refreshSourceCount()
 				if historyErr != nil {
-					walk.MsgBox(mw, "EasyRenamer", "Names were restored, but undo history could not be cleared:\n"+historyErr.Error(), walk.MsgBoxIconWarning)
+					showAppError(mw, darkTheme, "EasyRenamer", fmt.Sprintf(i18n.T("dialog.undo_history_warning"), historyErr))
 				} else {
-					walk.MsgBox(mw, "EasyRenamer", i18n.T("dialog.undone"), walk.MsgBoxIconInformation)
+					showAppInfo(mw, darkTheme, "EasyRenamer", i18n.T("dialog.undone"))
 				}
 				if len(sources) > 0 {
 					preview()
@@ -1122,9 +1157,9 @@ func runMainWindow(state *uiState) uiRunResult {
 	addFiles := func() {
 		dlg := new(walk.FileDialog)
 		dlg.Title = i18n.T("menu.add_files")
-		dlg.Filter = "All files (*.*)|*.*"
+		dlg.Filter = fmt.Sprintf("%s (*.*)|*.*", i18n.T("file.all"))
 		if ok, err := dlg.ShowOpenMultiple(mw); err != nil {
-			walk.MsgBox(mw, "Files", err.Error(), walk.MsgBoxIconError)
+			showAppError(mw, darkTheme, i18n.T("dialog.files_error"), err.Error())
 		} else if ok {
 			addSources(dlg.FilePaths)
 		}
@@ -1141,7 +1176,7 @@ func runMainWindow(state *uiState) uiRunResult {
 			}
 		}
 		if ok, err := dlg.ShowBrowseFolder(mw); err != nil {
-			walk.MsgBox(mw, "Folder", err.Error(), walk.MsgBoxIconError)
+			showAppError(mw, darkTheme, i18n.T("dialog.folder_error"), err.Error())
 		} else if ok {
 			addSources([]string{dlg.FilePath})
 		}
@@ -1152,7 +1187,7 @@ func runMainWindow(state *uiState) uiRunResult {
 		model.SetItems(nil)
 		refreshSourceCount()
 		if statusLbl != nil {
-			statusLbl.SetText("0 Items    0 Ready    0 Selected    0 Errors")
+			statusLbl.SetText(fmt.Sprintf(i18n.T("status.summary"), 0, 0, 0, 0))
 		}
 		updateStatus()
 	}
@@ -1224,11 +1259,11 @@ func runMainWindow(state *uiState) uiRunResult {
 	saveMethodStack := func() {
 		saveMethodEditor()
 		dlg := new(walk.FileDialog)
-		dlg.Title = "Save method set"
-		dlg.Filter = "EasyRenamer method set (*.json)|*.json|All files (*.*)|*.*"
+		dlg.Title = i18n.T("menu.save_methods")
+		dlg.Filter = fmt.Sprintf("%s (*.json)|*.json|%s (*.*)|*.*", i18n.T("file.method_set"), i18n.T("file.all"))
 		dlg.FilePath = "easyrenamer-methods.json"
 		if ok, err := dlg.ShowSave(mw); err != nil {
-			walk.MsgBox(mw, "Save methods", err.Error(), walk.MsgBoxIconError)
+			showAppError(mw, darkTheme, i18n.T("dialog.save_methods_error"), err.Error())
 		} else if ok {
 			path := dlg.FilePath
 			if filepath.Ext(path) == "" {
@@ -1239,35 +1274,35 @@ func runMainWindow(state *uiState) uiRunResult {
 				err = os.WriteFile(path, data, 0o644)
 			}
 			if err != nil {
-				walk.MsgBox(mw, "Save methods", err.Error(), walk.MsgBoxIconError)
+				showAppError(mw, darkTheme, i18n.T("dialog.save_methods_error"), err.Error())
 			}
 		}
 	}
 
 	loadMethodStack := func() {
 		dlg := new(walk.FileDialog)
-		dlg.Title = "Load method set"
-		dlg.Filter = "EasyRenamer method set (*.json)|*.json|All files (*.*)|*.*"
+		dlg.Title = i18n.T("menu.load_methods")
+		dlg.Filter = fmt.Sprintf("%s (*.json)|*.json|%s (*.*)|*.*", i18n.T("file.method_set"), i18n.T("file.all"))
 		if ok, err := dlg.ShowOpen(mw); err != nil {
-			walk.MsgBox(mw, "Load methods", err.Error(), walk.MsgBoxIconError)
+			showAppError(mw, darkTheme, i18n.T("dialog.load_methods_error"), err.Error())
 		} else if ok {
 			data, err := os.ReadFile(dlg.FilePath)
 			if err != nil {
-				walk.MsgBox(mw, "Load methods", err.Error(), walk.MsgBoxIconError)
+				showAppError(mw, darkTheme, i18n.T("dialog.load_methods_error"), err.Error())
 				return
 			}
 			var stack methodStackFile
 			if err := json.Unmarshal(data, &stack); err != nil {
-				walk.MsgBox(mw, "Load methods", err.Error(), walk.MsgBoxIconError)
+				showAppError(mw, darkTheme, i18n.T("dialog.load_methods_error"), err.Error())
 				return
 			}
 			if len(stack.Methods) == 0 {
-				walk.MsgBox(mw, "Load methods", "The method set is empty.", walk.MsgBoxIconInformation)
+				showAppInfo(mw, darkTheme, i18n.T("dialog.load_methods_error"), i18n.T("dialog.empty_method_set"))
 				return
 			}
 			for _, method := range stack.Methods {
 				if !knownMethod(method.Type) {
-					walk.MsgBox(mw, "Load methods", "The file contains an unsupported method: "+string(method.Type), walk.MsgBoxIconError)
+					showAppError(mw, darkTheme, i18n.T("dialog.load_methods_error"), fmt.Sprintf(i18n.T("dialog.unsupported_method"), method.Type))
 					return
 				}
 			}
@@ -1292,7 +1327,7 @@ func runMainWindow(state *uiState) uiRunResult {
 			}
 			if err := exec.Command("explorer.exe", args...).Start(); err != nil && mw != nil {
 				mw.Synchronize(func() {
-					walk.MsgBox(mw, "Explorer", err.Error(), walk.MsgBoxIconError)
+					showAppError(mw, darkTheme, i18n.T("dialog.explorer_error"), err.Error())
 				})
 			}
 		}()
@@ -1318,6 +1353,36 @@ func runMainWindow(state *uiState) uiRunResult {
 		saveMethodEditor()
 		maybePreview()
 	})
+
+	languageValues := []i18n.Language{i18n.English, i18n.Russian, i18n.Spanish, i18n.Chinese}
+	languageNames := make([]string, len(languageValues))
+	languageIndex := 0
+	for i, lang := range languageValues {
+		languageNames[i] = i18n.LanguageName(lang)
+		if lang == i18n.Current() {
+			languageIndex = i
+		}
+	}
+
+	themeValues := []themeMode{themeSystem, themeLight, themeDark}
+	themeNames := []string{i18n.T("theme.system"), i18n.T("theme.light"), i18n.T("theme.dark")}
+	themeIndex := 0
+	for i, mode := range themeValues {
+		if mode == currentTheme {
+			themeIndex = i
+		}
+	}
+
+	openDropOptions := func() {
+		initial := defaultDropDecision(recursiveCB != nil && recursiveCB.Checked())
+		if remembered, ok := loadRememberedDropDecision(); ok {
+			initial = remembered
+		}
+		decision, accepted := showDropDecisionDialog(mw, darkTheme, initial)
+		if accepted && recursiveCB != nil && decision.Mode != dropModeFiles {
+			recursiveCB.SetChecked(decision.IncludeSubfolders)
+		}
+	}
 
 	initialW, initialH := initialWindowDimensions()
 	window := MainWindow{
@@ -1356,117 +1421,43 @@ func runMainWindow(state *uiState) uiRunResult {
 			}
 			addSources(paths)
 		},
-		MenuItems: []MenuItem{
-			Menu{
-				Text: i18n.T("menu.file"),
-				Items: []MenuItem{
-					Action{Text: i18n.T("menu.add_files"), OnTriggered: addFiles},
-					Action{Text: i18n.T("menu.add_folder"), OnTriggered: addFolder},
-					Separator{},
-					Action{Text: i18n.T("menu.save_methods"), OnTriggered: saveMethodStack},
-					Action{Text: i18n.T("menu.load_methods"), OnTriggered: loadMethodStack},
-					Action{Text: i18n.T("menu.drop_options"), OnTriggered: func() {
-						initial := defaultDropDecision(recursiveCB != nil && recursiveCB.Checked())
-						if remembered, ok := loadRememberedDropDecision(); ok {
-							initial = remembered
-						}
-						decision, accepted := showDropDecisionDialog(mw, darkTheme, initial)
-						if accepted && recursiveCB != nil && decision.Mode != dropModeFiles {
-							recursiveCB.SetChecked(decision.IncludeSubfolders)
-						}
-					}},
-					Separator{},
-					Action{Text: i18n.T("menu.clear_list"), OnTriggered: clearSources},
-				},
-			},
-			Menu{
-				Text: i18n.T("menu.batch"),
-				Items: []MenuItem{
-					Action{Text: i18n.T("menu.preview"), OnTriggered: func() { preview() }},
-					Action{Text: i18n.T("menu.start_batch"), OnTriggered: func() { rename() }},
-					Action{Text: i18n.T("menu.undo"), OnTriggered: func() { undo() }},
-				},
-			},
-			Menu{
-				Text: i18n.T("menu.language"),
-				Items: []MenuItem{
-					Action{Text: i18n.LanguageName(i18n.English), OnTriggered: func() {
-						if i18n.Current() != i18n.English {
-							_ = i18n.Set(i18n.English)
-							requestUIRebuild()
-						}
-					}},
-					Action{Text: i18n.LanguageName(i18n.Russian), OnTriggered: func() {
-						if i18n.Current() != i18n.Russian {
-							_ = i18n.Set(i18n.Russian)
-							requestUIRebuild()
-						}
-					}},
-					Action{Text: i18n.LanguageName(i18n.Spanish), OnTriggered: func() {
-						if i18n.Current() != i18n.Spanish {
-							_ = i18n.Set(i18n.Spanish)
-							requestUIRebuild()
-						}
-					}},
-					Action{Text: i18n.LanguageName(i18n.Chinese), OnTriggered: func() {
-						if i18n.Current() != i18n.Chinese {
-							_ = i18n.Set(i18n.Chinese)
-							requestUIRebuild()
-						}
-					}},
-				},
-			},
-			Menu{
-				Text: i18n.T("menu.theme"),
-				Items: []MenuItem{
-					Action{Text: i18n.T("theme.system"), OnTriggered: func() {
-						if currentTheme != themeSystem {
-							_ = saveThemeMode(themeSystem)
-							requestUIRebuild()
-						}
-					}},
-					Action{Text: i18n.T("theme.light"), OnTriggered: func() {
-						if currentTheme != themeLight {
-							_ = saveThemeMode(themeLight)
-							requestUIRebuild()
-						}
-					}},
-					Action{Text: i18n.T("theme.dark"), OnTriggered: func() {
-						if currentTheme != themeDark {
-							_ = saveThemeMode(themeDark)
-							requestUIRebuild()
-						}
-					}},
-				},
-			},
-			Menu{
-				Text: i18n.T("menu.help"),
-				Items: []MenuItem{
-					Action{Text: i18n.T("menu.tags"), OnTriggered: func() {
-						openURL("https://github.com/Solvo37/easyrenamer/blob/main/docs/TAGS.md")
-					}},
-					Action{Text: i18n.T("menu.learn"), OnTriggered: func() {
-						openURL("https://github.com/Solvo37/easyrenamer/blob/main/docs/LEARN.md")
-					}},
-					Separator{},
-					Action{Text: i18n.T("menu.about"), OnTriggered: func() {
-						walk.MsgBox(mw, "EasyRenamer", fmt.Sprintf(i18n.T("about.text"), version.Version), walk.MsgBoxIconInformation)
-					}},
-				},
-			},
-		},
 		Children: []Widget{
-			Composite{Background: uiPanelBrush(darkTheme),
-				Layout: HBox{Spacing: 6},
+			Composite{Background: uiWindowBrush(darkTheme),
+				Layout: HBox{Spacing: 6, Margins: Margins{Left: 6, Top: 5, Right: 6, Bottom: 5}},
 				Children: []Widget{
-					PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("button.files"), MinSize: Size{92, 32}, ToolTipText: "Add individual files", OnClicked: addFiles},
-					PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("button.folders"), MinSize: Size{92, 32}, ToolTipText: "Add one or more folders", OnClicked: addFolder},
-					PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("button.clear"), MinSize: Size{82, 32}, ToolTipText: "Clear source list and preview", OnClicked: clearSources},
-					PushButton{Background: uiPanelBrush(darkTheme),AssignTo: &previewPB, Text: i18n.T("button.preview"), MinSize: Size{105, 32}, OnClicked: preview},
-					PushButton{Background: uiPanelBrush(darkTheme),AssignTo: &undoPB, Text: i18n.T("button.undo"), MinSize: Size{95, 32}, OnClicked: undo},
+					ToolButton{Background: uiPanelBrush(darkTheme), Text: i18n.T("button.files"), MinSize: Size{88, 30}, OnClicked: addFiles},
+					ToolButton{Background: uiPanelBrush(darkTheme), Text: i18n.T("button.folders"), MinSize: Size{88, 30}, OnClicked: addFolder},
+					ToolButton{Background: uiPanelBrush(darkTheme), Text: i18n.T("button.clear"), MinSize: Size{78, 30}, OnClicked: clearSources},
+					ToolButton{Background: uiPanelBrush(darkTheme), AssignTo: &previewPB, Text: i18n.T("button.preview"), MinSize: Size{104, 30}, OnClicked: preview},
+					ToolButton{Background: uiPanelBrush(darkTheme), AssignTo: &undoPB, Text: i18n.T("button.undo"), MinSize: Size{88, 30}, OnClicked: undo},
 					HSpacer{},
-					Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),AssignTo: &sourceCountLbl, Text: fmt.Sprintf(i18n.T("sources.count"), 0)},
-					PushButton{Background: uiPanelBrush(darkTheme),AssignTo: &renamePB, Text: i18n.T("button.start"), Font: Font{PointSize: 11, Bold: true}, Enabled: false, MinSize: Size{190, 38}, OnClicked: rename},
+					Label{TextColor: uiMutedTextColor(darkTheme), Background: uiWindowBrush(darkTheme), AssignTo: &sourceCountLbl, Text: fmt.Sprintf(i18n.T("sources.count"), 0)},
+					PushButton{Background: uiPanelBrush(darkTheme), AssignTo: &renamePB, Text: i18n.T("button.start"), Font: Font{PointSize: 10, Bold: true}, Enabled: false, MinSize: Size{150, 34}, OnClicked: rename},
+					ComboBox{
+						AssignTo: &languageCB, Background: uiFieldBrush(darkTheme), Model: languageNames, CurrentIndex: languageIndex, MinSize: Size{105, 30},
+						OnMouseDown: func(x, y int, button walk.MouseButton) { scheduleFloatingTheme(mw, darkTheme) },
+						OnCurrentIndexChanged: func() {
+							if mw == nil || languageCB == nil || rebuildRequested { return }
+							idx := languageCB.CurrentIndex()
+							if idx >= 0 && idx < len(languageValues) && languageValues[idx] != i18n.Current() {
+								_ = i18n.Set(languageValues[idx])
+								requestUIRebuild()
+							}
+						},
+					},
+					ComboBox{
+						AssignTo: &themeCB, Background: uiFieldBrush(darkTheme), Model: themeNames, CurrentIndex: themeIndex, MinSize: Size{115, 30},
+						OnMouseDown: func(x, y int, button walk.MouseButton) { scheduleFloatingTheme(mw, darkTheme) },
+						OnCurrentIndexChanged: func() {
+							if mw == nil || themeCB == nil || rebuildRequested { return }
+							idx := themeCB.CurrentIndex()
+							if idx >= 0 && idx < len(themeValues) && themeValues[idx] != currentTheme {
+								_ = saveThemeMode(themeValues[idx])
+								requestUIRebuild()
+							}
+						},
+					},
+					ToolButton{Background: uiPanelBrush(darkTheme), Text: i18n.T("button.help"), MinSize: Size{78, 30}, OnClicked: func() { showHelpDialog(mw, darkTheme, 0) }},
 				},
 			},
 			Composite{Background: uiPanelBrush(darkTheme),
@@ -1491,6 +1482,7 @@ func runMainWindow(state *uiState) uiRunResult {
 					Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("collision.label")},
 					Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("collision.prevent")},
 					HSpacer{},
+					ToolButton{Background: uiPanelBrush(darkTheme), Text: i18n.T("menu.drop_options"), OnClicked: openDropOptions},
 				},
 			},
 			HSplitter{
@@ -1561,11 +1553,13 @@ func runMainWindow(state *uiState) uiRunResult {
 									Composite{Background: uiPanelBrush(darkTheme),
 										Layout: HBox{Spacing: 4},
 										Children: []Widget{
-											PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("button.up"), ToolTipText: "Move selected method up", OnClicked: func() { moveMethod(-1) }},
-											PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("button.down"), ToolTipText: "Move selected method down", OnClicked: func() { moveMethod(1) }},
-											PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("button.copy"), ToolTipText: "Duplicate selected method", OnClicked: duplicateMethod},
+											ToolButton{Background: uiPanelBrush(darkTheme), Text: i18n.T("button.up"), OnClicked: func() { moveMethod(-1) }},
+											ToolButton{Background: uiPanelBrush(darkTheme), Text: i18n.T("button.down"), OnClicked: func() { moveMethod(1) }},
+											ToolButton{Background: uiPanelBrush(darkTheme), Text: i18n.T("button.copy"), OnClicked: duplicateMethod},
+											ToolButton{Background: uiPanelBrush(darkTheme), Text: i18n.T("button.save_methods"), OnClicked: saveMethodStack},
+											ToolButton{Background: uiPanelBrush(darkTheme), Text: i18n.T("button.load_methods"), OnClicked: loadMethodStack},
 											HSpacer{},
-											PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("button.remove"), OnClicked: removeMethod},
+											ToolButton{Background: uiPanelBrush(darkTheme), Text: i18n.T("button.remove"), OnClicked: removeMethod},
 										},
 									},
 								},
@@ -1614,7 +1608,7 @@ Composite{Background: uiPanelBrush(darkTheme),
 														Background: uiPanelBrush(darkTheme),
 														Text: i18n.T("menu.tags"),
 														ColumnSpan: 5,
-														OnClicked: func() { openURL("https://github.com/Solvo37/easyrenamer/blob/main/docs/TAGS.md") },
+														OnClicked: func() { showHelpDialog(mw, darkTheme, 1) },
 													},
 												},
 											},
@@ -1632,7 +1626,7 @@ Composite{Background: uiPanelBrush(darkTheme),
 															return
 														}
 														if len(model.items) == 0 {
-															walk.MsgBox(mw, "List", "Build a preview first, then populate the list.", walk.MsgBoxIconInformation)
+															showAppInfo(mw, darkTheme, i18n.T("dialog.list_error"), i18n.T("dialog.list_need_preview"))
 															return
 														}
 														lines := make([]string, 0, len(model.items))
@@ -1649,14 +1643,14 @@ Composite{Background: uiPanelBrush(darkTheme),
 													}},
 													PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("button.load_list"), OnClicked: func() {
 														dlg := new(walk.FileDialog)
-														dlg.Title = "Load filename list"
-														dlg.Filter = "Text files (*.txt;*.csv)|*.txt;*.csv|All files (*.*)|*.*"
+														dlg.Title = i18n.T("button.load_list")
+														dlg.Filter = fmt.Sprintf("%s (*.txt;*.csv)|*.txt;*.csv|%s (*.*)|*.*", i18n.T("file.text"), i18n.T("file.all"))
 														if ok, err := dlg.ShowOpen(mw); err != nil {
-															walk.MsgBox(mw, "List", err.Error(), walk.MsgBoxIconError)
+															showAppError(mw, darkTheme, i18n.T("dialog.list_error"), err.Error())
 														} else if ok {
 															data, err := os.ReadFile(dlg.FilePath)
 															if err != nil {
-																walk.MsgBox(mw, "List", err.Error(), walk.MsgBoxIconError)
+																showAppError(mw, darkTheme, i18n.T("dialog.list_error"), err.Error())
 																return
 															}
 															listTE.SetText(string(data))
@@ -1669,14 +1663,14 @@ Composite{Background: uiPanelBrush(darkTheme),
 															return
 														}
 														dlg := new(walk.FileDialog)
-														dlg.Title = "Save filename list"
-														dlg.Filter = "Text files (*.txt)|*.txt|All files (*.*)|*.*"
+														dlg.Title = i18n.T("button.save_list")
+														dlg.Filter = fmt.Sprintf("%s (*.txt)|*.txt|%s (*.*)|*.*", i18n.T("file.text"), i18n.T("file.all"))
 														dlg.FilePath = "names.txt"
 														if ok, err := dlg.ShowSave(mw); err != nil {
-															walk.MsgBox(mw, "List", err.Error(), walk.MsgBoxIconError)
+															showAppError(mw, darkTheme, i18n.T("dialog.list_error"), err.Error())
 														} else if ok {
 															if err := os.WriteFile(dlg.FilePath, []byte(listTE.Text()), 0o644); err != nil {
-																walk.MsgBox(mw, "List", err.Error(), walk.MsgBoxIconError)
+																showAppError(mw, darkTheme, i18n.T("dialog.list_error"), err.Error())
 															}
 														}
 													}},
@@ -1691,18 +1685,18 @@ Composite{Background: uiPanelBrush(darkTheme),
 												Children: []Widget{
 													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.rules_info"), ColumnSpan: 4},
 													TextEdit{TextColor: uiTextColor(darkTheme), Background: uiFieldBrush(darkTheme),AssignTo: &listReplaceTE, VScroll: true, HScroll: true, MinSize: Size{0, 110}, ColumnSpan: 4, OnTextChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
-													CheckBox{Background: uiPanelBrush(darkTheme),AssignTo: &listReplaceRegexCB, Text: "Regular expressions", ColumnSpan: 2, OnCheckedChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
+													CheckBox{Background: uiPanelBrush(darkTheme),AssignTo: &listReplaceRegexCB, Text: i18n.T("label.regex_plural"), ColumnSpan: 2, OnCheckedChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
 													CheckBox{Background: uiPanelBrush(darkTheme),AssignTo: &listReplaceCaseCB, Text: i18n.T("label.case_sensitive"), ColumnSpan: 2, OnCheckedChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
 													PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("button.load_rules"), OnClicked: func() {
 														dlg := new(walk.FileDialog)
-														dlg.Title = "Load replace rules"
-														dlg.Filter = "Text files (*.txt;*.csv)|*.txt;*.csv|All files (*.*)|*.*"
+														dlg.Title = i18n.T("button.load_rules")
+														dlg.Filter = fmt.Sprintf("%s (*.txt;*.csv)|*.txt;*.csv|%s (*.*)|*.*", i18n.T("file.text"), i18n.T("file.all"))
 														if ok, err := dlg.ShowOpen(mw); err != nil {
-															walk.MsgBox(mw, "List replace", err.Error(), walk.MsgBoxIconError)
+															showAppError(mw, darkTheme, i18n.T("dialog.list_replace_error"), err.Error())
 														} else if ok {
 															data, err := os.ReadFile(dlg.FilePath)
 															if err != nil {
-																walk.MsgBox(mw, "List replace", err.Error(), walk.MsgBoxIconError)
+																showAppError(mw, darkTheme, i18n.T("dialog.list_replace_error"), err.Error())
 																return
 															}
 															listReplaceTE.SetText(string(data))
@@ -1721,7 +1715,7 @@ Composite{Background: uiPanelBrush(darkTheme),
 												Layout: Grid{Columns: 2, Spacing: 7},
 												Children: []Widget{
 													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.case_to")},
-													ComboBox{Background: uiFieldBrush(darkTheme),OnMouseDown: func(x, y int, button walk.MouseButton) { scheduleFloatingTheme(mw, darkTheme) },AssignTo: &caseCB, Model: []string{"lower case", "UPPER CASE", "Title Case"}, CurrentIndex: 0, OnCurrentIndexChanged: func() {
+													ComboBox{Background: uiFieldBrush(darkTheme),OnMouseDown: func(x, y int, button walk.MouseButton) { scheduleFloatingTheme(mw, darkTheme) },AssignTo: &caseCB, Model: []string{i18n.T("case.lower"), i18n.T("case.upper"), i18n.T("case.title")}, CurrentIndex: 0, OnCurrentIndexChanged: func() {
 														if updatingMethodUI { return }
 														saveMethodEditor()
 														maybePreview()
@@ -1740,7 +1734,7 @@ Composite{Background: uiPanelBrush(darkTheme),
 													NumberEdit{TextColor: uiTextColor(darkTheme), Background: uiFieldBrush(darkTheme),AssignTo: &moveCountNE, MinValue: 1, MaxValue: 99999, SpinButtonsVisible: true, OnValueChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
 													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.move_to")},
 													NumberEdit{TextColor: uiTextColor(darkTheme), Background: uiFieldBrush(darkTheme),AssignTo: &moveToNE, MinValue: 1, MaxValue: 99999, SpinButtonsVisible: true, OnValueChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
-													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: "Positions are 1-based and apply to the filename without extension.", ColumnSpan: 6},
+													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.positions_help"), ColumnSpan: 6},
 												},
 											},
 											Composite{
@@ -1753,7 +1747,7 @@ Composite{Background: uiPanelBrush(darkTheme),
 													NumberEdit{TextColor: uiTextColor(darkTheme), Background: uiFieldBrush(darkTheme),AssignTo: &removeStartNE, MinValue: 1, MaxValue: 99999, SpinButtonsVisible: true, OnValueChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
 													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.count")},
 													NumberEdit{TextColor: uiTextColor(darkTheme), Background: uiFieldBrush(darkTheme),AssignTo: &removeCountNE, MinValue: 1, MaxValue: 99999, SpinButtonsVisible: true, OnValueChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
-													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: "Removes characters from the base filename; extension is preserved.", ColumnSpan: 4},
+													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.remove_help"), ColumnSpan: 4},
 												},
 											},
 											Composite{
@@ -1763,7 +1757,7 @@ Composite{Background: uiPanelBrush(darkTheme),
 												Layout: Grid{Columns: 4, Spacing: 7},
 												Children: []Widget{
 													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.pattern")},
-													LineEdit{TextColor: uiTextColor(darkTheme), Background: uiFieldBrush(darkTheme),AssignTo: &removePatternLE, CueBanner: "text or regex", ColumnSpan: 3, OnTextChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }, OnEditingFinished: maybePreview},
+													LineEdit{TextColor: uiTextColor(darkTheme), Background: uiFieldBrush(darkTheme),AssignTo: &removePatternLE, CueBanner: i18n.T("cue.text_or_regex"), ColumnSpan: 3, OnTextChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }, OnEditingFinished: maybePreview},
 													CheckBox{Background: uiPanelBrush(darkTheme),AssignTo: &removePatternRegexCB, Text: i18n.T("label.regex"), ColumnSpan: 4, OnCheckedChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
 												},
 											},
@@ -1780,7 +1774,7 @@ Composite{Background: uiPanelBrush(darkTheme),
 													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.padding")},
 													NumberEdit{TextColor: uiTextColor(darkTheme), Background: uiFieldBrush(darkTheme),AssignTo: &renumberPaddingNE, MinValue: 1, MaxValue: 12, SpinButtonsVisible: true, OnValueChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
 													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.position")},
-													ComboBox{Background: uiFieldBrush(darkTheme),OnMouseDown: func(x, y int, button walk.MouseButton) { scheduleFloatingTheme(mw, darkTheme) },AssignTo: &renumberPositionCB, Model: []string{"Prefix", "Suffix"}, CurrentIndex: 0, OnCurrentIndexChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
+													ComboBox{Background: uiFieldBrush(darkTheme),OnMouseDown: func(x, y int, button walk.MouseButton) { scheduleFloatingTheme(mw, darkTheme) },AssignTo: &renumberPositionCB, Model: []string{i18n.T("label.prefix_position"), i18n.T("label.suffix_position")}, CurrentIndex: 0, OnCurrentIndexChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
 													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.separator")},
 													LineEdit{TextColor: uiTextColor(darkTheme), Background: uiFieldBrush(darkTheme),AssignTo: &renumberSeparatorLE, Text: "-", OnTextChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }, OnEditingFinished: maybePreview},
 													CheckBox{Background: uiPanelBrush(darkTheme),AssignTo: &renumberPerDirCB, Text: i18n.T("label.per_folder"), Checked: true, ColumnSpan: 2, OnCheckedChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
@@ -1793,7 +1787,7 @@ Composite{Background: uiPanelBrush(darkTheme),
 												Layout: Grid{Columns: 4, Spacing: 7},
 												Children: []Widget{
 													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.find")},
-													LineEdit{TextColor: uiTextColor(darkTheme), Background: uiFieldBrush(darkTheme),AssignTo: &findLE, CueBanner: "text or expression", OnTextChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }, OnEditingFinished: maybePreview},
+													LineEdit{TextColor: uiTextColor(darkTheme), Background: uiFieldBrush(darkTheme),AssignTo: &findLE, CueBanner: i18n.T("cue.text_or_expression"), OnTextChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }, OnEditingFinished: maybePreview},
 													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.replace_with")},
 													LineEdit{TextColor: uiTextColor(darkTheme), Background: uiFieldBrush(darkTheme),AssignTo: &replaceLE, OnTextChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }, OnEditingFinished: maybePreview},
 													CheckBox{Background: uiPanelBrush(darkTheme),AssignTo: &regexCB, Text: i18n.T("label.regex"), ColumnSpan: 4, OnCheckedChanged: func() {
@@ -1809,9 +1803,9 @@ Composite{Background: uiPanelBrush(darkTheme),
 												Layout: Grid{Columns: 4, Spacing: 7},
 												Children: []Widget{
 													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.prefix")},
-													LineEdit{TextColor: uiTextColor(darkTheme), Background: uiFieldBrush(darkTheme),AssignTo: &prefixLE, CueBanner: "before name", OnTextChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }, OnEditingFinished: maybePreview},
+													LineEdit{TextColor: uiTextColor(darkTheme), Background: uiFieldBrush(darkTheme),AssignTo: &prefixLE, CueBanner: i18n.T("cue.before_name"), OnTextChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }, OnEditingFinished: maybePreview},
 													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.suffix")},
-													LineEdit{TextColor: uiTextColor(darkTheme), Background: uiFieldBrush(darkTheme),AssignTo: &suffixLE, CueBanner: "after name", OnTextChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }, OnEditingFinished: maybePreview},
+													LineEdit{TextColor: uiTextColor(darkTheme), Background: uiFieldBrush(darkTheme),AssignTo: &suffixLE, CueBanner: i18n.T("cue.after_name"), OnTextChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }, OnEditingFinished: maybePreview},
 													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.extension_preserved"), ColumnSpan: 4},
 												},
 											},
@@ -1823,8 +1817,8 @@ Composite{Background: uiPanelBrush(darkTheme),
 												Children: []Widget{
 													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.expression")},
 													TextEdit{TextColor: uiTextColor(darkTheme), Background: uiFieldBrush(darkTheme),AssignTo: &scriptTE, VScroll: true, HScroll: true, MinSize: Size{0, 105}, ColumnSpan: 3, OnTextChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
-													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: "Variables: Name, Ext, FullName, Index, DirIndex, DirName, UnixTimestamp, ModifiedUnix.", ColumnSpan: 4},
-													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: "Functions: lower(), upper(), trim(), replace(), concat(), substr(). Example: concat(lower(Name), '-', Index, Ext)", ColumnSpan: 4},
+													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.variables_help"), ColumnSpan: 4},
+													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.functions_help"), ColumnSpan: 4},
 													PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("button.apply_script"), OnClicked: func() { saveMethodEditor(); maybePreview() }},
 													PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("button.reset_example"), OnClicked: func() { if scriptTE != nil { scriptTE.SetText("concat(Name, Ext)"); saveMethodEditor(); maybePreview() } }},
 												},
@@ -1839,7 +1833,7 @@ Composite{Background: uiPanelBrush(darkTheme),
 													LineEdit{TextColor: uiTextColor(darkTheme), Background: uiFieldBrush(darkTheme),AssignTo: &swapSeparatorLE, Text: " - ", OnTextChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }, OnEditingFinished: maybePreview},
 													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.occurrence")},
 													NumberEdit{TextColor: uiTextColor(darkTheme), Background: uiFieldBrush(darkTheme),AssignTo: &swapOccurrenceNE, MinValue: 1, MaxValue: 9999, SpinButtonsVisible: true, OnValueChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
-													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: "Example: Michael Jackson - Thriller  ->  Thriller - Michael Jackson", ColumnSpan: 4},
+													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.swap_example"), ColumnSpan: 4},
 												},
 											},
 											Composite{
@@ -1859,14 +1853,14 @@ Composite{Background: uiPanelBrush(darkTheme),
 												Layout: Grid{Columns: 4, Spacing: 7},
 												Children: []Widget{
 													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.source")},
-													ComboBox{Background: uiFieldBrush(darkTheme),OnMouseDown: func(x, y int, button walk.MouseButton) { scheduleFloatingTheme(mw, darkTheme) },AssignTo: &timestampSourceCB, Model: []string{"File modified time", "Batch time"}, CurrentIndex: 0, OnCurrentIndexChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
+													ComboBox{Background: uiFieldBrush(darkTheme),OnMouseDown: func(x, y int, button walk.MouseButton) { scheduleFloatingTheme(mw, darkTheme) },AssignTo: &timestampSourceCB, Model: []string{i18n.T("label.file_modified_time"), i18n.T("label.batch_time")}, CurrentIndex: 0, OnCurrentIndexChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
 													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.position")},
-													ComboBox{Background: uiFieldBrush(darkTheme),OnMouseDown: func(x, y int, button walk.MouseButton) { scheduleFloatingTheme(mw, darkTheme) },AssignTo: &timestampPositionCB, Model: []string{"Suffix", "Prefix"}, CurrentIndex: 0, OnCurrentIndexChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
+													ComboBox{Background: uiFieldBrush(darkTheme),OnMouseDown: func(x, y int, button walk.MouseButton) { scheduleFloatingTheme(mw, darkTheme) },AssignTo: &timestampPositionCB, Model: []string{i18n.T("label.suffix_position"), i18n.T("label.prefix_position")}, CurrentIndex: 0, OnCurrentIndexChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
 													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.format")},
 													LineEdit{TextColor: uiTextColor(darkTheme), Background: uiFieldBrush(darkTheme),AssignTo: &timestampFormatLE, Text: "yyyyMMdd-HHmmss", OnTextChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }, OnEditingFinished: maybePreview},
 													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.separator")},
 													LineEdit{TextColor: uiTextColor(darkTheme), Background: uiFieldBrush(darkTheme),AssignTo: &timestampSeparatorLE, Text: "-", OnTextChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }, OnEditingFinished: maybePreview},
-													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: "Format example: yyyyMMdd-HHmmss", ColumnSpan: 4},
+													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.format_example"), ColumnSpan: 4},
 												},
 											},
 										},
@@ -2004,7 +1998,7 @@ Composite{Background: uiPanelBrush(darkTheme),
 	}
 
 	if err := window.Create(); err != nil {
-		walk.MsgBox(nil, "EasyRenamer startup error", err.Error(), walk.MsgBoxIconError)
+		walk.MsgBox(nil, i18n.T("dialog.startup_error"), err.Error(), walk.MsgBoxIconError)
 		log.Print(err)
 		return uiExit
 	}

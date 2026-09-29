@@ -223,5 +223,6 @@ func init() {
 		"case.lower": "小写",
 		"case.upper": "大写",
 		"case.title": "单词首字母大写",
+		"dialog.startup_error": "EasyRenamer 启动错误",
 	}
 }

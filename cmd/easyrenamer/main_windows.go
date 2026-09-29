@@ -357,13 +357,15 @@ func main() {
 
 	var mw *walk.MainWindow
 	var customExtLE, templateLE, findLE, replaceLE, prefixLE, suffixLE *walk.LineEdit
-	var removePatternLE, renumberSeparatorLE, timestampFormatLE, timestampSeparatorLE *walk.LineEdit
+	var removePatternLE, renumberSeparatorLE, timestampFormatLE, timestampSeparatorLE, swapSeparatorLE *walk.LineEdit
+	var listTE, listReplaceTE, scriptTE *walk.TextEdit
 	var recursiveCB, regexCB, autoPreviewCB *walk.CheckBox
 	var removePatternRegexCB, renumberPerDirCB, trimNormalizeCB *walk.CheckBox
+	var listIncludeExtCB, listReplaceRegexCB, listReplaceCaseCB *walk.CheckBox
 	var categoryCB, presetCB, caseCB, tokenCB *walk.ComboBox
 	var renumberPositionCB, timestampSourceCB, timestampPositionCB *walk.ComboBox
 	var removeStartNE, removeCountNE, renumberStartNE, renumberStepNE, renumberPaddingNE *walk.NumberEdit
-	var moveStartNE, moveCountNE, moveToNE *walk.NumberEdit
+	var moveStartNE, moveCountNE, moveToNE, swapOccurrenceNE *walk.NumberEdit
 	var methodTable, table *walk.TableView
 	var editorTabs *walk.TabWidget
 	var sourceCountLbl, statusLbl, collisionLbl *walk.Label
@@ -376,6 +378,7 @@ func main() {
 	editingMethodIndex := 0
 	updatingMethodUI := false
 	busy := false
+	dragMethodIndex := -1
 
 	categoryNames := make([]string, 0)
 	for _, c := range engine.Categories() {

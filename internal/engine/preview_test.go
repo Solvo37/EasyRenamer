@@ -1,6 +1,9 @@
 package engine
 
 import (
+	"image"
+	"image/color"
+	"image/png"
 	"os"
 	"path/filepath"
 	"testing"
@@ -77,5 +80,66 @@ func TestPreviewAcceptsMixedSourcesAndMethodStack(t *testing.T) {
 	}
 	if items[1].NewName != "002-IMAGE 10.jpg" {
 		t.Fatalf("unexpected second name: %q", items[1].NewName)
+	}
+}
+
+func TestDisabledMethodIsSkipped(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "Photo.jpg")
+	if err := os.WriteFile(path, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	items, err := Preview(Config{
+		Sources:  []string{path},
+		Category: CategoryImages,
+		Methods: []RenameMethod{
+			{Type: MethodPrefixSuffix, Prefix: "prefix-"},
+			{Type: MethodCase, CaseMode: CaseUpper, Disabled: true},
+		},
+		BatchTime: time.Unix(1786000000, 0),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := items[0].NewName; got != "prefix-Photo.jpg" {
+		t.Fatalf("disabled case method was applied: %q", got)
+	}
+}
+
+func TestPreviewReadsPNGDimensions(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "sample.png")
+
+	img := image.NewRGBA(image.Rect(0, 0, 13, 7))
+	img.Set(0, 0, color.White)
+	f, err := os.Create(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := png.Encode(f, img); err != nil {
+		_ = f.Close()
+		t.Fatal(err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	items, err := Preview(Config{
+		Sources:  []string{path},
+		Category: CategoryImages,
+		Methods:  []RenameMethod{{Type: MethodPrefixSuffix, Prefix: "x-"}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(items) != 1 {
+		t.Fatalf("got %d items, want 1", len(items))
+	}
+	if items[0].Width != 13 || items[0].Height != 7 {
+		t.Fatalf("unexpected dimensions %dx%d", items[0].Width, items[0].Height)
+	}
+	if items[0].Size <= 0 {
+		t.Fatal("expected file size metadata")
 	}
 }

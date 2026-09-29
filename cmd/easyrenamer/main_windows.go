@@ -11,6 +11,7 @@ import (
 	"runtime"
 	"strings"
 	"time"
+	"unicode/utf16"
 
 	"github.com/lxn/walk"
 	. "github.com/lxn/walk/declarative"
@@ -43,6 +44,18 @@ func (m *previewModel) Value(row, col int) interface{} {
 	case 3:
 		return filepath.Dir(it.SourcePath)
 	case 4:
+		return formatBytes(it.Size)
+	case 5:
+		if it.Width > 0 {
+			return it.Width
+		}
+		return ""
+	case 6:
+		if it.Height > 0 {
+			return it.Height
+		}
+		return ""
+	case 7:
 		if it.Error != "" {
 			return it.Status + ": " + it.Error
 		}
@@ -59,6 +72,7 @@ func (m *previewModel) Checked(row int) bool {
 func (m *previewModel) SetChecked(row int, checked bool) error {
 	if row >= 0 && row < len(m.items) && m.items[row].Status == engine.StatusOK {
 		m.items[row].Checked = checked
+		m.PublishRowChanged(row)
 		if m.onChange != nil {
 			m.onChange()
 		}
@@ -74,6 +88,43 @@ func (m *previewModel) SetItems(items []*engine.Item) {
 	}
 }
 
+type methodModel struct {
+	walk.TableModelBase
+	methods  *[]engine.RenameMethod
+	onToggle func()
+}
+
+func (m *methodModel) RowCount() int {
+	if m.methods == nil {
+		return 0
+	}
+	return len(*m.methods)
+}
+
+func (m *methodModel) Value(row, col int) interface{} {
+	if m.methods == nil || row < 0 || row >= len(*m.methods) {
+		return ""
+	}
+	method := (*m.methods)[row]
+	return fmt.Sprintf("%d. %s", row+1, methodTitle(method.Type))
+}
+
+func (m *methodModel) Checked(row int) bool {
+	return m.methods != nil && row >= 0 && row < len(*m.methods) && !(*m.methods)[row].Disabled
+}
+
+func (m *methodModel) SetChecked(row int, checked bool) error {
+	if m.methods == nil || row < 0 || row >= len(*m.methods) {
+		return nil
+	}
+	(*m.methods)[row].Disabled = !checked
+	m.PublishRowChanged(row)
+	if m.onToggle != nil {
+		m.onToggle()
+	}
+	return nil
+}
+
 var presets = []struct {
 	Name     string
 	Template string
@@ -82,6 +133,20 @@ var presets = []struct {
 	{"Original name + sequence", "<Name>-<Inc:001>"},
 	{"Parent folder + sequence", "<DirName:1>-<Inc NrDir:01>"},
 	{"Date + original name", "<Date:yyyyMMdd>-<Name>"},
+}
+
+var templateTokens = []string{
+	"<Name>",
+	"<Ext>",
+	"<Inc:001>",
+	"<Inc NrDir:01>",
+	"<DirName:1>",
+	"<Date:yyyyMMdd>",
+	"<Date:yyyyMMdd-HHmmss>",
+	"<UnixTimestamp>",
+	"<Rand>",
+	"<Rand Str:8>",
+	"<Rand Alpha:9>",
 }
 
 func methodTitle(method engine.Method) string {
@@ -138,22 +203,67 @@ func defaultMethod(method engine.Method) engine.RenameMethod {
 	}
 }
 
+func formatBytes(size int64) string {
+	switch {
+	case size >= 1024*1024*1024:
+		return fmt.Sprintf("%.1f GB", float64(size)/(1024*1024*1024))
+	case size >= 1024*1024:
+		return fmt.Sprintf("%.1f MB", float64(size)/(1024*1024))
+	case size >= 1024:
+		return fmt.Sprintf("%.1f KB", float64(size)/1024)
+	default:
+		return fmt.Sprintf("%d B", size)
+	}
+}
+
+func insertIntoLineEdit(le *walk.LineEdit, value string) {
+	if le == nil || value == "" {
+		return
+	}
+
+	units := utf16.Encode([]rune(le.Text()))
+	insert := utf16.Encode([]rune(value))
+	start, end := le.TextSelection()
+	if start < 0 {
+		start = 0
+	}
+	if end < start {
+		end = start
+	}
+	if start > len(units) {
+		start = len(units)
+	}
+	if end > len(units) {
+		end = len(units)
+	}
+
+	merged := make([]uint16, 0, len(units)-(end-start)+len(insert))
+	merged = append(merged, units[:start]...)
+	merged = append(merged, insert...)
+	merged = append(merged, units[end:]...)
+	_ = le.SetText(string(utf16.Decode(merged)))
+
+	pos := start + len(insert)
+	le.SetTextSelection(pos, pos)
+	le.SetFocus()
+}
+
 func main() {
 	runtime.LockOSThread()
 
 	var mw *walk.MainWindow
 	var customExtLE, templateLE, findLE, replaceLE, prefixLE, suffixLE *walk.LineEdit
 	var recursiveCB, regexCB, autoPreviewCB *walk.CheckBox
-	var categoryCB, presetCB, caseCB *walk.ComboBox
-	var methodList *walk.ListBox
+	var categoryCB, presetCB, caseCB, tokenCB *walk.ComboBox
+	var methodTable, table *walk.TableView
 	var editorTabs *walk.TabWidget
-	var table *walk.TableView
-	var sourceCountLbl, statusLbl *walk.Label
+	var sourceCountLbl, statusLbl, collisionLbl *walk.Label
 	var previewPB, renamePB, undoPB *walk.PushButton
 
 	model := &previewModel{}
 	sources := make([]string, 0)
 	methods := []engine.RenameMethod{defaultMethod(engine.MethodTemplate)}
+	methodsModel := &methodModel{methods: &methods}
 	editingMethodIndex := 0
 	updatingMethodUI := false
 	busy := false
@@ -183,9 +293,18 @@ func main() {
 				checked++
 			}
 		}
-		statusLbl.SetText(fmt.Sprintf("Items: %d   Ready: %d   Selected: %d   Problems: %d", len(model.items), ok, checked, problems))
+		statusLbl.SetText(fmt.Sprintf("%d Items    %d Ready    %d Selected    %d Errors", len(model.items), ok, checked, problems))
+		if collisionLbl != nil {
+			if problems > 0 {
+				collisionLbl.SetText("Status: check errors before batch")
+			} else if len(model.items) > 0 {
+				collisionLbl.SetText("Status: OK")
+			} else {
+				collisionLbl.SetText("Status: waiting for files")
+			}
+		}
 		if renamePB != nil {
-			renamePB.SetEnabled(checked > 0)
+			renamePB.SetEnabled(!busy && checked > 0)
 		}
 	}
 	model.onChange = updateStatus
@@ -196,18 +315,11 @@ func main() {
 		}
 	}
 
-	methodNames := func() []string {
-		names := make([]string, len(methods))
-		for i, method := range methods {
-			names[i] = fmt.Sprintf("%d. %s", i+1, methodTitle(method.Type))
-		}
-		return names
-	}
-
 	var saveMethodEditor func()
 	var loadMethodEditor func(int)
-	var refreshMethodList func(int)
+	var refreshMethodTable func(int)
 	var preview func()
+	var maybePreview func()
 
 	saveMethodEditor = func() {
 		if updatingMethodUI || editorTabs == nil || editingMethodIndex < 0 || editingMethodIndex >= len(methods) {
@@ -249,6 +361,7 @@ func main() {
 				}
 			}
 		}
+		methodsModel.PublishRowChanged(editingMethodIndex)
 	}
 
 	loadMethodEditor = func(index int) {
@@ -289,8 +402,8 @@ func main() {
 		}
 	}
 
-	refreshMethodList = func(selectIndex int) {
-		if methodList == nil {
+	refreshMethodTable = func(selectIndex int) {
+		if methodTable == nil {
 			return
 		}
 		if selectIndex < 0 {
@@ -299,21 +412,23 @@ func main() {
 		if selectIndex >= len(methods) {
 			selectIndex = len(methods) - 1
 		}
+
 		updatingMethodUI = true
-		_ = methodList.SetModel(methodNames())
+		methodsModel.PublishRowsReset()
 		if selectIndex >= 0 {
-			_ = methodList.SetCurrentIndex(selectIndex)
+			_ = methodTable.SetCurrentIndex(selectIndex)
 		}
 		editingMethodIndex = selectIndex
 		updatingMethodUI = false
 		loadMethodEditor(selectIndex)
 	}
 
-	maybePreview := func() {
-		if autoPreviewCB != nil && autoPreviewCB.Checked() && len(sources) > 0 && preview != nil {
+	maybePreview = func() {
+		if autoPreviewCB != nil && autoPreviewCB.Checked() && len(sources) > 0 && preview != nil && !busy {
 			preview()
 		}
 	}
+	methodsModel.onToggle = maybePreview
 
 	buildConfig := func() engine.Config {
 		saveMethodEditor()
@@ -538,14 +653,29 @@ func main() {
 		model.SetItems(nil)
 		refreshSourceCount()
 		if statusLbl != nil {
-			statusLbl.SetText("Add files or folders to start.")
+			statusLbl.SetText("0 Items    0 Ready    0 Selected    0 Errors")
 		}
+		updateStatus()
 	}
 
 	addMethod := func(methodType engine.Method) {
 		saveMethodEditor()
 		methods = append(methods, defaultMethod(methodType))
-		refreshMethodList(len(methods) - 1)
+		refreshMethodTable(len(methods) - 1)
+		maybePreview()
+	}
+
+	duplicateMethod := func() {
+		if editingMethodIndex < 0 || editingMethodIndex >= len(methods) {
+			return
+		}
+		saveMethodEditor()
+		clone := methods[editingMethodIndex]
+		insertAt := editingMethodIndex + 1
+		methods = append(methods, engine.RenameMethod{})
+		copy(methods[insertAt+1:], methods[insertAt:])
+		methods[insertAt] = clone
+		refreshMethodTable(insertAt)
 		maybePreview()
 	}
 
@@ -556,7 +686,7 @@ func main() {
 		saveMethodEditor()
 		if len(methods) == 1 {
 			methods[0] = defaultMethod(engine.MethodTemplate)
-			refreshMethodList(0)
+			refreshMethodTable(0)
 			maybePreview()
 			return
 		}
@@ -565,7 +695,7 @@ func main() {
 		if selectIndex >= len(methods) {
 			selectIndex = len(methods) - 1
 		}
-		refreshMethodList(selectIndex)
+		refreshMethodTable(selectIndex)
 		maybePreview()
 	}
 
@@ -579,7 +709,7 @@ func main() {
 		}
 		saveMethodEditor()
 		methods[editingMethodIndex], methods[target] = methods[target], methods[editingMethodIndex]
-		refreshMethodList(target)
+		refreshMethodTable(target)
 		maybePreview()
 	}
 
@@ -594,13 +724,42 @@ func main() {
 		_ = exec.Command("explorer.exe", filepath.Clean(path)).Start()
 	}
 
+	openSelectedFile := func() {
+		if table == nil {
+			return
+		}
+		index := table.CurrentIndex()
+		if index < 0 || index >= len(model.items) {
+			return
+		}
+		path := model.items[index].SourcePath
+		_ = exec.Command("explorer.exe", "/select,"+filepath.Clean(path)).Start()
+	}
+
 	if _, err := (MainWindow{
 		AssignTo: &mw,
 		Title:    "EasyRenamer " + version.Version + " — Batch File Renamer",
-		MinSize:  Size{1000, 680},
-		Size:     Size{1400, 860},
-		Layout:   VBox{Margins: Margins{Left: 10, Top: 10, Right: 10, Bottom: 8}, Spacing: 7},
+		MinSize:  Size{1060, 700},
+		Size:     Size{1480, 900},
+		Layout:   VBox{Margins: Margins{Left: 8, Top: 8, Right: 8, Bottom: 6}, Spacing: 6},
 		MenuItems: []MenuItem{
+			Menu{
+				Text: "&File",
+				Items: []MenuItem{
+					Action{Text: "Add files...", OnTriggered: addFiles},
+					Action{Text: "Add folder...", OnTriggered: addFolder},
+					Separator{},
+					Action{Text: "Clear list", OnTriggered: clearSources},
+				},
+			},
+			Menu{
+				Text: "&Batch",
+				Items: []MenuItem{
+					Action{Text: "Preview", OnTriggered: func() { preview() }},
+					Action{Text: "Start batch", OnTriggered: func() { rename() }},
+					Action{Text: "Undo last batch", OnTriggered: func() { undo() }},
+				},
+			},
 			Menu{
 				Text: "&Help",
 				Items: []MenuItem{
@@ -617,25 +776,25 @@ func main() {
 		},
 		Children: []Widget{
 			Composite{
-				Layout: HBox{Spacing: 7},
+				Layout: HBox{Spacing: 6},
 				Children: []Widget{
 					Label{Text: "Batch mode:"},
-					ComboBox{Model: []string{"Rename"}, CurrentIndex: 0, MinSize: Size{140, 0}},
-					PushButton{Text: "+ Files", OnClicked: addFiles},
-					PushButton{Text: "+ Folder", OnClicked: addFolder},
-					PushButton{Text: "Clear", OnClicked: clearSources},
+					ComboBox{Model: []string{"Rename"}, CurrentIndex: 0, MinSize: Size{130, 0}},
+					PushButton{Text: "+ Files", ToolTipText: "Add individual files", OnClicked: addFiles},
+					PushButton{Text: "+ Folders", ToolTipText: "Add one or more folders", OnClicked: addFolder},
+					PushButton{Text: "Clear", ToolTipText: "Clear source list and preview", OnClicked: clearSources},
 					PushButton{AssignTo: &previewPB, Text: "Preview", OnClicked: preview},
 					PushButton{AssignTo: &undoPB, Text: "Undo batch", OnClicked: undo},
 					HSpacer{},
 					Label{AssignTo: &sourceCountLbl, Text: "Sources: 0"},
-					PushButton{AssignTo: &renamePB, Text: "Start batch", Enabled: false, MinSize: Size{145, 0}, OnClicked: rename},
+					PushButton{AssignTo: &renamePB, Text: "Start batch", Enabled: false, MinSize: Size{155, 0}, OnClicked: rename},
 				},
 			},
 			Composite{
-				Layout: HBox{Spacing: 7},
+				Layout: HBox{Spacing: 6},
 				Children: []Widget{
 					Label{Text: "Filter:"},
-					ComboBox{AssignTo: &categoryCB, Model: categoryNames, CurrentIndex: 0, MinSize: Size{135, 0}, OnCurrentIndexChanged: func() {
+					ComboBox{AssignTo: &categoryCB, Model: categoryNames, CurrentIndex: 0, MinSize: Size{130, 0}, OnCurrentIndexChanged: func() {
 						if customExtLE != nil {
 							customExtLE.SetEnabled(categoryCB.CurrentIndex() == len(categoryNames)-1)
 						}
@@ -643,36 +802,58 @@ func main() {
 					}},
 					CheckBox{AssignTo: &recursiveCB, Text: "Include subfolders", Checked: true, OnCheckedChanged: maybePreview},
 					Label{Text: "Extensions:"},
-					LineEdit{AssignTo: &customExtLE, Text: "psd, svg", Enabled: false, MinSize: Size{130, 0}, OnEditingFinished: maybePreview},
-					CheckBox{AssignTo: &autoPreviewCB, Text: "Auto preview", Checked: true},
+					LineEdit{AssignTo: &customExtLE, Text: "psd, svg", Enabled: false, MinSize: Size{125, 0}, CueBanner: "jpg, png, psd", OnEditingFinished: maybePreview},
+					CheckBox{AssignTo: &autoPreviewCB, Text: "Auto test", Checked: true},
+					Label{Text: "Collision rule:"},
+					Label{Text: "Prevent overwrite"},
 					HSpacer{},
-					PushButton{Text: "Open source folder", OnClicked: openSourceFolder},
+					PushButton{Text: "Open source", OnClicked: openSourceFolder},
 				},
 			},
 			HSplitter{
 				HandleWidth: 5,
 				Children: []Widget{
 					Composite{
-						MinSize: Size{245, 0},
-						Layout:  VBox{Spacing: 7},
+						MinSize: Size{285, 0},
+						Layout:  VBox{Spacing: 6},
 						Children: []Widget{
 							GroupBox{
 								Title:  "Renaming methods",
 								Layout: VBox{Spacing: 5},
 								Children: []Widget{
-									ListBox{AssignTo: &methodList, Model: methodNames(), CurrentIndex: 0, MinSize: Size{225, 220}, OnCurrentIndexChanged: func() {
-										if updatingMethodUI || methodList == nil {
-											return
-										}
-										saveMethodEditor()
-										editingMethodIndex = methodList.CurrentIndex()
-										loadMethodEditor(editingMethodIndex)
-									}},
+									TableView{
+										AssignTo:                    &methodTable,
+										Model:                       methodsModel,
+										CheckBoxes:                  true,
+										HeaderHidden:                true,
+										LastColumnStretched:         true,
+										MultiSelection:              false,
+										NotSortableByHeaderClick:    true,
+										SelectionHiddenWithoutFocus: false,
+										CustomRowHeight:              27,
+										MinSize:                      Size{260, 230},
+										Columns: []TableViewColumn{
+											{Title: "Method", Width: 235},
+										},
+										OnCurrentIndexChanged: func() {
+											if updatingMethodUI || methodTable == nil {
+												return
+											}
+											index := methodTable.CurrentIndex()
+											if index < 0 || index >= len(methods) || index == editingMethodIndex {
+												return
+											}
+											saveMethodEditor()
+											editingMethodIndex = index
+											loadMethodEditor(editingMethodIndex)
+										},
+									},
 									Composite{
 										Layout: HBox{Spacing: 4},
 										Children: []Widget{
-											PushButton{Text: "Up", OnClicked: func() { moveMethod(-1) }},
-											PushButton{Text: "Down", OnClicked: func() { moveMethod(1) }},
+											PushButton{Text: "Up", ToolTipText: "Move selected method up", OnClicked: func() { moveMethod(-1) }},
+											PushButton{Text: "Down", ToolTipText: "Move selected method down", OnClicked: func() { moveMethod(1) }},
+											PushButton{Text: "Copy", ToolTipText: "Duplicate selected method", OnClicked: duplicateMethod},
 											HSpacer{},
 											PushButton{Text: "Remove", OnClicked: removeMethod},
 										},
@@ -686,14 +867,15 @@ func main() {
 									PushButton{Text: "New Name", OnClicked: func() { addMethod(engine.MethodTemplate) }},
 									PushButton{Text: "Replace", OnClicked: func() { addMethod(engine.MethodReplace) }},
 									PushButton{Text: "Add text", OnClicked: func() { addMethod(engine.MethodPrefixSuffix) }},
-									PushButton{Text: "Case", OnClicked: func() { addMethod(engine.MethodCase) }},
+									PushButton{Text: "Change case", OnClicked: func() { addMethod(engine.MethodCase) }},
 								},
 							},
+							Label{Text: "Tip: uncheck a method to disable it without deleting it."},
 							VSpacer{},
 						},
 					},
 					Composite{
-						Layout: VBox{Spacing: 7},
+						Layout: VBox{Spacing: 6},
 						Children: []Widget{
 							GroupBox{
 								Title:  "Method settings",
@@ -701,22 +883,22 @@ func main() {
 								Children: []Widget{
 									TabWidget{
 										AssignTo: &editorTabs,
-										MinSize:  Size{600, 170},
+										MinSize:  Size{650, 185},
 										OnCurrentIndexChanged: func() {
 											if updatingMethodUI || editorTabs == nil || editingMethodIndex < 0 || editingMethodIndex >= len(methods) {
 												return
 											}
 											saveMethodEditor()
-											refreshMethodList(editingMethodIndex)
+											refreshMethodTable(editingMethodIndex)
 											maybePreview()
 										},
 										Pages: []TabPage{
 											{
 												Title:  "New Name",
-												Layout: Grid{Columns: 4, Spacing: 7},
+												Layout: Grid{Columns: 5, Spacing: 7},
 												Children: []Widget{
 													Label{Text: "Preset:"},
-													ComboBox{AssignTo: &presetCB, Model: presetNames, CurrentIndex: 0, ColumnSpan: 3, OnCurrentIndexChanged: func() {
+													ComboBox{AssignTo: &presetCB, Model: presetNames, CurrentIndex: 0, ColumnSpan: 4, OnCurrentIndexChanged: func() {
 														if updatingMethodUI || presetCB == nil || templateLE == nil {
 															return
 														}
@@ -728,9 +910,21 @@ func main() {
 														}
 													}},
 													Label{Text: "New name:"},
-													LineEdit{AssignTo: &templateLE, Text: methods[0].Template, ColumnSpan: 3, OnTextChanged: saveMethodEditor, OnEditingFinished: maybePreview},
-													Label{Text: "Tokens:"},
-													Label{Text: "<Name>  <Ext>  <Inc:001>  <Inc NrDir:01>  <DirName:1>  <Date:yyyyMMdd>  <UnixTimestamp>", ColumnSpan: 3},
+													LineEdit{AssignTo: &templateLE, Text: methods[0].Template, ColumnSpan: 4, OnTextChanged: saveMethodEditor, OnEditingFinished: maybePreview},
+													Label{Text: "Insert tag:"},
+													ComboBox{AssignTo: &tokenCB, Model: templateTokens, CurrentIndex: 0, ColumnSpan: 2},
+													PushButton{Text: "Insert", OnClicked: func() {
+														if tokenCB == nil || templateLE == nil {
+															return
+														}
+														idx := tokenCB.CurrentIndex()
+														if idx >= 0 && idx < len(templateTokens) {
+															insertIntoLineEdit(templateLE, templateTokens[idx])
+															saveMethodEditor()
+															maybePreview()
+														}
+													}},
+													Label{Text: "Tags are inserted at the caret."},
 												},
 											},
 											{
@@ -738,7 +932,7 @@ func main() {
 												Layout: Grid{Columns: 4, Spacing: 7},
 												Children: []Widget{
 													Label{Text: "Find:"},
-													LineEdit{AssignTo: &findLE, OnTextChanged: saveMethodEditor, OnEditingFinished: maybePreview},
+													LineEdit{AssignTo: &findLE, CueBanner: "text or expression", OnTextChanged: saveMethodEditor, OnEditingFinished: maybePreview},
 													Label{Text: "Replace with:"},
 													LineEdit{AssignTo: &replaceLE, OnTextChanged: saveMethodEditor, OnEditingFinished: maybePreview},
 													CheckBox{AssignTo: &regexCB, Text: "Regular expression", ColumnSpan: 4, OnCheckedChanged: func() {
@@ -752,13 +946,14 @@ func main() {
 												Layout: Grid{Columns: 4, Spacing: 7},
 												Children: []Widget{
 													Label{Text: "Prefix:"},
-													LineEdit{AssignTo: &prefixLE, OnTextChanged: saveMethodEditor, OnEditingFinished: maybePreview},
+													LineEdit{AssignTo: &prefixLE, CueBanner: "before name", OnTextChanged: saveMethodEditor, OnEditingFinished: maybePreview},
 													Label{Text: "Suffix:"},
-													LineEdit{AssignTo: &suffixLE, OnTextChanged: saveMethodEditor, OnEditingFinished: maybePreview},
+													LineEdit{AssignTo: &suffixLE, CueBanner: "after name", OnTextChanged: saveMethodEditor, OnEditingFinished: maybePreview},
+													Label{Text: "Extension is preserved automatically.", ColumnSpan: 4},
 												},
 											},
 											{
-												Title:  "Case",
+												Title:  "Change case",
 												Layout: Grid{Columns: 2, Spacing: 7},
 												Children: []Widget{
 													Label{Text: "Convert base name to:"},
@@ -776,16 +971,24 @@ func main() {
 								},
 							},
 							TableView{
-								AssignTo:         &table,
-								AlternatingRowBG: true,
-								CheckBoxes:       true,
-								MultiSelection:   true,
+								AssignTo:                    &table,
+								AlternatingRowBG:             true,
+								CheckBoxes:                   true,
+								MultiSelection:               true,
+								SelectionHiddenWithoutFocus:  false,
+								NotSortableByHeaderClick:     true,
+								ColumnsSizable:               true,
+								LastColumnStretched:          true,
+								OnItemActivated:              openSelectedFile,
 								Columns: []TableViewColumn{
-									{Title: "Index", Width: 60},
-									{Title: "Filename", Width: 260},
-									{Title: "New filename", Width: 340},
-									{Title: "Path", Width: 360},
-									{Title: "Error", Width: 230},
+									{Title: "Index", Width: 55},
+									{Title: "Filename", Width: 235},
+									{Title: "New filename", Width: 300},
+									{Title: "Path", Width: 300},
+									{Title: "Size", Width: 80},
+									{Title: "Width", Width: 65},
+									{Title: "Height", Width: 65},
+									{Title: "Error / Status", Width: 220},
 								},
 								Model: model,
 								StyleCell: func(style *walk.CellStyle) {
@@ -802,7 +1005,7 @@ func main() {
 								},
 							},
 							Composite{
-								Layout: HBox{Spacing: 7},
+								Layout: HBox{Spacing: 6},
 								Children: []Widget{
 									PushButton{Text: "Select all valid", OnClicked: func() {
 										for _, it := range model.items {
@@ -818,8 +1021,11 @@ func main() {
 										model.PublishRowsReset()
 										updateStatus()
 									}},
+									PushButton{Text: "Open selected", OnClicked: openSelectedFile},
 									HSpacer{},
-									Label{AssignTo: &statusLbl, Text: "Add files or folders to start."},
+									Label{AssignTo: &collisionLbl, Text: "Status: waiting for files"},
+									Label{Text: "   "},
+									Label{AssignTo: &statusLbl, Text: "0 Items    0 Ready    0 Selected    0 Errors"},
 								},
 							},
 						},

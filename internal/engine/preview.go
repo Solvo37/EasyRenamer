@@ -3,6 +3,10 @@ package engine
 import (
 	"errors"
 	"fmt"
+	"image"
+	_ "image/gif"
+	_ "image/jpeg"
+	_ "image/png"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -56,6 +60,16 @@ func Preview(cfg Config) ([]*Item, error) {
 			Checked:     true,
 			Status:      StatusOK,
 		}
+
+		if st, statErr := os.Stat(path); statErr == nil {
+			item.Size = st.Size()
+			item.Modified = st.ModTime()
+		}
+		if width, height, ok := readImageDimensions(path); ok {
+			item.Width = width
+			item.Height = height
+		}
+
 		if err != nil {
 			item.Status = StatusInvalid
 			item.Error = err.Error()
@@ -96,6 +110,27 @@ func Preview(cfg Config) ([]*Item, error) {
 		items = append(items, item)
 	}
 	return items, nil
+}
+
+func readImageDimensions(path string) (int, int, bool) {
+	ext := strings.ToLower(filepath.Ext(path))
+	switch ext {
+	case ".jpg", ".jpeg", ".jpe", ".jfif", ".png", ".gif":
+	default:
+		return 0, 0, false
+	}
+
+	f, err := os.Open(path)
+	if err != nil {
+		return 0, 0, false
+	}
+	defer f.Close()
+
+	cfg, _, err := image.DecodeConfig(f)
+	if err != nil || cfg.Width <= 0 || cfg.Height <= 0 {
+		return 0, 0, false
+	}
+	return cfg.Width, cfg.Height, true
 }
 
 func scanFiles(cfg Config) ([]string, error) {
@@ -195,6 +230,9 @@ func buildName(cfg Config, path string, globalIndex, dirIndex int, rng *rand.Ran
 	current := filepath.Base(path)
 	parent := filepath.Base(filepath.Dir(path))
 	for _, method := range methods {
+		if method.Disabled {
+			continue
+		}
 		var err error
 		current, err = applyMethod(method, current, parent, globalIndex, dirIndex, cfg.BatchTime, rng)
 		if err != nil {

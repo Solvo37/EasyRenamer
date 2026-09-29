@@ -35,6 +35,7 @@ const (
 // Methods are applied from top to bottom to the name produced by the previous step.
 type RenameMethod struct {
 	Type        Method
+	Disabled    bool
 	Template    string
 	Find        string
 	ReplaceWith string
@@ -79,6 +80,11 @@ type Item struct {
 	Checked     bool
 	DirIndex    int
 	GlobalIndex int
+
+	Size     int64
+	Width    int
+	Height   int
+	Modified time.Time
 }
 
 const (

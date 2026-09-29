@@ -6,6 +6,7 @@ Desktop workspace cleanup.
 
 - Removed the old framed GroupBox look from the main method workflow.
 - Methods, selected-method settings, and Add method now read as one continuous working column.
+- Removed the redundant single visible method tab inside the selected-method editor; the settings heading is now the only method title.
 - Section headings use a stronger visual hierarchy instead of native group frames.
 - The 14-button Add method grid is replaced with one localized method selector and an **Add** button.
 - The compact selector saves substantial vertical space on smaller displays.

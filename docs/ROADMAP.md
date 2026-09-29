@@ -26,6 +26,11 @@ EasyRenamer is intended to grow from a focused batch renamer into a serious open
 - [x] Chained rename methods (method stack)
 - [x] Move / reorder methods in the stack
 - [x] Enable/disable individual methods without deleting them
+- [x] Drag reorder methods in the stack
+- [x] List method with load/save/populate
+- [x] List Replace with multiple pairs
+- [x] Swap by separator and occurrence
+- [x] Safe Script expression method
 - [x] Remove characters by position
 - [x] Move filename fragments by position
 - [x] Remove text / regex patterns
@@ -50,7 +55,7 @@ EasyRenamer is intended to grow from a focused batch renamer into a serious open
 - [x] Save and load method stacks / presets
 - [ ] Rename history browser (not only last operation)
 - [ ] CSV import/export
-- [ ] Drag-and-drop files and folders
+- [x] Drag-and-drop files and folders
 - [ ] Folder renaming
 - [ ] Conflict-resolution helpers
 - [ ] Dry-run export as JSON/CSV

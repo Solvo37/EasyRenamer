@@ -1920,7 +1920,13 @@ GroupBox{Background: uiPanelBrush(darkTheme),
 	refreshSourceCount()
 	applyNativeTheme(uintptr(mw.Handle()), darkTheme)
 	if len(sources) > 0 {
-		preview()
+		time.AfterFunc(80*time.Millisecond, func() {
+			mw.Synchronize(func() {
+				if !busy {
+					preview()
+				}
+			})
+		})
 	}
 	mw.Run()
 

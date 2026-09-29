@@ -1214,6 +1214,16 @@ func main() {
 					Separator{},
 					Action{Text: i18n.T("menu.save_methods"), OnTriggered: saveMethodStack},
 					Action{Text: i18n.T("menu.load_methods"), OnTriggered: loadMethodStack},
+					Action{Text: i18n.T("menu.drop_options"), OnTriggered: func() {
+						initial := defaultDropDecision(recursiveCB != nil && recursiveCB.Checked())
+						if remembered, ok := loadRememberedDropDecision(); ok {
+							initial = remembered
+						}
+						decision, accepted := showDropDecisionDialog(mw, darkTheme, initial)
+						if accepted && recursiveCB != nil && decision.Mode != dropModeFiles {
+							recursiveCB.SetChecked(decision.IncludeSubfolders)
+						}
+					}},
 					Separator{},
 					Action{Text: i18n.T("menu.clear_list"), OnTriggered: clearSources},
 				},

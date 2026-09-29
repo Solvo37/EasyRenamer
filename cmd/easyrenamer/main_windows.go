@@ -1345,7 +1345,7 @@ func main() {
 												Title:  i18n.T("method.new_name"),
 												Layout: Grid{Columns: 5, Spacing: 7},
 												Children: []Widget{
-													Label{Text: "Preset:"},
+													Label{Text: i18n.T("label.preset")},
 													ComboBox{AssignTo: &presetCB, Model: presetNames, CurrentIndex: 0, ColumnSpan: 4, OnCurrentIndexChanged: func() {
 														if updatingMethodUI || presetCB == nil || templateLE == nil {
 															return
@@ -1357,11 +1357,11 @@ func main() {
 															maybePreview()
 														}
 													}},
-													Label{Text: "New name:"},
+													Label{Text: i18n.T("label.new_name")},
 													LineEdit{AssignTo: &templateLE, Text: methods[0].Template, ColumnSpan: 4, OnTextChanged: saveMethodEditor, OnEditingFinished: maybePreview},
-													Label{Text: "Insert tag:"},
+													Label{Text: i18n.T("label.insert_tag")},
 													ComboBox{AssignTo: &tokenCB, Model: templateTokens, CurrentIndex: 0, ColumnSpan: 2},
-													PushButton{Text: "Insert", OnClicked: func() {
+													PushButton{Text: i18n.T("button.insert"), OnClicked: func() {
 														if tokenCB == nil || templateLE == nil {
 															return
 														}
@@ -1372,17 +1372,17 @@ func main() {
 															maybePreview()
 														}
 													}},
-													Label{Text: "Tags are inserted at the caret."},
+													Label{Text: i18n.T("label.tags_caret")},
 												},
 											},
 											{
 												Title:  i18n.T("method.list"),
 												Layout: Grid{Columns: 4, Spacing: 7},
 												Children: []Widget{
-													Label{Text: "One new name per item. Line 1 = item 1, line 2 = item 2, and so on.", ColumnSpan: 4},
+													Label{Text: i18n.T("label.list_info"), ColumnSpan: 4},
 													TextEdit{AssignTo: &listTE, VScroll: true, HScroll: true, MinSize: Size{0, 105}, ColumnSpan: 4, OnTextChanged: saveMethodEditor},
-													CheckBox{AssignTo: &listIncludeExtCB, Text: "List entries include extension", ColumnSpan: 4, OnCheckedChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
-													PushButton{Text: "Populate list", OnClicked: func() {
+													CheckBox{AssignTo: &listIncludeExtCB, Text: i18n.T("label.list_ext"), ColumnSpan: 4, OnCheckedChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
+													PushButton{Text: i18n.T("button.populate_list"), OnClicked: func() {
 														if listTE == nil {
 															return
 														}
@@ -1402,7 +1402,7 @@ func main() {
 														saveMethodEditor()
 														maybePreview()
 													}},
-													PushButton{Text: "Load list...", OnClicked: func() {
+													PushButton{Text: i18n.T("button.load_list"), OnClicked: func() {
 														dlg := new(walk.FileDialog)
 														dlg.Title = "Load filename list"
 														dlg.Filter = "Text files (*.txt;*.csv)|*.txt;*.csv|All files (*.*)|*.*"
@@ -1419,7 +1419,7 @@ func main() {
 															maybePreview()
 														}
 													}},
-													PushButton{Text: "Save list...", OnClicked: func() {
+													PushButton{Text: i18n.T("button.save_list"), OnClicked: func() {
 														if listTE == nil {
 															return
 														}
@@ -1435,18 +1435,18 @@ func main() {
 															}
 														}
 													}},
-													PushButton{Text: "Apply", OnClicked: func() { saveMethodEditor(); maybePreview() }},
+													PushButton{Text: i18n.T("button.apply"), OnClicked: func() { saveMethodEditor(); maybePreview() }},
 												},
 											},
 											{
 												Title:  i18n.T("method.list_replace"),
 												Layout: Grid{Columns: 4, Spacing: 7},
 												Children: []Widget{
-													Label{Text: "One rule per line: find => replace. Tab-separated pairs are also accepted.", ColumnSpan: 4},
+													Label{Text: i18n.T("label.rules_info"), ColumnSpan: 4},
 													TextEdit{AssignTo: &listReplaceTE, VScroll: true, HScroll: true, MinSize: Size{0, 110}, ColumnSpan: 4, OnTextChanged: saveMethodEditor},
 													CheckBox{AssignTo: &listReplaceRegexCB, Text: "Regular expressions", ColumnSpan: 2, OnCheckedChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
-													CheckBox{AssignTo: &listReplaceCaseCB, Text: "Case sensitive", ColumnSpan: 2, OnCheckedChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
-													PushButton{Text: "Load rules...", OnClicked: func() {
+													CheckBox{AssignTo: &listReplaceCaseCB, Text: i18n.T("label.case_sensitive"), ColumnSpan: 2, OnCheckedChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
+													PushButton{Text: i18n.T("button.load_rules"), OnClicked: func() {
 														dlg := new(walk.FileDialog)
 														dlg.Title = "Load replace rules"
 														dlg.Filter = "Text files (*.txt;*.csv)|*.txt;*.csv|All files (*.*)|*.*"
@@ -1464,14 +1464,14 @@ func main() {
 														}
 													}},
 													PushButton{Text: i18n.T("button.clear"), OnClicked: func() { if listReplaceTE != nil { listReplaceTE.SetText(""); saveMethodEditor(); maybePreview() } }},
-													PushButton{Text: "Apply", OnClicked: func() { saveMethodEditor(); maybePreview() }},
+													PushButton{Text: i18n.T("button.apply"), OnClicked: func() { saveMethodEditor(); maybePreview() }},
 												},
 											},
 											{
 												Title:  i18n.T("method.change_case"),
 												Layout: Grid{Columns: 2, Spacing: 7},
 												Children: []Widget{
-													Label{Text: "Convert base name to:"},
+													Label{Text: i18n.T("label.case_to")},
 													ComboBox{AssignTo: &caseCB, Model: []string{"lower case", "UPPER CASE", "Title Case"}, CurrentIndex: 0, OnCurrentIndexChanged: func() {
 														if updatingMethodUI { return }
 														saveMethodEditor()
@@ -1483,11 +1483,11 @@ func main() {
 												Title:  i18n.T("method.move"),
 												Layout: Grid{Columns: 6, Spacing: 7},
 												Children: []Widget{
-													Label{Text: "Start:"},
+													Label{Text: i18n.T("label.start")},
 													NumberEdit{AssignTo: &moveStartNE, Value: 1, MinValue: 1, MaxValue: 99999, SpinButtonsVisible: true, OnValueChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
-													Label{Text: "Count:"},
+													Label{Text: i18n.T("label.count")},
 													NumberEdit{AssignTo: &moveCountNE, Value: 1, MinValue: 1, MaxValue: 99999, SpinButtonsVisible: true, OnValueChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
-													Label{Text: "Move to:"},
+													Label{Text: i18n.T("label.move_to")},
 													NumberEdit{AssignTo: &moveToNE, Value: 1, MinValue: 1, MaxValue: 99999, SpinButtonsVisible: true, OnValueChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
 													Label{Text: "Positions are 1-based and apply to the filename without extension.", ColumnSpan: 6},
 												},
@@ -1496,9 +1496,9 @@ func main() {
 												Title:  i18n.T("method.remove"),
 												Layout: Grid{Columns: 4, Spacing: 7},
 												Children: []Widget{
-													Label{Text: "Start:"},
+													Label{Text: i18n.T("label.start")},
 													NumberEdit{AssignTo: &removeStartNE, Value: 1, MinValue: 1, MaxValue: 99999, SpinButtonsVisible: true, OnValueChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
-													Label{Text: "Count:"},
+													Label{Text: i18n.T("label.count")},
 													NumberEdit{AssignTo: &removeCountNE, Value: 1, MinValue: 1, MaxValue: 99999, SpinButtonsVisible: true, OnValueChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
 													Label{Text: "Removes characters from the base filename; extension is preserved.", ColumnSpan: 4},
 												},
@@ -1507,37 +1507,37 @@ func main() {
 												Title:  i18n.T("method.remove_pattern"),
 												Layout: Grid{Columns: 4, Spacing: 7},
 												Children: []Widget{
-													Label{Text: "Pattern:"},
+													Label{Text: i18n.T("label.pattern")},
 													LineEdit{AssignTo: &removePatternLE, CueBanner: "text or regex", ColumnSpan: 3, OnTextChanged: saveMethodEditor, OnEditingFinished: maybePreview},
-													CheckBox{AssignTo: &removePatternRegexCB, Text: "Regular expression", ColumnSpan: 4, OnCheckedChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
+													CheckBox{AssignTo: &removePatternRegexCB, Text: i18n.T("label.regex"), ColumnSpan: 4, OnCheckedChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
 												},
 											},
 											{
 												Title:  i18n.T("method.renumber"),
 												Layout: Grid{Columns: 6, Spacing: 7},
 												Children: []Widget{
-													Label{Text: "Start:"},
+													Label{Text: i18n.T("label.start")},
 													NumberEdit{AssignTo: &renumberStartNE, Value: 1, MinValue: -999999, MaxValue: 999999, SpinButtonsVisible: true, OnValueChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
-													Label{Text: "Step:"},
+													Label{Text: i18n.T("label.step")},
 													NumberEdit{AssignTo: &renumberStepNE, Value: 1, MinValue: -999999, MaxValue: 999999, SpinButtonsVisible: true, OnValueChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
-													Label{Text: "Padding:"},
+													Label{Text: i18n.T("label.padding")},
 													NumberEdit{AssignTo: &renumberPaddingNE, Value: 2, MinValue: 1, MaxValue: 12, SpinButtonsVisible: true, OnValueChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
-													Label{Text: "Position:"},
+													Label{Text: i18n.T("label.position")},
 													ComboBox{AssignTo: &renumberPositionCB, Model: []string{"Prefix", "Suffix"}, CurrentIndex: 0, OnCurrentIndexChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
-													Label{Text: "Separator:"},
+													Label{Text: i18n.T("label.separator")},
 													LineEdit{AssignTo: &renumberSeparatorLE, Text: "-", OnTextChanged: saveMethodEditor, OnEditingFinished: maybePreview},
-													CheckBox{AssignTo: &renumberPerDirCB, Text: "Restart numbering in each folder", Checked: true, ColumnSpan: 2, OnCheckedChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
+													CheckBox{AssignTo: &renumberPerDirCB, Text: i18n.T("label.per_folder"), Checked: true, ColumnSpan: 2, OnCheckedChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
 												},
 											},
 											{
 												Title:  i18n.T("method.replace"),
 												Layout: Grid{Columns: 4, Spacing: 7},
 												Children: []Widget{
-													Label{Text: "Find:"},
+													Label{Text: i18n.T("label.find")},
 													LineEdit{AssignTo: &findLE, CueBanner: "text or expression", OnTextChanged: saveMethodEditor, OnEditingFinished: maybePreview},
-													Label{Text: "Replace with:"},
+													Label{Text: i18n.T("label.replace_with")},
 													LineEdit{AssignTo: &replaceLE, OnTextChanged: saveMethodEditor, OnEditingFinished: maybePreview},
-													CheckBox{AssignTo: &regexCB, Text: "Regular expression", ColumnSpan: 4, OnCheckedChanged: func() {
+													CheckBox{AssignTo: &regexCB, Text: i18n.T("label.regex"), ColumnSpan: 4, OnCheckedChanged: func() {
 														saveMethodEditor()
 														maybePreview()
 													}},
@@ -1547,32 +1547,32 @@ func main() {
 												Title:  i18n.T("method.add_text"),
 												Layout: Grid{Columns: 4, Spacing: 7},
 												Children: []Widget{
-													Label{Text: "Prefix:"},
+													Label{Text: i18n.T("label.prefix")},
 													LineEdit{AssignTo: &prefixLE, CueBanner: "before name", OnTextChanged: saveMethodEditor, OnEditingFinished: maybePreview},
-													Label{Text: "Suffix:"},
+													Label{Text: i18n.T("label.suffix")},
 													LineEdit{AssignTo: &suffixLE, CueBanner: "after name", OnTextChanged: saveMethodEditor, OnEditingFinished: maybePreview},
-													Label{Text: "Extension is preserved automatically.", ColumnSpan: 4},
+													Label{Text: i18n.T("label.extension_preserved"), ColumnSpan: 4},
 												},
 											},
 											{
 												Title:  i18n.T("method.script"),
 												Layout: Grid{Columns: 4, Spacing: 7},
 												Children: []Widget{
-													Label{Text: "Expression:"},
+													Label{Text: i18n.T("label.expression")},
 													TextEdit{AssignTo: &scriptTE, VScroll: true, HScroll: true, MinSize: Size{0, 105}, ColumnSpan: 3, OnTextChanged: saveMethodEditor},
 													Label{Text: "Variables: Name, Ext, FullName, Index, DirIndex, DirName, UnixTimestamp, ModifiedUnix.", ColumnSpan: 4},
 													Label{Text: "Functions: lower(), upper(), trim(), replace(), concat(), substr(). Example: concat(lower(Name), '-', Index, Ext)", ColumnSpan: 4},
-													PushButton{Text: "Apply script", OnClicked: func() { saveMethodEditor(); maybePreview() }},
-													PushButton{Text: "Reset example", OnClicked: func() { if scriptTE != nil { scriptTE.SetText("concat(Name, Ext)"); saveMethodEditor(); maybePreview() } }},
+													PushButton{Text: i18n.T("button.apply_script"), OnClicked: func() { saveMethodEditor(); maybePreview() }},
+													PushButton{Text: i18n.T("button.reset_example"), OnClicked: func() { if scriptTE != nil { scriptTE.SetText("concat(Name, Ext)"); saveMethodEditor(); maybePreview() } }},
 												},
 											},
 											{
 												Title:  i18n.T("method.swap"),
 												Layout: Grid{Columns: 4, Spacing: 7},
 												Children: []Widget{
-													Label{Text: "Separator:"},
+													Label{Text: i18n.T("label.separator")},
 													LineEdit{AssignTo: &swapSeparatorLE, Text: " - ", OnTextChanged: saveMethodEditor, OnEditingFinished: maybePreview},
-													Label{Text: "Occurrence:"},
+													Label{Text: i18n.T("label.occurrence")},
 													NumberEdit{AssignTo: &swapOccurrenceNE, Value: 1, MinValue: 1, MaxValue: 9999, SpinButtonsVisible: true, OnValueChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
 													Label{Text: "Example: Michael Jackson - Thriller  ->  Thriller - Michael Jackson", ColumnSpan: 4},
 												},
@@ -1581,21 +1581,21 @@ func main() {
 												Title:  i18n.T("method.trim"),
 												Layout: Grid{Columns: 2, Spacing: 7},
 												Children: []Widget{
-													Label{Text: "Leading and trailing whitespace is always removed.", ColumnSpan: 2},
-													CheckBox{AssignTo: &trimNormalizeCB, Text: "Collapse repeated whitespace to one space", Checked: true, ColumnSpan: 2, OnCheckedChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
+													Label{Text: i18n.T("label.trim_info"), ColumnSpan: 2},
+													CheckBox{AssignTo: &trimNormalizeCB, Text: i18n.T("label.trim_spaces"), Checked: true, ColumnSpan: 2, OnCheckedChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
 												},
 											},
 											{
 												Title:  i18n.T("method.timestamp"),
 												Layout: Grid{Columns: 4, Spacing: 7},
 												Children: []Widget{
-													Label{Text: "Source:"},
+													Label{Text: i18n.T("label.source")},
 													ComboBox{AssignTo: &timestampSourceCB, Model: []string{"File modified time", "Batch time"}, CurrentIndex: 0, OnCurrentIndexChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
-													Label{Text: "Position:"},
+													Label{Text: i18n.T("label.position")},
 													ComboBox{AssignTo: &timestampPositionCB, Model: []string{"Suffix", "Prefix"}, CurrentIndex: 0, OnCurrentIndexChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
-													Label{Text: "Format:"},
+													Label{Text: i18n.T("label.format")},
 													LineEdit{AssignTo: &timestampFormatLE, Text: "yyyyMMdd-HHmmss", OnTextChanged: saveMethodEditor, OnEditingFinished: maybePreview},
-													Label{Text: "Separator:"},
+													Label{Text: i18n.T("label.separator")},
 													LineEdit{AssignTo: &timestampSeparatorLE, Text: "-", OnTextChanged: saveMethodEditor, OnEditingFinished: maybePreview},
 													Label{Text: "Format example: yyyyMMdd-HHmmss", ColumnSpan: 4},
 												},

@@ -35,9 +35,12 @@ var (
 	procSendMessageW          = user32Theme.NewProc("SendMessageW")
 	procInvalidateRect        = user32Theme.NewProc("InvalidateRect")
 	procGetClassNameW         = user32Theme.NewProc("GetClassNameW")
+	procSystemParametersInfoW = user32Theme.NewProc("SystemParametersInfoW")
+	procGetDpiForSystem       = user32Theme.NewProc("GetDpiForSystem")
 )
 
 const (
+	spiGetWorkArea     = 0x0030
 	wmThemeChanged     = 0x031A
 	lvmFirst           = 0x1000
 	lvmSetBkColor      = lvmFirst + 1
@@ -115,35 +118,35 @@ func windowsAppsUseDarkTheme() bool {
 
 func uiWindowBrush(dark bool) declarative.Brush {
 	if dark {
-		return declarative.SolidColorBrush{Color: walk.RGB(43, 44, 48)}
+		return declarative.SolidColorBrush{Color: walk.RGB(32, 33, 35)}
 	}
 	return declarative.SolidColorBrush{Color: walk.RGB(247, 248, 250)}
 }
 
 func uiPanelBrush(dark bool) declarative.Brush {
 	if dark {
-		return declarative.SolidColorBrush{Color: walk.RGB(49, 51, 55)}
+		return declarative.SolidColorBrush{Color: walk.RGB(42, 43, 46)}
 	}
 	return declarative.SolidColorBrush{Color: walk.RGB(255, 255, 255)}
 }
 
 func uiFieldBrush(dark bool) declarative.Brush {
 	if dark {
-		return declarative.SolidColorBrush{Color: walk.RGB(58, 60, 65)}
+		return declarative.SolidColorBrush{Color: walk.RGB(48, 49, 52)}
 	}
 	return declarative.SolidColorBrush{Color: walk.RGB(255, 255, 255)}
 }
 
 func uiTextColor(dark bool) walk.Color {
 	if dark {
-		return walk.RGB(232, 233, 236)
+		return walk.RGB(242, 242, 242)
 	}
 	return walk.RGB(28, 30, 34)
 }
 
 func uiMutedTextColor(dark bool) walk.Color {
 	if dark {
-		return walk.RGB(183, 186, 193)
+		return walk.RGB(166, 166, 166)
 	}
 	return walk.RGB(91, 96, 105)
 }
@@ -151,9 +154,9 @@ func uiMutedTextColor(dark bool) walk.Color {
 func uiTableAltColor(dark bool, odd bool) walk.Color {
 	if dark {
 		if odd {
-			return walk.RGB(54, 56, 61)
+			return walk.RGB(45, 46, 49)
 		}
-		return walk.RGB(59, 61, 66)
+		return walk.RGB(50, 51, 54)
 	}
 	if odd {
 		return walk.RGB(247, 248, 250)
@@ -281,4 +284,52 @@ func windowClassName(hwnd uintptr) string {
 		return ""
 	}
 	return syscall.UTF16ToString(buf[:n])
+}
+
+type winRect struct {
+	Left, Top, Right, Bottom int32
+}
+
+func initialWindowDimensions() (int, int) {
+	// Keep a visible margin around the window. This prevents the first launch
+	// from extending beyond the taskbar or putting the close button off-screen.
+	var rc winRect
+	ok, _, _ := procSystemParametersInfoW.Call(
+		spiGetWorkArea,
+		0,
+		uintptr(unsafe.Pointer(&rc)),
+		0,
+	)
+	if ok == 0 || rc.Right <= rc.Left || rc.Bottom <= rc.Top {
+		return 1180, 720
+	}
+
+	workW := int(rc.Right - rc.Left)
+	workH := int(rc.Bottom - rc.Top)
+
+	dpi := 96
+	if procGetDpiForSystem.Find() == nil {
+		if value, _, _ := procGetDpiForSystem.Call(); value >= 96 {
+			dpi = int(value)
+		}
+	}
+	workW = workW * 96 / dpi
+	workH = workH * 96 / dpi
+
+	width := workW - 64
+	height := workH - 64
+
+	if width > 1380 {
+		width = 1380
+	}
+	if height > 840 {
+		height = 840
+	}
+	if width < 940 {
+		width = 940
+	}
+	if height < 600 {
+		height = 600
+	}
+	return width, height
 }

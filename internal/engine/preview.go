@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"image"
@@ -22,6 +23,13 @@ import (
 var invalidChars = regexp.MustCompile(`[<>:"/\\|?*]`)
 
 func Preview(cfg Config) ([]*Item, error) {
+	return PreviewContext(context.Background(), cfg)
+}
+
+func PreviewContext(ctx context.Context, cfg Config) ([]*Item, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	if len(cfg.Sources) == 0 && strings.TrimSpace(cfg.Root) == "" {
 		return nil, errors.New("at least one file or folder is required")
 	}
@@ -29,7 +37,7 @@ func Preview(cfg Config) ([]*Item, error) {
 		cfg.BatchTime = time.Now()
 	}
 
-	files, err := scanFiles(cfg)
+	files, err := scanFilesContext(ctx, cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -48,6 +56,9 @@ func Preview(cfg Config) ([]*Item, error) {
 	targets := map[string]*Item{}
 
 	for i, path := range files {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		dir := filepath.Dir(path)
 		perDir[dir]++
 		oldName := filepath.Base(path)
@@ -136,6 +147,10 @@ func readImageDimensions(path string) (int, int, bool) {
 }
 
 func scanFiles(cfg Config) ([]string, error) {
+	return scanFilesContext(context.Background(), cfg)
+}
+
+func scanFilesContext(ctx context.Context, cfg Config) ([]string, error) {
 	sources := append([]string(nil), cfg.Sources...)
 	if len(sources) == 0 && strings.TrimSpace(cfg.Root) != "" {
 		sources = []string{cfg.Root}
@@ -158,6 +173,9 @@ func scanFiles(cfg Config) ([]string, error) {
 	}
 
 	for _, source := range sources {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		source = strings.TrimSpace(source)
 		if source == "" {
 			continue
@@ -179,6 +197,9 @@ func scanFiles(cfg Config) ([]string, error) {
 				if err != nil {
 					return err
 				}
+				if err := ctx.Err(); err != nil {
+					return err
+				}
 				if d.IsDir() {
 					return nil
 				}
@@ -198,6 +219,9 @@ func scanFiles(cfg Config) ([]string, error) {
 			return nil, err
 		}
 		for _, e := range entries {
+			if err := ctx.Err(); err != nil {
+				return nil, err
+			}
 			if e.IsDir() {
 				continue
 			}

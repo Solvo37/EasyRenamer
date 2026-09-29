@@ -191,5 +191,7 @@ func init() {
 		"menu.drop_options": "Настройки перетаскивания...",
 		"group.settings_selected": "Настройки: %s",
 		"filter.extensions_hint": "jpg, png, psd — ввод включает свой фильтр",
+		"button.cancel_preview": "Отменить предпросмотр",
+		"dialog.canceling_preview": "Отмена предпросмотра...",
 	}
 }

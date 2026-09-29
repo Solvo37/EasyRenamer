@@ -163,5 +163,7 @@ func init() {
 		"menu.drop_options": "拖放选项...",
 		"group.settings_selected": "设置：%s",
 		"filter.extensions_hint": "jpg, png, psd — 输入后自动切换到自定义",
+		"button.cancel_preview": "取消预览",
+		"dialog.canceling_preview": "正在取消预览...",
 	}
 }

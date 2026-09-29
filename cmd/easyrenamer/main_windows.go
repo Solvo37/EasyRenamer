@@ -3,7 +3,9 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -449,6 +451,7 @@ func runMainWindow(state *uiState) uiRunResult {
 	busy := false
 	dragMethodIndex := -1
 	var previewTimer *time.Timer
+	var previewCancel context.CancelFunc
 	previewPending := false
 	rebuildRequested := false
 
@@ -523,6 +526,10 @@ func runMainWindow(state *uiState) uiRunResult {
 	requestUIRebuild := func() {
 		captureState()
 		rebuildRequested = true
+		if previewCancel != nil {
+			previewCancel()
+			previewCancel = nil
+		}
 		if mw != nil {
 			mw.Close()
 		}
@@ -856,9 +863,15 @@ func runMainWindow(state *uiState) uiRunResult {
 		if previewTimer != nil {
 			previewTimer.Stop()
 		}
-		previewTimer = time.AfterFunc(140*time.Millisecond, func() {
+		previewTimer = time.AfterFunc(220*time.Millisecond, func() {
 			mw.Synchronize(func() {
-				if !previewPending || busy {
+				if !previewPending {
+					return
+				}
+				if busy {
+					if previewCancel != nil {
+						previewCancel()
+					}
 					return
 				}
 				previewPending = false
@@ -901,6 +914,7 @@ func runMainWindow(state *uiState) uiRunResult {
 		busy = isBusy
 		if previewPB != nil {
 			previewPB.SetEnabled(!isBusy)
+			previewPB.SetText(i18n.T("button.preview"))
 		}
 		if undoPB != nil {
 			undoPB.SetEnabled(!isBusy)
@@ -919,25 +933,54 @@ func runMainWindow(state *uiState) uiRunResult {
 
 	preview = func() {
 		if busy {
+			if previewCancel != nil {
+				previewPending = false
+				previewCancel()
+				if statusLbl != nil {
+					statusLbl.SetText(i18n.T("dialog.canceling_preview"))
+				}
+			}
 			return
 		}
 		if len(sources) == 0 {
 			walk.MsgBox(mw, "EasyRenamer", i18n.T("dialog.no_sources"), walk.MsgBoxIconInformation)
 			return
 		}
+
 		cfg := buildConfig()
+		ctx, cancel := context.WithCancel(context.Background())
+		previewCancel = cancel
 		setBusy(true, i18n.T("dialog.scanning"))
+		if previewPB != nil {
+			previewPB.SetEnabled(true)
+			previewPB.SetText(i18n.T("button.cancel_preview"))
+		}
+
 		go func() {
-			items, err := engine.Preview(cfg)
+			items, err := engine.PreviewContext(ctx, cfg)
 			mw.Synchronize(func() {
+				cancel()
+				previewCancel = nil
 				setBusy(false, "")
-				if err != nil {
-					walk.MsgBox(mw, "Preview error", err.Error(), walk.MsgBoxIconError)
+
+				if errors.Is(err, context.Canceled) {
 					if previewPending {
-						maybePreview()
+						previewPending = false
+						preview()
+					} else {
+						updateStatus()
 					}
 					return
 				}
+				if err != nil {
+					walk.MsgBox(mw, "Preview error", err.Error(), walk.MsgBoxIconError)
+					if previewPending {
+						previewPending = false
+						preview()
+					}
+					return
+				}
+
 				model.SetItems(items)
 				if table != nil {
 					_ = table.Invalidate()
@@ -946,7 +989,8 @@ func runMainWindow(state *uiState) uiRunResult {
 					walk.MsgBox(mw, "EasyRenamer", i18n.T("dialog.no_match"), walk.MsgBoxIconInformation)
 				}
 				if previewPending {
-					maybePreview()
+					previewPending = false
+					preview()
 				}
 			})
 		}()
@@ -1226,15 +1270,31 @@ func runMainWindow(state *uiState) uiRunResult {
 		}
 	}
 
+	openInExplorerAsync := func(path string, selectItem bool) {
+		path = filepath.Clean(strings.TrimSpace(path))
+		if path == "" {
+			return
+		}
+		go func() {
+			args := []string{path}
+			if selectItem {
+				args = []string{"/select," + path}
+			} else if st, err := os.Stat(path); err == nil && !st.IsDir() {
+				args = []string{"/select," + path}
+			}
+			if err := exec.Command("explorer.exe", args...).Start(); err != nil && mw != nil {
+				mw.Synchronize(func() {
+					walk.MsgBox(mw, "Explorer", err.Error(), walk.MsgBoxIconError)
+				})
+			}
+		}()
+	}
+
 	openSourceFolder := func() {
 		if len(sources) == 0 {
 			return
 		}
-		path := sources[0]
-		if st, err := os.Stat(path); err == nil && !st.IsDir() {
-			path = filepath.Dir(path)
-		}
-		_ = exec.Command("explorer.exe", filepath.Clean(path)).Start()
+		openInExplorerAsync(sources[0], false)
 	}
 
 	openSelectedFile := func() {
@@ -1245,8 +1305,7 @@ func runMainWindow(state *uiState) uiRunResult {
 		if index < 0 || index >= len(model.items) {
 			return
 		}
-		path := model.items[index].SourcePath
-		_ = exec.Command("explorer.exe", "/select,"+filepath.Clean(path)).Start()
+		openInExplorerAsync(model.items[index].SourcePath, true)
 	}
 
 	tagPages := buildTagPages(darkTheme, func(token string) {
@@ -1258,13 +1317,14 @@ func runMainWindow(state *uiState) uiRunResult {
 		maybePreview()
 	})
 
+	initialW, initialH := initialWindowDimensions()
 	window := MainWindow{
 		AssignTo: &mw,
 		Title:      "EasyRenamer " + version.Version + " — " + i18n.T("app.subtitle"),
 		Background: uiWindowBrush(darkTheme),
-		MinSize:    Size{1160, 740},
-		Size:       Size{1560, 940},
-		Layout:     VBox{Margins: Margins{Left: 12, Top: 12, Right: 12, Bottom: 10}, Spacing: 10},
+		MinSize:    Size{900, 560},
+		Size:       Size{initialW, initialH},
+		Layout:     VBox{Margins: Margins{Left: 10, Top: 10, Right: 10, Bottom: 8}, Spacing: 8},
 		OnDropFiles: func(files []string) {
 			initial := defaultDropDecision(recursiveCB != nil && recursiveCB.Checked())
 			decision, remembered := loadRememberedDropDecision()
@@ -1397,8 +1457,6 @@ func runMainWindow(state *uiState) uiRunResult {
 			Composite{Background: uiPanelBrush(darkTheme),
 				Layout: HBox{Spacing: 6},
 				Children: []Widget{
-					Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("batch.mode")},
-					ComboBox{Background: uiFieldBrush(darkTheme),OnMouseDown: func(x, y int, button walk.MouseButton) { scheduleFloatingTheme(mw, darkTheme) },Model: []string{i18n.T("batch.rename")}, CurrentIndex: 0, MinSize: Size{130, 0}},
 					PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("button.files"), MinSize: Size{92, 32}, ToolTipText: "Add individual files", OnClicked: addFiles},
 					PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("button.folders"), MinSize: Size{92, 32}, ToolTipText: "Add one or more folders", OnClicked: addFolder},
 					PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("button.clear"), MinSize: Size{82, 32}, ToolTipText: "Clear source list and preview", OnClicked: clearSources},
@@ -1437,9 +1495,11 @@ func runMainWindow(state *uiState) uiRunResult {
 			HSplitter{
 				HandleWidth: 7,
 				Children: []Widget{
-					Composite{Background: uiPanelBrush(darkTheme),
-						MinSize: Size{500, 0},
-						Layout:  VBox{Spacing: 6},
+					ScrollView{
+						Background:      uiPanelBrush(darkTheme),
+						MinSize:         Size{390, 0},
+						HorizontalFixed: true,
+						Layout:          VBox{Spacing: 6},
 						Children: []Widget{
 							GroupBox{Background: uiPanelBrush(darkTheme),
 								Title:  i18n.T("group.methods"),
@@ -1455,7 +1515,7 @@ func runMainWindow(state *uiState) uiRunResult {
 										NotSortableByHeaderClick:    true,
 										SelectionHiddenWithoutFocus: false,
 										CustomRowHeight:              32,
-										MinSize:                      Size{470, 165},
+										MinSize:                      Size{360, 120},
 										Columns: []TableViewColumn{
 											{Title: i18n.T("column.method"), Width: 235},
 										},
@@ -1511,7 +1571,7 @@ GroupBox{Background: uiPanelBrush(darkTheme),
 								Children: []Widget{
 									TabWidget{Background: uiPanelBrush(darkTheme),
 										AssignTo: &editorTabs,
-										MinSize:  Size{470, 260},
+										MinSize:  Size{360, 210},
 										Pages: []TabPage{
 											{
 												AssignTo: &editorPages[0],
@@ -1930,6 +1990,10 @@ GroupBox{Background: uiPanelBrush(darkTheme),
 	}
 	mw.Run()
 
+	if previewCancel != nil {
+		previewCancel()
+		previewCancel = nil
+	}
 	captureState()
 	if rebuildRequested {
 		return uiRebuild

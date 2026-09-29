@@ -223,5 +223,6 @@ func init() {
 		"case.lower": "minúsculas",
 		"case.upper": "MAYÚSCULAS",
 		"case.title": "Iniciales En Mayúscula",
+		"dialog.startup_error": "Error al iniciar EasyRenamer",
 	}
 }

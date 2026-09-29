@@ -1,6 +1,9 @@
 package engine
 
 import (
+	"context"
+	"errors"
+	"fmt"
 	"image"
 	"image/color"
 	"image/png"
@@ -382,5 +385,27 @@ func TestScriptPreservesExtensionWhenOmitted(t *testing.T) {
 	}
 	if got := items[0].NewName; got != "SAMPLE.txt" {
 		t.Fatalf("unexpected script extension preservation: %q", got)
+	}
+}
+
+func TestPreviewContextCancellation(t *testing.T) {
+	root := t.TempDir()
+	for i := 0; i < 20; i++ {
+		if err := os.WriteFile(filepath.Join(root, fmt.Sprintf("%03d.txt", i)), []byte("x"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	_, err := PreviewContext(ctx, Config{
+		Root:      root,
+		Recursive: true,
+		Category:  CategoryAll,
+		Methods:   []RenameMethod{{Type: MethodTemplate, Template: "<Name>"}},
+	})
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("got %v, want context.Canceled", err)
 	}
 }

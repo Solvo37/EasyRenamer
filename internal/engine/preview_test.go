@@ -158,7 +158,6 @@ func TestAdvancedRenameMethods(t *testing.T) {
 			{Type: MethodTrim, TrimNormalizeSpaces: true},
 			{Type: MethodRemovePattern, RemovePattern: "Sample "},
 			{Type: MethodRemove, RemoveStart: 1, RemoveCount: 4},
-			{Type: MethodMove, MoveStart: 1, MoveCount: 3, MoveTo: 5},
 			{Type: MethodRenumber, RenumberStart: 7, RenumberStep: 2, RenumberPadding: 3, RenumberPosition: PositionPrefix, RenumberSeparator: "-"},
 		},
 		BatchTime: time.Unix(1786000000, 0),
@@ -169,7 +168,7 @@ func TestAdvancedRenameMethods(t *testing.T) {
 	if len(items) != 1 {
 		t.Fatalf("got %d items, want 1", len(items))
 	}
-	if got := items[0].NewName; got != "007-File123 .txt" {
+	if got := items[0].NewName; got != "007-File.txt" {
 		t.Fatalf("unexpected advanced pipeline result: %q", got)
 	}
 }
@@ -241,5 +240,27 @@ func TestRenumberPerDirectory(t *testing.T) {
 		if items[i].NewName != expected {
 			t.Fatalf("item %d: got %q want %q", i, items[i].NewName, expected)
 		}
+	}
+}
+
+func TestMoveMethod(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "abcdef.txt")
+	if err := os.WriteFile(path, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	items, err := Preview(Config{
+		Sources:  []string{path},
+		Category: CategoryAll,
+		Methods: []RenameMethod{{
+			Type: MethodMove, MoveStart: 2, MoveCount: 2, MoveTo: 4,
+		}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := items[0].NewName; got != "adebcf.txt" {
+		t.Fatalf("unexpected move result: %q", got)
 	}
 }

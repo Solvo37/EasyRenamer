@@ -160,5 +160,6 @@ func init() {
 		"drop.remember": "记住此选择",
 		"button.add": "添加",
 		"button.cancel": "取消",
+		"menu.drop_options": "拖放选项...",
 	}
 }

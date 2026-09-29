@@ -51,7 +51,7 @@ func Preview(cfg Config) ([]*Item, error) {
 		dir := filepath.Dir(path)
 		perDir[dir]++
 		oldName := filepath.Base(path)
-		newName, err := buildName(cfg, path, i+1, perDir[dir], rng)
+		newName, err := buildName(cfg, path, i+1, perDir[dir], len(files), rng)
 		item := &Item{
 			SourcePath:  path,
 			Folder:      filepath.Base(dir),
@@ -210,7 +210,7 @@ func scanFiles(cfg Config) ([]string, error) {
 	return out, nil
 }
 
-func buildName(cfg Config, path string, globalIndex, dirIndex int, rng *rand.Rand) (string, error) {
+func buildName(cfg Config, path string, globalIndex, dirIndex, totalItems int, rng *rand.Rand) (string, error) {
 	methods := cfg.Methods
 	if len(methods) == 0 {
 		methodType := cfg.Method
@@ -241,7 +241,7 @@ func buildName(cfg Config, path string, globalIndex, dirIndex int, rng *rand.Ran
 			continue
 		}
 		var err error
-		current, err = applyMethod(method, current, parent, globalIndex, dirIndex, cfg.BatchTime, modified, rng)
+		current, err = applyMethod(method, current, path, parent, globalIndex, dirIndex, totalItems, cfg.BatchTime, modified, rng)
 		if err != nil {
 			return "", err
 		}
@@ -249,7 +249,7 @@ func buildName(cfg Config, path string, globalIndex, dirIndex int, rng *rand.Ran
 	return current, nil
 }
 
-func applyMethod(method RenameMethod, current, parent string, globalIndex, dirIndex int, batchTime, modified time.Time, rng *rand.Rand) (string, error) {
+func applyMethod(method RenameMethod, current, path, parent string, globalIndex, dirIndex, totalItems int, batchTime, modified time.Time, rng *rand.Rand) (string, error) {
 	base, ext := BaseAndExt(current)
 
 	switch method.Type {
@@ -259,9 +259,10 @@ func applyMethod(method RenameMethod, current, parent string, globalIndex, dirIn
 			tpl = "<Name>"
 		}
 		return RenderTemplate(tpl, TemplateContext{
+			Path: path, OriginalName: filepath.Base(path),
 			BaseName: base, Extension: ext, ParentDir: parent,
-			DirIndex: dirIndex, GlobalIndex: globalIndex,
-			BatchTime: batchTime, Rand: rng,
+			DirIndex: dirIndex, GlobalIndex: globalIndex, TotalItems: totalItems,
+			BatchTime: batchTime, ModifiedTime: modified, Rand: rng,
 		})
 	case MethodList:
 		lines := splitMethodLines(method.ListText)

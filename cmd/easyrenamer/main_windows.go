@@ -428,14 +428,13 @@ func runMainWindow(state *uiState) uiRunResult {
 	var recursiveCB, regexCB, autoPreviewCB *walk.CheckBox
 	var removePatternRegexCB, renumberPerDirCB, trimNormalizeCB *walk.CheckBox
 	var listIncludeExtCB, listReplaceRegexCB, listReplaceCaseCB *walk.CheckBox
-	var categoryCB, presetCB, caseCB *walk.ComboBox
+	var categoryCB, presetCB, caseCB, addMethodCB *walk.ComboBox
 	var renumberPositionCB, timestampSourceCB, timestampPositionCB *walk.ComboBox
 	var removeStartNE, removeCountNE, renumberStartNE, renumberStepNE, renumberPaddingNE *walk.NumberEdit
 	var moveStartNE, moveCountNE, moveToNE, swapOccurrenceNE *walk.NumberEdit
 	var methodTable, table *walk.TableView
-	var editorTabs *walk.TabWidget
-	var editorPages [14]*walk.TabPage
-	var methodSettingsGB *walk.GroupBox
+	var editorPanels [14]*walk.Composite
+	var methodSettingsTitleLbl *walk.Label
 	var sourceCountLbl, statusLbl, collisionLbl, dropHintLbl *walk.Label
 	var previewPB, renamePB, undoPB *walk.PushButton
 
@@ -462,6 +461,27 @@ func runMainWindow(state *uiState) uiRunResult {
 	presetNames := make([]string, len(presets))
 	for i := range presets {
 		presetNames[i] = i18n.T(presets[i].Key)
+	}
+
+	addMethodTypes := []engine.Method{
+		engine.MethodTemplate,
+		engine.MethodList,
+		engine.MethodListReplace,
+		engine.MethodCase,
+		engine.MethodMove,
+		engine.MethodRemove,
+		engine.MethodRemovePattern,
+		engine.MethodRenumber,
+		engine.MethodReplace,
+		engine.MethodPrefixSuffix,
+		engine.MethodScript,
+		engine.MethodSwap,
+		engine.MethodTrim,
+		engine.MethodTimestamp,
+	}
+	addMethodNames := make([]string, len(addMethodTypes))
+	for i, methodType := range addMethodTypes {
+		addMethodNames[i] = methodTitle(methodType)
 	}
 
 	updateStatus := func() {
@@ -679,34 +699,22 @@ func runMainWindow(state *uiState) uiRunResult {
 	}
 
 	showMethodEditor = func(methodType engine.Method) {
-		if editorTabs == nil {
+		panelIndex := methodTabIndex(methodType)
+		if panelIndex < 0 || panelIndex >= len(editorPanels) {
 			return
 		}
-		pageIndex := methodTabIndex(methodType)
-		if pageIndex < 0 || pageIndex >= len(editorPages) || editorPages[pageIndex] == nil {
-			return
-		}
-		desired := editorPages[pageIndex]
-		pages := editorTabs.Pages()
-
-		for i := pages.Len() - 1; i >= 0; i-- {
-			if pages.At(i) != desired {
-				_ = pages.RemoveAt(i)
+		for i, panel := range editorPanels {
+			if panel != nil {
+				panel.SetVisible(i == panelIndex)
 			}
 		}
-		if !pages.Contains(desired) {
-			_ = pages.Add(desired)
-		}
-		if pages.Len() > 0 {
-			_ = editorTabs.SetCurrentIndex(0)
-		}
-		if methodSettingsGB != nil {
-			_ = methodSettingsGB.SetTitle(fmt.Sprintf(i18n.T("group.settings_selected"), methodTitle(methodType)))
+		if methodSettingsTitleLbl != nil {
+			methodSettingsTitleLbl.SetText(fmt.Sprintf(i18n.T("group.settings_selected"), methodTitle(methodType)))
 		}
 	}
 
 	loadMethodEditor = func(index int) {
-		if editorTabs == nil || index < 0 || index >= len(methods) {
+		if index < 0 || index >= len(methods) {
 			return
 		}
 		updatingMethodUI = true
@@ -1290,12 +1298,6 @@ func runMainWindow(state *uiState) uiRunResult {
 		}()
 	}
 
-	openSourceFolder := func() {
-		if len(sources) == 0 {
-			return
-		}
-		openInExplorerAsync(sources[0], false)
-	}
 
 	openSelectedFile := func() {
 		if table == nil {
@@ -1489,7 +1491,6 @@ func runMainWindow(state *uiState) uiRunResult {
 					Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("collision.label")},
 					Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("collision.prevent")},
 					HSpacer{},
-					PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("button.open_source"), OnClicked: openSourceFolder},
 				},
 			},
 			HSplitter{
@@ -1501,10 +1502,15 @@ func runMainWindow(state *uiState) uiRunResult {
 						HorizontalFixed: true,
 						Layout:          VBox{Spacing: 6},
 						Children: []Widget{
-							GroupBox{Background: uiPanelBrush(darkTheme),
-								Title:  i18n.T("group.methods"),
-								Layout: VBox{Spacing: 5},
+							Composite{Background: uiPanelBrush(darkTheme),
+								Layout: VBox{Spacing: 6, Margins: Margins{Left: 4, Top: 4, Right: 4, Bottom: 4}},
 								Children: []Widget{
+									Label{
+										Text:       i18n.T("group.methods"),
+										Font:       Font{PointSize: 10, Bold: true},
+										TextColor:  uiTextColor(darkTheme),
+										Background: uiPanelBrush(darkTheme),
+									},
 									TableView{Background: uiFieldBrush(darkTheme),
 										AssignTo:                    &methodTable,
 										Model:                       methodsModel,
@@ -1564,19 +1570,24 @@ func runMainWindow(state *uiState) uiRunResult {
 									},
 								},
 							},
-GroupBox{Background: uiPanelBrush(darkTheme),
-								AssignTo: &methodSettingsGB,
-								Title:  fmt.Sprintf(i18n.T("group.settings_selected"), methodTitle(methods[0].Type)),
-								Layout: VBox{},
+Composite{Background: uiPanelBrush(darkTheme),
+								Layout: VBox{Spacing: 6, Margins: Margins{Left: 4, Top: 4, Right: 4, Bottom: 4}},
 								Children: []Widget{
-									TabWidget{Background: uiPanelBrush(darkTheme),
-										AssignTo: &editorTabs,
-										MinSize:  Size{360, 210},
-										Pages: []TabPage{
-											{
-												AssignTo: &editorPages[0],
+									Label{
+										AssignTo:    &methodSettingsTitleLbl,
+										Text:        fmt.Sprintf(i18n.T("group.settings_selected"), methodTitle(methods[0].Type)),
+										Font:        Font{PointSize: 10, Bold: true},
+										TextColor:   uiTextColor(darkTheme),
+										Background:  uiPanelBrush(darkTheme),
+									},
+									Composite{Background: uiPanelBrush(darkTheme),
+										MinSize: Size{360, 210},
+										Layout:  VBox{Spacing: 0},
+										Children: []Widget{
+											Composite{
+												AssignTo: &editorPanels[0],
 												Background: uiPanelBrush(darkTheme),
-												Title:  i18n.T("method.new_name"),
+												Visible: true,
 												Layout: Grid{Columns: 5, Spacing: 7},
 												Children: []Widget{
 													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.preset")},
@@ -1607,10 +1618,10 @@ GroupBox{Background: uiPanelBrush(darkTheme),
 													},
 												},
 											},
-											{
-												AssignTo: &editorPages[1],
+											Composite{
+												AssignTo: &editorPanels[1],
 												Background: uiPanelBrush(darkTheme),
-												Title:  i18n.T("method.list"),
+												Visible: false,
 												Layout: Grid{Columns: 4, Spacing: 7},
 												Children: []Widget{
 													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.list_info"), ColumnSpan: 4},
@@ -1672,10 +1683,10 @@ GroupBox{Background: uiPanelBrush(darkTheme),
 													PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("button.apply"), OnClicked: func() { saveMethodEditor(); maybePreview() }},
 												},
 											},
-											{
-												AssignTo: &editorPages[2],
+											Composite{
+												AssignTo: &editorPanels[2],
 												Background: uiPanelBrush(darkTheme),
-												Title:  i18n.T("method.list_replace"),
+												Visible: false,
 												Layout: Grid{Columns: 4, Spacing: 7},
 												Children: []Widget{
 													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.rules_info"), ColumnSpan: 4},
@@ -1703,10 +1714,10 @@ GroupBox{Background: uiPanelBrush(darkTheme),
 													PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("button.apply"), OnClicked: func() { saveMethodEditor(); maybePreview() }},
 												},
 											},
-											{
-												AssignTo: &editorPages[3],
+											Composite{
+												AssignTo: &editorPanels[3],
 												Background: uiPanelBrush(darkTheme),
-												Title:  i18n.T("method.change_case"),
+												Visible: false,
 												Layout: Grid{Columns: 2, Spacing: 7},
 												Children: []Widget{
 													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.case_to")},
@@ -1717,10 +1728,10 @@ GroupBox{Background: uiPanelBrush(darkTheme),
 													}},
 												},
 											},
-											{
-												AssignTo: &editorPages[4],
+											Composite{
+												AssignTo: &editorPanels[4],
 												Background: uiPanelBrush(darkTheme),
-												Title:  i18n.T("method.move"),
+												Visible: false,
 												Layout: Grid{Columns: 6, Spacing: 7},
 												Children: []Widget{
 													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.start")},
@@ -1732,10 +1743,10 @@ GroupBox{Background: uiPanelBrush(darkTheme),
 													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: "Positions are 1-based and apply to the filename without extension.", ColumnSpan: 6},
 												},
 											},
-											{
-												AssignTo: &editorPages[5],
+											Composite{
+												AssignTo: &editorPanels[5],
 												Background: uiPanelBrush(darkTheme),
-												Title:  i18n.T("method.remove"),
+												Visible: false,
 												Layout: Grid{Columns: 4, Spacing: 7},
 												Children: []Widget{
 													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.start")},
@@ -1745,10 +1756,10 @@ GroupBox{Background: uiPanelBrush(darkTheme),
 													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: "Removes characters from the base filename; extension is preserved.", ColumnSpan: 4},
 												},
 											},
-											{
-												AssignTo: &editorPages[6],
+											Composite{
+												AssignTo: &editorPanels[6],
 												Background: uiPanelBrush(darkTheme),
-												Title:  i18n.T("method.remove_pattern"),
+												Visible: false,
 												Layout: Grid{Columns: 4, Spacing: 7},
 												Children: []Widget{
 													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.pattern")},
@@ -1756,10 +1767,10 @@ GroupBox{Background: uiPanelBrush(darkTheme),
 													CheckBox{Background: uiPanelBrush(darkTheme),AssignTo: &removePatternRegexCB, Text: i18n.T("label.regex"), ColumnSpan: 4, OnCheckedChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
 												},
 											},
-											{
-												AssignTo: &editorPages[7],
+											Composite{
+												AssignTo: &editorPanels[7],
 												Background: uiPanelBrush(darkTheme),
-												Title:  i18n.T("method.renumber"),
+												Visible: false,
 												Layout: Grid{Columns: 6, Spacing: 7},
 												Children: []Widget{
 													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.start")},
@@ -1775,10 +1786,10 @@ GroupBox{Background: uiPanelBrush(darkTheme),
 													CheckBox{Background: uiPanelBrush(darkTheme),AssignTo: &renumberPerDirCB, Text: i18n.T("label.per_folder"), Checked: true, ColumnSpan: 2, OnCheckedChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
 												},
 											},
-											{
-												AssignTo: &editorPages[8],
+											Composite{
+												AssignTo: &editorPanels[8],
 												Background: uiPanelBrush(darkTheme),
-												Title:  i18n.T("method.replace"),
+												Visible: false,
 												Layout: Grid{Columns: 4, Spacing: 7},
 												Children: []Widget{
 													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.find")},
@@ -1791,10 +1802,10 @@ GroupBox{Background: uiPanelBrush(darkTheme),
 													}},
 												},
 											},
-											{
-												AssignTo: &editorPages[9],
+											Composite{
+												AssignTo: &editorPanels[9],
 												Background: uiPanelBrush(darkTheme),
-												Title:  i18n.T("method.add_text"),
+												Visible: false,
 												Layout: Grid{Columns: 4, Spacing: 7},
 												Children: []Widget{
 													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.prefix")},
@@ -1804,10 +1815,10 @@ GroupBox{Background: uiPanelBrush(darkTheme),
 													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.extension_preserved"), ColumnSpan: 4},
 												},
 											},
-											{
-												AssignTo: &editorPages[10],
+											Composite{
+												AssignTo: &editorPanels[10],
 												Background: uiPanelBrush(darkTheme),
-												Title:  i18n.T("method.script"),
+												Visible: false,
 												Layout: Grid{Columns: 4, Spacing: 7},
 												Children: []Widget{
 													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.expression")},
@@ -1818,10 +1829,10 @@ GroupBox{Background: uiPanelBrush(darkTheme),
 													PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("button.reset_example"), OnClicked: func() { if scriptTE != nil { scriptTE.SetText("concat(Name, Ext)"); saveMethodEditor(); maybePreview() } }},
 												},
 											},
-											{
-												AssignTo: &editorPages[11],
+											Composite{
+												AssignTo: &editorPanels[11],
 												Background: uiPanelBrush(darkTheme),
-												Title:  i18n.T("method.swap"),
+												Visible: false,
 												Layout: Grid{Columns: 4, Spacing: 7},
 												Children: []Widget{
 													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.separator")},
@@ -1831,20 +1842,20 @@ GroupBox{Background: uiPanelBrush(darkTheme),
 													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: "Example: Michael Jackson - Thriller  ->  Thriller - Michael Jackson", ColumnSpan: 4},
 												},
 											},
-											{
-												AssignTo: &editorPages[12],
+											Composite{
+												AssignTo: &editorPanels[12],
 												Background: uiPanelBrush(darkTheme),
-												Title:  i18n.T("method.trim"),
+												Visible: false,
 												Layout: Grid{Columns: 2, Spacing: 7},
 												Children: []Widget{
 													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.trim_info"), ColumnSpan: 2},
 													CheckBox{Background: uiPanelBrush(darkTheme),AssignTo: &trimNormalizeCB, Text: i18n.T("label.trim_spaces"), Checked: true, ColumnSpan: 2, OnCheckedChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
 												},
 											},
-											{
-												AssignTo: &editorPages[13],
+											Composite{
+												AssignTo: &editorPanels[13],
 												Background: uiPanelBrush(darkTheme),
-												Title:  i18n.T("method.timestamp"),
+												Visible: false,
 												Layout: Grid{Columns: 4, Spacing: 7},
 												Children: []Widget{
 													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.source")},
@@ -1862,24 +1873,45 @@ GroupBox{Background: uiPanelBrush(darkTheme),
 									},
 								},
 							},
-							GroupBox{Background: uiPanelBrush(darkTheme),
-								Title:  i18n.T("group.add_method"),
-								Layout: Grid{Columns: 2, Spacing: 5},
+							Composite{Background: uiPanelBrush(darkTheme),
+								Layout: VBox{Spacing: 6, Margins: Margins{Left: 4, Top: 4, Right: 4, Bottom: 4}},
 								Children: []Widget{
-									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.new_name"), OnClicked: func() { addMethod(engine.MethodTemplate) }},
-									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.list"), OnClicked: func() { addMethod(engine.MethodList) }},
-									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.list_replace"), OnClicked: func() { addMethod(engine.MethodListReplace) }},
-									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.change_case"), OnClicked: func() { addMethod(engine.MethodCase) }},
-									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.move"), OnClicked: func() { addMethod(engine.MethodMove) }},
-									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.remove"), OnClicked: func() { addMethod(engine.MethodRemove) }},
-									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.remove_pattern"), OnClicked: func() { addMethod(engine.MethodRemovePattern) }},
-									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.renumber"), OnClicked: func() { addMethod(engine.MethodRenumber) }},
-									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.replace"), OnClicked: func() { addMethod(engine.MethodReplace) }},
-									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.add_text"), OnClicked: func() { addMethod(engine.MethodPrefixSuffix) }},
-									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.script"), OnClicked: func() { addMethod(engine.MethodScript) }},
-									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.swap"), OnClicked: func() { addMethod(engine.MethodSwap) }},
-									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.trim"), OnClicked: func() { addMethod(engine.MethodTrim) }},
-									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("method.timestamp"), OnClicked: func() { addMethod(engine.MethodTimestamp) }},
+									Label{
+										Text:       i18n.T("group.add_method"),
+										Font:       Font{PointSize: 10, Bold: true},
+										TextColor:  uiTextColor(darkTheme),
+										Background: uiPanelBrush(darkTheme),
+									},
+									Composite{Background: uiPanelBrush(darkTheme),
+										Layout: HBox{Spacing: 6},
+										Children: []Widget{
+											ComboBox{
+												AssignTo:     &addMethodCB,
+												Background:   uiFieldBrush(darkTheme),
+												Model:        addMethodNames,
+												CurrentIndex: 0,
+												ToolTipText:  i18n.T("method.choose"),
+												StretchFactor: 1,
+												OnMouseDown: func(x, y int, button walk.MouseButton) {
+													scheduleFloatingTheme(mw, darkTheme)
+												},
+											},
+											PushButton{
+												Text:       i18n.T("button.add"),
+												MinSize:    Size{90, 32},
+												Background: uiPanelBrush(darkTheme),
+												OnClicked: func() {
+													if addMethodCB == nil {
+														return
+													}
+													idx := addMethodCB.CurrentIndex()
+													if idx >= 0 && idx < len(addMethodTypes) {
+														addMethod(addMethodTypes[idx])
+													}
+												},
+											},
+										},
+									},
 								},
 							},
 							Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("tip.methods")},
@@ -1889,7 +1921,12 @@ GroupBox{Background: uiPanelBrush(darkTheme),
 					Composite{Background: uiPanelBrush(darkTheme),
 						Layout: VBox{Spacing: 6},
 						Children: []Widget{
-							
+							Label{
+								Text:       i18n.T("group.files"),
+								Font:       Font{PointSize: 10, Bold: true},
+								TextColor:  uiTextColor(darkTheme),
+								Background: uiPanelBrush(darkTheme),
+							},
 							Label{
 								AssignTo:      &dropHintLbl,
 								Text:          i18n.T("drop.hint") + "   ·   " + i18n.T("drop.subhint"),

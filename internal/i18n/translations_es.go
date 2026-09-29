@@ -165,5 +165,7 @@ func init() {
 		"filter.extensions_hint": "jpg, png, psd — al escribir se activa Personalizado",
 		"button.cancel_preview": "Cancelar vista previa",
 		"dialog.canceling_preview": "Cancelando vista previa...",
+		"group.files": "Archivos",
+		"method.choose": "Elige un método",
 	}
 }

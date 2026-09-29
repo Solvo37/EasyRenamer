@@ -193,5 +193,7 @@ func init() {
 		"filter.extensions_hint": "jpg, png, psd — ввод включает свой фильтр",
 		"button.cancel_preview": "Отменить предпросмотр",
 		"dialog.canceling_preview": "Отмена предпросмотра...",
+		"group.files": "Файлы",
+		"method.choose": "Выберите метод",
 	}
 }

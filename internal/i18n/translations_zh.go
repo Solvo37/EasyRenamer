@@ -165,5 +165,7 @@ func init() {
 		"filter.extensions_hint": "jpg, png, psd — 输入后自动切换到自定义",
 		"button.cancel_preview": "取消预览",
 		"dialog.canceling_preview": "正在取消预览...",
+		"group.files": "文件",
+		"method.choose": "选择方法",
 	}
 }

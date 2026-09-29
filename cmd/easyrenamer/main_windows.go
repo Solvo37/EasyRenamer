@@ -995,18 +995,27 @@ func main() {
 		maybePreview()
 	}
 
+	moveMethodTo := func(from, target int) {
+		if from < 0 || from >= len(methods) || target < 0 || target >= len(methods) || from == target {
+			return
+		}
+		saveMethodEditor()
+		method := methods[from]
+		if from < target {
+			copy(methods[from:target], methods[from+1:target+1])
+		} else {
+			copy(methods[target+1:from+1], methods[target:from])
+		}
+		methods[target] = method
+		refreshMethodTable(target)
+		maybePreview()
+	}
+
 	moveMethod := func(delta int) {
 		if editingMethodIndex < 0 || editingMethodIndex >= len(methods) {
 			return
 		}
-		target := editingMethodIndex + delta
-		if target < 0 || target >= len(methods) {
-			return
-		}
-		saveMethodEditor()
-		methods[editingMethodIndex], methods[target] = methods[target], methods[editingMethodIndex]
-		refreshMethodTable(target)
-		maybePreview()
+		moveMethodTo(editingMethodIndex, editingMethodIndex+delta)
 	}
 
 	saveMethodStack := func() {
@@ -1202,6 +1211,22 @@ func main() {
 											saveMethodEditor()
 											editingMethodIndex = index
 											loadMethodEditor(editingMethodIndex)
+										},
+										OnMouseDown: func(x, y int, button walk.MouseButton) {
+											if button == walk.LeftButton && methodTable != nil {
+												dragMethodIndex = methodTable.IndexAt(x, y)
+											}
+										},
+										OnMouseUp: func(x, y int, button walk.MouseButton) {
+											if button != walk.LeftButton || methodTable == nil {
+												return
+											}
+											from := dragMethodIndex
+											dragMethodIndex = -1
+											target := methodTable.IndexAt(x, y)
+											if from >= 0 && target >= 0 && from != target {
+												moveMethodTo(from, target)
+											}
 										},
 									},
 									Composite{

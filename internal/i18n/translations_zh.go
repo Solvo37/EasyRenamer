@@ -224,5 +224,16 @@ func init() {
 		"case.upper": "大写",
 		"case.title": "单词首字母大写",
 		"dialog.startup_error": "EasyRenamer 启动错误",
+		"item.status.ok": "正常",
+		"item.status.unchanged": "未更改",
+		"item.status.conflict": "冲突",
+		"item.status.invalid": "无效",
+		"item.error.duplicate_target": "目标名称重复",
+		"item.error.target_exists": "同名文件已存在",
+		"item.error.empty_name": "文件名为空",
+		"item.error.forbidden_chars": "名称包含 Windows 禁止字符",
+		"item.error.trailing_dot_space": "名称不能以点或空格结尾",
+		"item.error.control_chars": "名称包含控制字符",
+		"item.error.reserved_name": "该名称被 Windows 保留",
 	}
 }

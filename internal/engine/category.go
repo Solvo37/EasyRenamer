@@ -29,8 +29,7 @@ func MatchesCategory(cat Category, custom, ext string) bool {
 		return true
 	case CategoryCustom:
 		for _, part := range strings.FieldsFunc(custom, func(r rune) bool {
-			return r == ',' || r == ';' || r == ' ' || r == '
-' || r == '	'
+			return r == ',' || r == ';' || r == ' ' || r == '\n' || r == '\t'
 		}) {
 			part = strings.TrimSpace(strings.ToLower(part))
 			if part == "" {

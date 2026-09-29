@@ -159,6 +159,10 @@ func methodTitle(method engine.Method) string {
 	switch method {
 	case engine.MethodTemplate:
 		return "New Name"
+	case engine.MethodList:
+		return "List"
+	case engine.MethodListReplace:
+		return "List replace"
 	case engine.MethodCase:
 		return "Change case"
 	case engine.MethodMove:
@@ -173,6 +177,10 @@ func methodTitle(method engine.Method) string {
 		return "Replace"
 	case engine.MethodPrefixSuffix:
 		return "Add text"
+	case engine.MethodScript:
+		return "Script"
+	case engine.MethodSwap:
+		return "Swap"
 	case engine.MethodTrim:
 		return "Trim"
 	case engine.MethodTimestamp:
@@ -184,24 +192,32 @@ func methodTitle(method engine.Method) string {
 
 func methodTabIndex(method engine.Method) int {
 	switch method {
-	case engine.MethodCase:
+	case engine.MethodList:
 		return 1
-	case engine.MethodMove:
+	case engine.MethodListReplace:
 		return 2
-	case engine.MethodRemove:
+	case engine.MethodCase:
 		return 3
-	case engine.MethodRemovePattern:
+	case engine.MethodMove:
 		return 4
-	case engine.MethodRenumber:
+	case engine.MethodRemove:
 		return 5
-	case engine.MethodReplace:
+	case engine.MethodRemovePattern:
 		return 6
-	case engine.MethodPrefixSuffix:
+	case engine.MethodRenumber:
 		return 7
-	case engine.MethodTrim:
+	case engine.MethodReplace:
 		return 8
-	case engine.MethodTimestamp:
+	case engine.MethodPrefixSuffix:
 		return 9
+	case engine.MethodScript:
+		return 10
+	case engine.MethodSwap:
+		return 11
+	case engine.MethodTrim:
+		return 12
+	case engine.MethodTimestamp:
+		return 13
 	default:
 		return 0
 	}
@@ -210,22 +226,30 @@ func methodTabIndex(method engine.Method) int {
 func methodFromTab(index int) engine.Method {
 	switch index {
 	case 1:
-		return engine.MethodCase
+		return engine.MethodList
 	case 2:
-		return engine.MethodMove
+		return engine.MethodListReplace
 	case 3:
-		return engine.MethodRemove
+		return engine.MethodCase
 	case 4:
-		return engine.MethodRemovePattern
+		return engine.MethodMove
 	case 5:
-		return engine.MethodRenumber
+		return engine.MethodRemove
 	case 6:
-		return engine.MethodReplace
+		return engine.MethodRemovePattern
 	case 7:
-		return engine.MethodPrefixSuffix
+		return engine.MethodRenumber
 	case 8:
-		return engine.MethodTrim
+		return engine.MethodReplace
 	case 9:
+		return engine.MethodPrefixSuffix
+	case 10:
+		return engine.MethodScript
+	case 11:
+		return engine.MethodSwap
+	case 12:
+		return engine.MethodTrim
+	case 13:
 		return engine.MethodTimestamp
 	default:
 		return engine.MethodTemplate
@@ -234,6 +258,10 @@ func methodFromTab(index int) engine.Method {
 
 func defaultMethod(method engine.Method) engine.RenameMethod {
 	switch method {
+	case engine.MethodList:
+		return engine.RenameMethod{Type: method}
+	case engine.MethodListReplace:
+		return engine.RenameMethod{Type: method}
 	case engine.MethodCase:
 		return engine.RenameMethod{Type: method, CaseMode: engine.CaseLower}
 	case engine.MethodMove:
@@ -251,6 +279,10 @@ func defaultMethod(method engine.Method) engine.RenameMethod {
 		return engine.RenameMethod{Type: method}
 	case engine.MethodPrefixSuffix:
 		return engine.RenameMethod{Type: method}
+	case engine.MethodScript:
+		return engine.RenameMethod{Type: method, ScriptExpression: "concat(Name, Ext)"}
+	case engine.MethodSwap:
+		return engine.RenameMethod{Type: method, SwapSeparator: " - ", SwapOccurrence: 1}
 	case engine.MethodTrim:
 		return engine.RenameMethod{Type: method, TrimNormalizeSpaces: true}
 	case engine.MethodTimestamp:
@@ -265,9 +297,10 @@ func defaultMethod(method engine.Method) engine.RenameMethod {
 
 func knownMethod(method engine.Method) bool {
 	switch method {
-	case engine.MethodTemplate, engine.MethodCase, engine.MethodMove, engine.MethodRemove,
-		engine.MethodRemovePattern, engine.MethodRenumber, engine.MethodReplace,
-		engine.MethodPrefixSuffix, engine.MethodTrim, engine.MethodTimestamp:
+	case engine.MethodTemplate, engine.MethodList, engine.MethodListReplace, engine.MethodCase,
+		engine.MethodMove, engine.MethodRemove, engine.MethodRemovePattern, engine.MethodRenumber,
+		engine.MethodReplace, engine.MethodPrefixSuffix, engine.MethodScript, engine.MethodSwap,
+		engine.MethodTrim, engine.MethodTimestamp:
 		return true
 	default:
 		return false

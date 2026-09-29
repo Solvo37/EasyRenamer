@@ -4,6 +4,7 @@ package main
 
 import (
 	"github.com/lxn/walk"
+	"github.com/lxn/walk/declarative"
 
 	"github.com/Solvo37/easyrenamer/internal/i18n"
 )
@@ -169,4 +170,60 @@ var tagCatalog = []tagCategory{
 			{Token: "<Description>", LabelKey: "tag.description"},
 		},
 	},
+}
+
+
+func buildTagPages(dark bool, insert func(string)) []declarative.TabPage {
+	pages := make([]declarative.TabPage, 0, len(tagCatalog))
+	for _, category := range tagCatalog {
+		pages = append(pages, buildTagPage(category, dark, insert))
+	}
+	return pages
+}
+
+func buildTagPage(category tagCategory, dark bool, insert func(string)) declarative.TabPage {
+	model := &tagListModel{items: category.Items}
+	var table *walk.TableView
+
+	return declarative.TabPage{
+		Title:      i18n.T(category.TitleKey),
+		Background: uiPanelBrush(dark),
+		Layout:     declarative.VBox{Margins: declarative.Margins{Left: 4, Top: 4, Right: 4, Bottom: 4}, Spacing: 4},
+		Children: []declarative.Widget{
+			declarative.TableView{
+				AssignTo:                    &table,
+				Model:                       model,
+				Background:                  uiFieldBrush(dark),
+				AlternatingRowBG:             true,
+				MultiSelection:               false,
+				SelectionHiddenWithoutFocus: false,
+				NotSortableByHeaderClick:     true,
+				ColumnsSizable:               true,
+				LastColumnStretched:          true,
+				CustomRowHeight:              25,
+				MinSize:                      declarative.Size{0, 175},
+				Columns: []declarative.TableViewColumn{
+					{Title: i18n.T("tag.column_token"), Width: 185},
+					{Title: i18n.T("tag.column_meaning"), Width: 360},
+				},
+				StyleCell: func(style *walk.CellStyle) {
+					style.BackgroundColor = uiTableAltColor(dark, style.Row()%2 == 1)
+					style.TextColor = uiTextColor(dark)
+				},
+				OnItemActivated: func() {
+					if table == nil || insert == nil {
+						return
+					}
+					if token := model.tokenAt(table.CurrentIndex()); token != "" {
+						insert(token)
+					}
+				},
+			},
+			declarative.Label{
+				Text:       i18n.T("tag.hint"),
+				TextColor:  uiMutedTextColor(dark),
+				Background: uiPanelBrush(dark),
+			},
+		},
+	}
 }

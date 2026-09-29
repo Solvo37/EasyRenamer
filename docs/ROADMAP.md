@@ -68,6 +68,9 @@ EasyRenamer is intended to grow from a focused batch renamer into a serious open
 - [x] File size and image dimensions in preview table
 - [x] Debounced live preview while editing method settings
 - [x] Explicit preview repaint after model refresh
+- [x] Localized built-in preset names
+- [x] Visible drag-and-drop affordance
+- [x] Softer dark palette and dark tab/table surfaces
 - [ ] Keyboard shortcuts
 - [ ] Context-menu integration (optional)
 - [ ] Signed Windows releases when infrastructure is available

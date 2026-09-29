@@ -28,6 +28,9 @@ func renderToken(body string, ctx *TemplateContext) (string, error) {
 	for _, candidate := range candidates {
 		value, err := resolveTagWithModifiers(candidate, ctx)
 		if err != nil {
+			if len(candidates) > 1 || defaultText != "" {
+				continue
+			}
 			return "", err
 		}
 		if value != "" {
@@ -321,7 +324,7 @@ func resolveTagCore(expr string, ctx *TemplateContext) (string, error) {
 	if value := metadataValue(ctx.Metadata, lowerName); value != "" {
 		return value, nil
 	}
-	return "", nil
+	return "", fmt.Errorf("unknown token <%s>", expr)
 }
 
 func splitTagNameArgs(expr string) (string, []string) {

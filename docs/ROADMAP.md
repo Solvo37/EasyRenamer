@@ -5,6 +5,7 @@ EasyRenamer is intended to grow from a focused batch renamer into a serious open
 ## v0.1 — Foundation
 
 - [x] Native Windows GUI
+- [x] Multiple files and folders as sources
 - [x] File categories and custom extensions
 - [x] Recursive scan
 - [x] Natural sorting
@@ -20,15 +21,16 @@ EasyRenamer is intended to grow from a focused batch renamer into a serious open
 - [x] Undo last operation
 - [x] CI and single-exe release workflow
 
-## v0.2 — Rename methods
+## v0.2 — Rename methods and desktop workflow
 
-- [ ] Chained rename methods (method stack)
-- [ ] Move / reorder methods in the stack
+- [x] Chained rename methods (method stack)
+- [x] Move / reorder methods in the stack
+- [ ] Enable/disable individual methods without deleting them
 - [ ] Remove characters by position
 - [ ] Trim / normalize whitespace
 - [ ] Extension-specific transformations
 - [ ] Search/replace presets
-- [ ] Numbering options: start, step, padding, per-folder/global
+- [ ] Dedicated numbering method: start, step, padding, per-folder/global
 - [ ] Optional transliteration
 - [ ] Filename sanitization profiles
 
@@ -42,7 +44,7 @@ EasyRenamer is intended to grow from a focused batch renamer into a serious open
 
 ## v0.4 — Workflow
 
-- [ ] Save and load presets
+- [ ] Save and load method stacks / presets
 - [ ] Rename history browser (not only last operation)
 - [ ] CSV import/export
 - [ ] Drag-and-drop files and folders

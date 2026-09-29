@@ -40,3 +40,42 @@ func TestPreviewResetsCounterPerDirectory(t *testing.T) {
 		}
 	}
 }
+
+func TestPreviewAcceptsMixedSourcesAndMethodStack(t *testing.T) {
+	root := t.TempDir()
+	dir := filepath.Join(root, "folder")
+	if err := os.Mkdir(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	fileA := filepath.Join(root, "photo 2.jpg")
+	fileB := filepath.Join(dir, "photo 10.jpg")
+	for _, name := range []string{fileA, fileB} {
+		if err := os.WriteFile(name, []byte("x"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	items, err := Preview(Config{
+		Sources:   []string{fileA, dir, fileA}, // duplicate source must be ignored
+		Recursive: false,
+		Category:  CategoryImages,
+		BatchTime: time.Unix(1786000000, 0),
+		Methods: []RenameMethod{
+			{Type: MethodTemplate, Template: "<Inc:001>-<Name>"},
+			{Type: MethodReplace, Find: "photo", ReplaceWith: "image"},
+			{Type: MethodCase, CaseMode: CaseUpper},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(items) != 2 {
+		t.Fatalf("got %d items, want 2", len(items))
+	}
+	if items[0].NewName != "001-IMAGE 2.jpg" {
+		t.Fatalf("unexpected first name: %q", items[0].NewName)
+	}
+	if items[1].NewName != "002-IMAGE 10.jpg" {
+		t.Fatalf("unexpected second name: %q", items[1].NewName)
+	}
+}

@@ -1294,6 +1294,98 @@ func main() {
 												},
 											},
 											{
+												Title:  "List",
+												Layout: Grid{Columns: 4, Spacing: 7},
+												Children: []Widget{
+													Label{Text: "One new name per item. Line 1 = item 1, line 2 = item 2, and so on.", ColumnSpan: 4},
+													TextEdit{AssignTo: &listTE, VScroll: true, HScroll: true, MinSize: Size{0, 105}, ColumnSpan: 4, OnTextChanged: saveMethodEditor},
+													CheckBox{AssignTo: &listIncludeExtCB, Text: "List entries include extension", ColumnSpan: 4, OnCheckedChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
+													PushButton{Text: "Populate list", OnClicked: func() {
+														if listTE == nil {
+															return
+														}
+														if len(model.items) == 0 {
+															walk.MsgBox(mw, "List", "Build a preview first, then populate the list.", walk.MsgBoxIconInformation)
+															return
+														}
+														lines := make([]string, 0, len(model.items))
+														for _, item := range model.items {
+															name := item.OldName
+															if listIncludeExtCB == nil || !listIncludeExtCB.Checked() {
+																name, _ = engine.BaseAndExt(name)
+															}
+															lines = append(lines, name)
+														}
+														listTE.SetText(strings.Join(lines, "\r\n"))
+														saveMethodEditor()
+														maybePreview()
+													}},
+													PushButton{Text: "Load list...", OnClicked: func() {
+														dlg := new(walk.FileDialog)
+														dlg.Title = "Load filename list"
+														dlg.Filter = "Text files (*.txt;*.csv)|*.txt;*.csv|All files (*.*)|*.*"
+														if ok, err := dlg.ShowOpen(mw); err != nil {
+															walk.MsgBox(mw, "List", err.Error(), walk.MsgBoxIconError)
+														} else if ok {
+															data, err := os.ReadFile(dlg.FilePath)
+															if err != nil {
+																walk.MsgBox(mw, "List", err.Error(), walk.MsgBoxIconError)
+																return
+															}
+															listTE.SetText(string(data))
+															saveMethodEditor()
+															maybePreview()
+														}
+													}},
+													PushButton{Text: "Save list...", OnClicked: func() {
+														if listTE == nil {
+															return
+														}
+														dlg := new(walk.FileDialog)
+														dlg.Title = "Save filename list"
+														dlg.Filter = "Text files (*.txt)|*.txt|All files (*.*)|*.*"
+														dlg.FilePath = "names.txt"
+														if ok, err := dlg.ShowSave(mw); err != nil {
+															walk.MsgBox(mw, "List", err.Error(), walk.MsgBoxIconError)
+														} else if ok {
+															if err := os.WriteFile(dlg.FilePath, []byte(listTE.Text()), 0o644); err != nil {
+																walk.MsgBox(mw, "List", err.Error(), walk.MsgBoxIconError)
+															}
+														}
+													}},
+													PushButton{Text: "Apply", OnClicked: func() { saveMethodEditor(); maybePreview() }},
+												},
+											},
+											{
+												Title:  "List replace",
+												Layout: Grid{Columns: 4, Spacing: 7},
+												Children: []Widget{
+													Label{Text: "One rule per line: find => replace. Tab-separated pairs are also accepted.", ColumnSpan: 4},
+													TextEdit{AssignTo: &listReplaceTE, VScroll: true, HScroll: true, MinSize: Size{0, 110}, ColumnSpan: 4, OnTextChanged: saveMethodEditor},
+													CheckBox{AssignTo: &listReplaceRegexCB, Text: "Regular expressions", ColumnSpan: 2, OnCheckedChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
+													CheckBox{AssignTo: &listReplaceCaseCB, Text: "Case sensitive", ColumnSpan: 2, OnCheckedChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
+													PushButton{Text: "Load rules...", OnClicked: func() {
+														dlg := new(walk.FileDialog)
+														dlg.Title = "Load replace rules"
+														dlg.Filter = "Text files (*.txt;*.csv)|*.txt;*.csv|All files (*.*)|*.*"
+														if ok, err := dlg.ShowOpen(mw); err != nil {
+															walk.MsgBox(mw, "List replace", err.Error(), walk.MsgBoxIconError)
+														} else if ok {
+															data, err := os.ReadFile(dlg.FilePath)
+															if err != nil {
+																walk.MsgBox(mw, "List replace", err.Error(), walk.MsgBoxIconError)
+																return
+															}
+															listReplaceTE.SetText(string(data))
+															saveMethodEditor()
+															maybePreview()
+														}
+													}},
+													PushButton{Text: "Clear", OnClicked: func() { if listReplaceTE != nil { listReplaceTE.SetText(""); saveMethodEditor(); maybePreview() } }},
+													PushButton{Text: "Apply", OnClicked: func() { saveMethodEditor(); maybePreview() }},
+												},
+											},
+											{
 												Title:  "Change case",
 												Layout: Grid{Columns: 2, Spacing: 7},
 												Children: []Widget{
@@ -1381,6 +1473,29 @@ func main() {
 												},
 											},
 											{
+												Title:  "Script",
+												Layout: Grid{Columns: 4, Spacing: 7},
+												Children: []Widget{
+													Label{Text: "Expression:"},
+													TextEdit{AssignTo: &scriptTE, VScroll: true, HScroll: true, MinSize: Size{0, 105}, ColumnSpan: 3, OnTextChanged: saveMethodEditor},
+													Label{Text: "Variables: Name, Ext, FullName, Index, DirIndex, DirName, UnixTimestamp, ModifiedUnix.", ColumnSpan: 4},
+													Label{Text: "Functions: lower(), upper(), trim(), replace(), concat(), substr(). Example: concat(lower(Name), "-", Index, Ext)", ColumnSpan: 4},
+													PushButton{Text: "Apply script", OnClicked: func() { saveMethodEditor(); maybePreview() }},
+													PushButton{Text: "Reset example", OnClicked: func() { if scriptTE != nil { scriptTE.SetText("concat(Name, Ext)"); saveMethodEditor(); maybePreview() } }},
+												},
+											},
+											{
+												Title:  "Swap",
+												Layout: Grid{Columns: 4, Spacing: 7},
+												Children: []Widget{
+													Label{Text: "Separator:"},
+													LineEdit{AssignTo: &swapSeparatorLE, Text: " - ", OnTextChanged: saveMethodEditor, OnEditingFinished: maybePreview},
+													Label{Text: "Occurrence:"},
+													NumberEdit{AssignTo: &swapOccurrenceNE, Value: 1, MinValue: 1, MaxValue: 9999, SpinButtonsVisible: true, OnValueChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }},
+													Label{Text: "Example: Michael Jackson - Thriller  ->  Thriller - Michael Jackson", ColumnSpan: 4},
+												},
+											},
+											{
 												Title:  "Trim",
 												Layout: Grid{Columns: 2, Spacing: 7},
 												Children: []Widget{
@@ -1403,7 +1518,6 @@ func main() {
 													Label{Text: "Format example: yyyyMMdd-HHmmss", ColumnSpan: 4},
 												},
 											},
-
 										},
 									},
 								},

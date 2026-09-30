@@ -1820,3 +1820,48 @@ table.compact .folder-group-row td {
   opacity: 0.42;
   cursor: default;
 }
+
+
+.context-menu {
+  position: fixed;
+  z-index: 140;
+  width: 258px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 5px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+
+.context-menu button {
+  min-height: 34px;
+  border: 0;
+  border-radius: 5px;
+  padding: 0 10px;
+  text-align: left;
+  background: transparent;
+  color: var(--text-2);
+  cursor: pointer;
+}
+
+.context-menu button:hover {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+.context-menu button.danger {
+  color: var(--red);
+}
+
+.context-menu button.danger:hover {
+  background: var(--red-bg);
+}
+
+.context-separator {
+  height: 1px;
+  margin: 3px 4px;
+  background: var(--border);
+}

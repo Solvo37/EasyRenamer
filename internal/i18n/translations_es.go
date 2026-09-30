@@ -262,5 +262,6 @@ func init() {
 		"method.desc.trim": "Recortar y normalizar espacios",
 		"method.desc.timestamp": "Añadir fecha u hora del archivo o lote",
 		"tag.search": "Buscar etiquetas...",
+		"status.of": "de",
 	}
 }

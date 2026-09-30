@@ -204,6 +204,23 @@ type ContextMenuState =
   | { kind: 'file'; x: number; y: number; item: PreviewItem }
   | { kind: 'folder'; x: number; y: number; folder: string; group: PreviewItem[] }
 
+type ColumnKey = 'filename' | 'new_filename' | 'path' | 'size' | 'type' | 'status'
+
+interface ColumnConfig {
+  key: ColumnKey
+  visible: boolean
+  width: number
+}
+
+const defaultColumns: ColumnConfig[] = [
+  { key: 'filename', visible: true, width: 230 },
+  { key: 'new_filename', visible: true, width: 250 },
+  { key: 'path', visible: true, width: 300 },
+  { key: 'size', visible: true, width: 90 },
+  { key: 'type', visible: true, width: 72 },
+  { key: 'status', visible: true, width: 135 },
+]
+
 function App() {
   const [bootstrap, setBootstrap] = useState<BootstrapData | null>(null)
   const [strings, setStrings] = useState<Record<string, string>>({})
@@ -249,6 +266,18 @@ function App() {
   const [historyItems, setHistoryItems] = useState<HistoryEntry[]>([])
   const [historyBusy, setHistoryBusy] = useState(false)
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
+  const [columnsOpen, setColumnsOpen] = useState(false)
+  const [columns, setColumns] = useState<ColumnConfig[]>(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('easyrenamer-columns') || 'null') as ColumnConfig[] | null
+      if (!Array.isArray(saved)) return defaultColumns
+      const valid = saved.filter((column) => defaultColumns.some((entry) => entry.key === column.key))
+      const missing = defaultColumns.filter((entry) => !valid.some((column) => column.key === entry.key))
+      return [...valid, ...missing]
+    } catch {
+      return defaultColumns
+    }
+  })
   const [userPresets, setUserPresets] = useState<UserPreset[]>(() => {
     try {
       return JSON.parse(localStorage.getItem('easyrenamer-user-presets') || '[]')
@@ -279,7 +308,8 @@ function App() {
     noHistory: 'История операций пока пуста', filesRenamed: 'Переименовано',
     open: 'Открыть', showExplorer: 'Показать в Проводнике', copyName: 'Скопировать имя',
     copyPath: 'Скопировать полный путь', exclude: 'Исключить из операции', removeList: 'Удалить из списка',
-    selectFolder: 'Выбрать все файлы папки', deselectFolder: 'Снять выбор', removeFolder: 'Удалить папку из списка'
+    selectFolder: 'Выбрать все файлы папки', deselectFolder: 'Снять выбор', removeFolder: 'Удалить папку из списка',
+    columns: 'Колонки', showColumn: 'Показывать'
   } : {
     order: 'Order', name: 'Name', created: 'Created', modified: 'Modified',
     size: 'Size', extension: 'Extension', path: 'Path', added: 'Added order', manual: 'Manual order',
@@ -292,7 +322,8 @@ function App() {
     noHistory: 'Operation history is empty', filesRenamed: 'Renamed',
     open: 'Open', showExplorer: 'Show in Explorer', copyName: 'Copy name',
     copyPath: 'Copy full path', exclude: 'Exclude from operation', removeList: 'Remove from list',
-    selectFolder: 'Select all files in folder', deselectFolder: 'Clear selection', removeFolder: 'Remove folder from list'
+    selectFolder: 'Select all files in folder', deselectFolder: 'Clear selection', removeFolder: 'Remove folder from list',
+    columns: 'Columns', showColumn: 'Show'
   }, [language])
 
   const effectiveTheme = theme === 'system' ? (systemDark ? 'dark' : 'light') : theme
@@ -305,6 +336,10 @@ function App() {
   useEffect(() => {
     localStorage.setItem('easyrenamer-user-presets', JSON.stringify(userPresets))
   }, [userPresets])
+
+  useEffect(() => {
+    localStorage.setItem('easyrenamer-columns', JSON.stringify(columns))
+  }, [columns])
 
   useEffect(() => {
     localStorage.setItem('easyrenamer-sort', sortBy)
@@ -694,6 +729,13 @@ function App() {
     return groups
   }, [visibleItems])
 
+  const visibleColumns = useMemo(
+    () => columns.filter((column) => column.visible && !(groupByFolder && column.key === 'path')),
+    [columns, groupByFolder]
+  )
+  const tableColumnCount = 2 + visibleColumns.length
+  const tableMinWidth = 88 + visibleColumns.reduce((sum, column) => sum + column.width, 0)
+
   const tableRows = useMemo<FileTableRow[]>(() => {
     if (!groupByFolder) return visibleItems.map((item) => ({ kind: 'file', item }))
     const rows: FileTableRow[] = []
@@ -875,6 +917,70 @@ function App() {
     })
   }
 
+  const columnLabel = (key: ColumnKey) => {
+    switch (key) {
+      case 'filename': return t('column.filename')
+      case 'new_filename': return t('column.new_filename')
+      case 'path': return t('column.path')
+      case 'size': return t('column.size')
+      case 'type': return t('column.type')
+      case 'status': return t('column.status')
+    }
+  }
+
+  const moveColumn = (key: ColumnKey, direction: -1 | 1) => {
+    setColumns((prev) => {
+      const index = prev.findIndex((column) => column.key === key)
+      const target = index + direction
+      if (index < 0 || target < 0 || target >= prev.length) return prev
+      const next = [...prev]
+      ;[next[index], next[target]] = [next[target], next[index]]
+      return next
+    })
+  }
+
+  const startColumnResize = (key: ColumnKey, event: ReactPointerEvent<HTMLDivElement>) => {
+    event.preventDefault()
+    event.stopPropagation()
+    const column = columns.find((entry) => entry.key === key)
+    if (!column) return
+    const startX = event.clientX
+    const startWidth = column.width
+    const move = (moveEvent: PointerEvent) => {
+      const width = Math.max(64, Math.min(720, startWidth + moveEvent.clientX - startX))
+      setColumns((prev) => prev.map((entry) => entry.key === key ? { ...entry, width } : entry))
+    }
+    const stop = () => {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', stop)
+    }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', stop)
+  }
+
+  const renderColumnCell = (column: ColumnConfig, item: PreviewItem) => {
+    switch (column.key) {
+      case 'filename':
+        return <td key={column.key}><span className="file-name">{fileIcon(item.type)}{item.oldName}</span></td>
+      case 'new_filename':
+        return <td key={column.key} className="new-name">{item.newName}</td>
+      case 'path':
+        return <td key={column.key} className="path-cell" title={item.path}>{item.path}</td>
+      case 'size':
+        return <td key={column.key}>{formatBytes(item.size)}</td>
+      case 'type':
+        return <td key={column.key}>{item.type || 'FILE'}</td>
+      case 'status':
+        return (
+          <td key={column.key} title={item.error || ''}>
+            <span className={`status-pill status-${item.status.toLowerCase()}`}>
+              <i />{t(statusKey(item.status), item.status)}
+            </span>
+          </td>
+        )
+    }
+  }
+
   const renderFileRow = (item: PreviewItem) => (
     <tr
       key={item.sourcePath}
@@ -901,16 +1007,7 @@ function App() {
         />
       </td>
       <td>{item.globalIndex}</td>
-      <td><span className="file-name">{fileIcon(item.type)}{item.oldName}</span></td>
-      <td className="new-name">{item.newName}</td>
-      <td className={`path-cell path-column ${groupByFolder ? 'hidden' : ''}`} title={item.path}>{item.path}</td>
-      <td>{formatBytes(item.size)}</td>
-      <td>{item.type || 'FILE'}</td>
-      <td title={item.error || ''}>
-        <span className={`status-pill status-${item.status.toLowerCase()}`}>
-          <i />{t(statusKey(item.status), item.status)}
-        </span>
-      </td>
+      {visibleColumns.map((column) => renderColumnCell(column, item))}
     </tr>
   )
 
@@ -946,7 +1043,7 @@ function App() {
             }}
           />
         </td>
-        <td colSpan={7}>
+        <td colSpan={1 + visibleColumns.length}>
           <span className="folder-group-copy" title={folder}>
             <ChevronDown className={collapsed ? 'collapsed' : ''} />
             <Folder />
@@ -1142,6 +1239,29 @@ function App() {
                   {ux.errorsOnly} ({errorCount})
                 </button>
               )}
+              <div className="column-settings-wrap">
+                <button className={`columns-button ${columnsOpen ? 'active' : ''}`} onClick={() => setColumnsOpen((value) => !value)}>
+                  {ux.columns}
+                </button>
+                {columnsOpen && (
+                  <div className="column-settings" onClick={(e) => e.stopPropagation()}>
+                    {columns.map((column, index) => (
+                      <div className="column-setting-row" key={column.key}>
+                        <label>
+                          <input
+                            type="checkbox"
+                            checked={column.visible}
+                            onChange={(e) => setColumns((prev) => prev.map((entry) => entry.key === column.key ? { ...entry, visible: e.target.checked } : entry))}
+                          />
+                          <span>{columnLabel(column.key)}</span>
+                        </label>
+                        <button disabled={index === 0} onClick={() => moveColumn(column.key, -1)}><ArrowUp /></button>
+                        <button disabled={index === columns.length - 1} onClick={() => moveColumn(column.key, 1)}><ArrowDown /></button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
               <div className="view-toggle">
                 <button title="Comfortable rows" className={!compactView ? 'active' : ''} onClick={() => setCompactView(false)}><List /></button>
                 <button title="Compact rows" className={compactView ? 'active' : ''} onClick={() => setCompactView(true)}>▦</button>
@@ -1157,7 +1277,12 @@ function App() {
               setTableViewportHeight(e.currentTarget.clientHeight)
             }}
           >
-            <table className={compactView ? 'compact' : ''}>
+            <table className={`configurable ${compactView ? 'compact' : ''}`} style={{ minWidth: tableMinWidth }}>
+              <colgroup>
+                <col style={{ width: 42 }} />
+                <col style={{ width: 46 }} />
+                {visibleColumns.map((column) => <col key={column.key} style={{ width: column.width }} />)}
+              </colgroup>
               <thead>
                 <tr>
                   <th className="checkcol">
@@ -1171,17 +1296,17 @@ function App() {
                     />
                   </th>
                   <th>#</th>
-                  <th>{t('column.filename')}</th>
-                  <th>{t('column.new_filename')}</th>
-                  <th className={`path-column ${groupByFolder ? 'hidden' : ''}`}>{t('column.path')}</th>
-                  <th>{t('column.size')}</th>
-                  <th>{t('column.type')}</th>
-                  <th>{t('column.status')}</th>
+                  {visibleColumns.map((column) => (
+                    <th className="column-resizable" key={column.key}>
+                      <span>{columnLabel(column.key)}</span>
+                      <div className="column-resize-handle" onPointerDown={(e) => startColumnResize(column.key, e)} />
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
                 {virtualTop > 0 && (
-                  <tr className="virtual-spacer"><td colSpan={8} style={{ height: virtualTop }} /></tr>
+                  <tr className="virtual-spacer"><td colSpan={tableColumnCount} style={{ height: virtualTop }} /></tr>
                 )}
                 {virtualRows.map((row) =>
                   row.kind === 'folder'
@@ -1189,11 +1314,11 @@ function App() {
                     : renderFileRow(row.item)
                 )}
                 {virtualBottom > 0 && (
-                  <tr className="virtual-spacer"><td colSpan={8} style={{ height: virtualBottom }} /></tr>
+                  <tr className="virtual-spacer"><td colSpan={tableColumnCount} style={{ height: virtualBottom }} /></tr>
                 )}
                 {!visibleItems.length && (
                   <tr className="empty-row">
-                    <td colSpan={8}>
+                    <td colSpan={tableColumnCount}>
                       <div className="empty-state">
                         <FolderPlus />
                         <strong>{items.length ? ux.allFiles : t('drop.hint')}</strong>

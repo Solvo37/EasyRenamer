@@ -15,9 +15,11 @@
 - 真正修改 Created / Modified / Accessed 的 Timestamp；
 - 每个方法的条件；
 - Name / Extension / Both 的 Apply To；
+- 在所有兼容的方法字段中使用标签；
 - 对现有数字进行更强的 Renumber；
 - 更完整的 Remove 与 Change Case；
-- 列表导入/导出；
+- 列表导入/导出和单项新名称 override；
+- 按条件 mark/unmark/remove；
 - CSV 数据导入和 CSV 标签；
 - 文件夹重命名；
 - 安全 Copy / Move 模式；
@@ -28,7 +30,8 @@
 
 ## v1.2 — 高级功能
 
-- 元数据详情与标签发现面板；
+- 元数据详情、标签发现和收藏标签；
+- thumbnail grid 模式；
 - 更多原生 metadata reader；
 - 可选 ExifTool 集成；
 - 更强的 Script；

@@ -261,5 +261,6 @@ func init() {
 		"method.desc.swap": "Intercambiar dos partes alrededor de un separador",
 		"method.desc.trim": "Recortar y normalizar espacios",
 		"method.desc.timestamp": "Añadir fecha u hora del archivo o lote",
+		"tag.search": "Buscar etiquetas...",
 	}
 }

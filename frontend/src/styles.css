@@ -246,7 +246,7 @@ textarea:focus-visible {
 }
 
 .action.primary,
-.start-btn {
+.start-btn.primary {
   border-color: #4383f8;
   background: linear-gradient(180deg, #3f82fa, #2767df);
   box-shadow:
@@ -255,7 +255,7 @@ textarea:focus-visible {
 }
 
 .action.primary:hover,
-.start-btn:hover:not(:disabled) {
+.start-btn.primary:hover:not(:disabled) {
   background: linear-gradient(180deg, #4d8cff, #2c6de5);
 }
 
@@ -1268,5 +1268,333 @@ tbody tr.selected {
 
   .commandbar select {
     min-width: 110px;
+  }
+}
+
+
+/* v1.0 P0 workbench behaviour */
+.sidebar {
+  grid-template-rows: minmax(118px, var(--methods-height, 260px)) 6px minmax(170px, 1fr);
+  gap: 0;
+}
+
+.sidebar-splitter {
+  position: relative;
+  cursor: row-resize;
+  touch-action: none;
+}
+
+.sidebar-splitter::after {
+  content: "";
+  position: absolute;
+  left: 34%;
+  right: 34%;
+  top: 2px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--border-strong);
+}
+
+.sidebar-splitter:hover::after {
+  background: var(--accent);
+}
+
+.methods-panel {
+  margin-bottom: 0;
+}
+
+.settings-panel {
+  margin-top: 0;
+}
+
+.method-panel-title {
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.panel-title-copy {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.panel-title-copy b {
+  color: #64a4ff;
+}
+
+.method-add-select {
+  min-width: 118px;
+  max-width: 170px;
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid rgba(61, 124, 239, 0.55);
+  border-radius: 7px;
+  background: var(--accent-soft);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.files-panel {
+  grid-template-rows: auto minmax(0, 1fr) 118px;
+}
+
+.files-head {
+  min-height: 74px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 7px;
+}
+
+.files-title-line {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.files-title-line .drop-hint {
+  margin-left: auto;
+}
+
+.file-tools {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.file-tools select,
+.file-tools input {
+  height: 32px;
+  border: 1px solid var(--border-strong);
+  border-radius: 7px;
+  background: var(--field);
+  color: var(--text);
+}
+
+.table-search {
+  flex: 1 1 210px;
+  min-width: 170px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 9px;
+  border: 1px solid var(--border-strong);
+  border-radius: 7px;
+  background: var(--field);
+  color: var(--muted);
+}
+
+.table-search input {
+  min-width: 100px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none !important;
+}
+
+.sort-control {
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  color: var(--text-2);
+  font-size: 11px;
+}
+
+.sort-control select {
+  min-width: 138px;
+  padding: 0 26px 0 8px;
+}
+
+.sort-direction,
+.errors-toggle {
+  height: 32px;
+  border: 1px solid var(--border-strong);
+  border-radius: 7px;
+  background: var(--panel-2);
+  color: var(--text-2);
+  cursor: pointer;
+}
+
+.sort-direction {
+  width: 34px;
+  display: grid;
+  place-items: center;
+}
+
+.sort-direction svg {
+  width: 16px;
+}
+
+.sort-per-folder {
+  max-width: 225px;
+  font-size: 10px !important;
+  line-height: 1.15;
+}
+
+.group-select {
+  min-width: 150px;
+  padding: 0 8px;
+}
+
+.errors-toggle {
+  padding: 0 10px;
+  white-space: nowrap;
+  color: var(--red);
+}
+
+.errors-toggle.active {
+  border-color: var(--red);
+  background: var(--red-bg);
+}
+
+.path-column.hidden {
+  display: none;
+}
+
+.folder-group-row,
+.folder-group-row:nth-child(even),
+.folder-group-row:hover {
+  background: linear-gradient(90deg, rgba(54, 120, 245, 0.16), rgba(54, 120, 245, 0.06));
+}
+
+.folder-group-row td {
+  height: 34px;
+  border-bottom-color: rgba(78, 126, 205, 0.28);
+}
+
+.folder-group-copy {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-2);
+}
+
+.folder-group-copy svg {
+  width: 15px;
+  flex: 0 0 auto;
+  color: #6da7ff;
+}
+
+.folder-group-copy svg:first-child {
+  transition: transform 120ms ease;
+}
+
+.folder-group-copy svg:first-child.collapsed {
+  transform: rotate(-90deg);
+}
+
+.folder-group-copy strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.folder-group-copy em {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 10px;
+  font-style: normal;
+  white-space: nowrap;
+}
+
+.statusbar .state.busy {
+  color: var(--accent);
+}
+
+.operation-progress {
+  position: fixed;
+  right: 22px;
+  bottom: 54px;
+  z-index: 80;
+  width: min(470px, calc(100vw - 44px));
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px 12px;
+  align-items: center;
+  padding: 13px 14px;
+  border: 1px solid rgba(70, 132, 246, 0.5);
+  border-radius: 10px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+
+.operation-progress-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  grid-column: 1 / 2;
+}
+
+.operation-progress-head strong {
+  font-size: 13px;
+}
+
+.operation-progress-head span {
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+}
+
+.operation-progress progress {
+  width: 100%;
+  height: 10px;
+  grid-column: 1 / 2;
+  accent-color: var(--accent);
+}
+
+.operation-progress small {
+  min-width: 0;
+  grid-column: 1 / 2;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.operation-progress button {
+  grid-column: 2 / 3;
+  grid-row: 1 / 4;
+  align-self: stretch;
+  min-width: 92px;
+  border: 1px solid var(--border-strong);
+  border-radius: 7px;
+  background: var(--panel-2);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.operation-progress button:hover {
+  border-color: var(--red);
+  background: var(--red-bg);
+}
+
+.name-compare .compare-values {
+  margin-top: 0;
+}
+
+@media (max-width: 1300px) {
+  .workspace {
+    grid-template-columns: 420px minmax(0, 1fr);
+  }
+
+  .sort-per-folder {
+    display: none !important;
+  }
+
+  .drop-hint {
+    display: none;
   }
 }

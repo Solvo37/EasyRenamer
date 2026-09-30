@@ -1527,16 +1527,26 @@ func runMainWindow(state *uiState) uiRunResult {
 		},
 		Children: []Widget{
 			Composite{Background: uiWindowBrush(darkTheme),
-				Layout: HBox{Spacing: 6, Margins: Margins{Left: 6, Top: 5, Right: 6, Bottom: 5}},
+				Layout: HBox{Spacing: 10, Margins: Margins{Left: 6, Top: 2, Right: 6, Bottom: 2}},
 				Children: []Widget{
-					ToolButton{Background: uiPanelBrush(darkTheme), Text: i18n.T("button.files"), MinSize: Size{88, 30}, OnClicked: addFiles},
-					ToolButton{Background: uiPanelBrush(darkTheme), Text: i18n.T("button.folders"), MinSize: Size{88, 30}, OnClicked: addFolder},
-					ToolButton{Background: uiPanelBrush(darkTheme), Text: i18n.T("button.clear"), MinSize: Size{78, 30}, OnClicked: clearSources},
-					ToolButton{Background: uiPanelBrush(darkTheme), AssignTo: &previewPB, Text: i18n.T("button.preview"), MinSize: Size{104, 30}, OnClicked: preview},
-					ToolButton{Background: uiPanelBrush(darkTheme), AssignTo: &undoPB, Text: i18n.T("button.undo"), MinSize: Size{88, 30}, OnClicked: undo},
+					Label{Text: "ER", Font: Font{PointSize: 11, Bold: true}, TextColor: walk.RGB(255, 255, 255), Background: uiAccentBrush(darkTheme), TextAlignment: AlignCenter, MinSize: Size{38, 32}},
+					Label{Text: "EasyRenamer " + version.Version, Font: Font{PointSize: 11, Bold: true}, TextColor: uiTextColor(darkTheme), Background: uiWindowBrush(darkTheme)},
+					Label{Text: i18n.T("app.subtitle"), TextColor: uiMutedTextColor(darkTheme), Background: uiWindowBrush(darkTheme)},
+					HSpacer{},
+					Label{Text: i18n.T("app.tagline"), TextColor: uiMutedTextColor(darkTheme), Background: uiWindowBrush(darkTheme)},
+				},
+			},
+			Composite{Background: uiWindowBrush(darkTheme),
+				Layout: HBox{Spacing: 8, Margins: Margins{Left: 6, Top: 5, Right: 6, Bottom: 5}},
+				Children: []Widget{
+					PushButton{Background: uiAccentBrush(darkTheme), Text: "＋  " + i18n.T("button.files"), Font: Font{PointSize: 10, Bold: true}, MinSize: Size{145, 38}, OnClicked: addFiles},
+					PushButton{Background: uiCardBrush(darkTheme), Text: "＋  " + i18n.T("button.folders"), MinSize: Size{135, 38}, OnClicked: addFolder},
+					PushButton{Background: uiCardBrush(darkTheme), Text: i18n.T("button.clear"), MinSize: Size{105, 38}, OnClicked: clearSources},
+					ToolButton{Background: uiCardBrush(darkTheme), AssignTo: &previewPB, Text: i18n.T("button.preview"), MinSize: Size{130, 38}, OnClicked: preview},
+					ToolButton{Background: uiCardBrush(darkTheme), AssignTo: &undoPB, Text: i18n.T("button.undo"), MinSize: Size{100, 38}, OnClicked: undo},
 					HSpacer{},
 					Label{TextColor: uiMutedTextColor(darkTheme), Background: uiWindowBrush(darkTheme), AssignTo: &sourceCountLbl, Text: fmt.Sprintf(i18n.T("sources.count"), 0)},
-					PushButton{Background: uiPanelBrush(darkTheme), AssignTo: &renamePB, Text: i18n.T("button.start"), Font: Font{PointSize: 10, Bold: true}, Enabled: false, MinSize: Size{150, 34}, OnClicked: rename},
+					PushButton{Background: uiAccentBrush(darkTheme), AssignTo: &renamePB, Text: "▶  " + i18n.T("button.start"), Font: Font{PointSize: 10, Bold: true}, Enabled: false, MinSize: Size{150, 40}, OnClicked: rename},
 					ComboBox{
 						AssignTo: &languageCB, Background: uiFieldBrush(darkTheme), Model: languageNames, CurrentIndex: languageIndex, MinSize: Size{105, 30},
 						OnMouseDown: func(x, y int, button walk.MouseButton) { scheduleFloatingTheme(mw, darkTheme) },
@@ -1564,8 +1574,8 @@ func runMainWindow(state *uiState) uiRunResult {
 					ToolButton{Background: uiPanelBrush(darkTheme), Text: i18n.T("button.help"), MinSize: Size{78, 30}, OnClicked: func() { showHelpDialog(mw, darkTheme, 0) }},
 				},
 			},
-			Composite{Background: uiPanelBrush(darkTheme),
-				Layout: HBox{Spacing: 6},
+			Composite{Background: uiCardBrush(darkTheme),
+				Layout: HBox{Spacing: 8, Margins: Margins{Left: 8, Top: 6, Right: 8, Bottom: 6}},
 				Children: []Widget{
 					Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("filter.label")},
 					ComboBox{Background: uiFieldBrush(darkTheme),OnMouseDown: func(x, y int, button walk.MouseButton) { scheduleFloatingTheme(mw, darkTheme) },AssignTo: &categoryCB, Model: categoryNames, CurrentIndex: state.CategoryIndex, MinSize: Size{130, 0}, OnCurrentIndexChanged: func() {
@@ -1593,7 +1603,7 @@ func runMainWindow(state *uiState) uiRunResult {
 				Children: []Widget{
 					ScrollView{
 						Background:      uiPanelBrush(darkTheme),
-						MinSize:         Size{390, 0},
+						MinSize:         Size{430, 0},
 						HorizontalFixed: true,
 						Layout:          VBox{Spacing: 6},
 						Children: []Widget{
@@ -1615,14 +1625,20 @@ func runMainWindow(state *uiState) uiRunResult {
 										MultiSelection:              false,
 										NotSortableByHeaderClick:    true,
 										SelectionHiddenWithoutFocus: false,
-										CustomRowHeight:              32,
-										MinSize:                      Size{360, 120},
+										CustomRowHeight:              42,
+										MinSize:                      Size{400, 185},
 										Columns: []TableViewColumn{
-											{Title: i18n.T("column.method"), Width: 235},
+											{Title: i18n.T("column.method"), Width: 135},
+											{Title: "", Width: 235},
+											{Title: "", Width: 22},
 										},
 										StyleCell: func(style *walk.CellStyle) {
 											style.BackgroundColor = uiTableAltColor(darkTheme, style.Row()%2 == 1)
-											style.TextColor = uiTextColor(darkTheme)
+											if style.Col() == 1 || style.Col() == 2 {
+												style.TextColor = uiMutedTextColor(darkTheme)
+											} else {
+												style.TextColor = uiTextColor(darkTheme)
+											}
 										},
 										OnCurrentIndexChanged: func() {
 											if updatingMethodUI || methodTable == nil {
@@ -1701,12 +1717,6 @@ Composite{Background: uiPanelBrush(darkTheme),
 													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.new_name")},
 													LineEdit{TextColor: uiTextColor(darkTheme), Background: uiFieldBrush(darkTheme),AssignTo: &templateLE, Text: methods[0].Template, ColumnSpan: 4, OnTextChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }, OnEditingFinished: maybePreview},
 													tagBrowser,
-													PushButton{
-														Background: uiPanelBrush(darkTheme),
-														Text: i18n.T("menu.tags"),
-														ColumnSpan: 5,
-														OnClicked: func() { showHelpDialog(mw, darkTheme, 1) },
-													},
 												},
 											},
 											Composite{
@@ -2009,12 +2019,13 @@ Composite{Background: uiPanelBrush(darkTheme),
 							VSpacer{},
 						},
 					},
-					Composite{Background: uiPanelBrush(darkTheme),
-						Layout: VBox{Spacing: 6},
+					Composite{Background: uiCardBrush(darkTheme),
+						Layout: VBox{Spacing: 8, Margins: Margins{Left: 8, Top: 8, Right: 8, Bottom: 8}},
 						Children: []Widget{
 							Label{
-								Text:       i18n.T("group.files"),
-								Font:       Font{PointSize: 10, Bold: true},
+								AssignTo:   &filesTitleLbl,
+								Text:       fmt.Sprintf(i18n.T("files.title_count"), 0),
+								Font:       Font{PointSize: 12, Bold: true},
 								TextColor:  uiTextColor(darkTheme),
 								Background: uiPanelBrush(darkTheme),
 							},
@@ -2032,20 +2043,20 @@ Composite{Background: uiPanelBrush(darkTheme),
 								CheckBoxes:                   true,
 								MultiSelection:               true,
 								SelectionHiddenWithoutFocus:  false,
-								CustomRowHeight:              28,
+								CustomRowHeight:              34,
 								NotSortableByHeaderClick:     true,
 								ColumnsSizable:               true,
 								LastColumnStretched:          true,
 								OnItemActivated:              openSelectedFile,
+								OnCurrentIndexChanged:        updateSelectedPreview,
 								Columns: []TableViewColumn{
-									{Title: i18n.T("column.index"), Width: 55},
-									{Title: i18n.T("column.filename"), Width: 235},
-									{Title: i18n.T("column.new_filename"), Width: 300},
-									{Title: i18n.T("column.path"), Width: 300},
-									{Title: i18n.T("column.size"), Width: 80},
-									{Title: i18n.T("column.width"), Width: 65},
-									{Title: i18n.T("column.height"), Width: 65},
-									{Title: i18n.T("column.status"), Width: 220},
+									{Title: i18n.T("column.index"), Width: 52},
+									{Title: i18n.T("column.filename"), Width: 220},
+									{Title: i18n.T("column.new_filename"), Width: 250},
+									{Title: i18n.T("column.path"), Width: 270},
+									{Title: i18n.T("column.size"), Width: 90},
+									{Title: i18n.T("column.type"), Width: 75},
+									{Title: i18n.T("column.status"), Width: 150},
 								},
 								Model: model,
 								StyleCell: func(style *walk.CellStyle) {
@@ -2055,11 +2066,18 @@ Composite{Background: uiPanelBrush(darkTheme),
 									style.BackgroundColor = uiTableAltColor(darkTheme, style.Row()%2 == 1)
 									style.TextColor = uiTextColor(darkTheme)
 									it := model.items[style.Row()]
-									switch it.Status {
-									case engine.StatusConflict, engine.StatusInvalid:
-										style.TextColor = uiDangerTextColor(darkTheme)
-									case engine.StatusUnchanged:
-										style.TextColor = uiUnchangedTextColor(darkTheme)
+									if style.Col() == 1 {
+										style.Image = it.SourcePath
+									}
+									if style.Col() == 6 {
+										switch it.Status {
+										case engine.StatusOK:
+											style.TextColor = uiSuccessTextColor(darkTheme)
+										case engine.StatusConflict, engine.StatusInvalid:
+											style.TextColor = uiDangerTextColor(darkTheme)
+										case engine.StatusUnchanged:
+											style.TextColor = uiUnchangedTextColor(darkTheme)
+										}
 									}
 								},
 							},

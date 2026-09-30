@@ -6,7 +6,6 @@ var translations = map[Language]map[string]string{
 		"menu.add_files": "Add files...", "menu.add_folder": "Add folders...",
 		"menu.save_methods": "Save method set...", "menu.load_methods": "Load method set...",
 		"button.files": "+ Files", "button.folders": "+ Folders", "button.clear": "Clear", "button.start": "Start batch",
-		"button.select_valid": "Select all valid",
 		"sources.count": "Sources: %d", "filter.label": "Filter:", "filter.subfolders": "Include subfolders",
 		"filter.extensions": "Extensions:",
 		"collision.label": "Collision rule:",

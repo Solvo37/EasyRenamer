@@ -126,9 +126,10 @@ type Config struct {
 	Category         Category
 	CustomExtensions string
 
-	SortBy         SortMode
-	SortDescending bool
-	SortPerFolder  bool
+	SortBy              SortMode
+	SortDescending      bool
+	SortPerFolder       bool
+	SkipImageDimensions bool
 
 	// Methods is the preferred API. If it is empty, the legacy single-method
 	// fields below are used so older integrations keep working.

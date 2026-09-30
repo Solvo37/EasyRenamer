@@ -724,26 +724,13 @@ input[type="radio"] {
   background: rgba(46, 105, 214, 0.09);
   color: #9eb8df;
   font-size: 10px;
-}
-
-.add-method {
-  margin-top: 14px;
-  padding-top: 10px;
-  border-top: 1px solid var(--border);
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  gap: 8px;
+  display: flex;
   align-items: center;
+  gap: 6px;
 }
 
-.add-method button {
-  height: 34px;
-  border: 1px solid rgba(61, 124, 239, 0.55);
-  border-radius: 7px;
-  padding: 0 12px;
-  background: var(--accent-soft);
-  color: #dce9ff;
-  cursor: pointer;
+.editor-hint svg {
+  flex: 0 0 auto;
 }
 
 .files-panel {

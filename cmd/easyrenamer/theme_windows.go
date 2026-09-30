@@ -255,8 +255,8 @@ func applyThemeToHWND(hwnd uintptr, dark bool) {
 		bg := colorRef(255, 255, 255)
 		text := colorRef(28, 30, 34)
 		if dark {
-			bg = colorRef(58, 60, 65)
-			text = colorRef(232, 233, 236)
+			bg = colorRef(18, 29, 42)
+			text = colorRef(244, 247, 251)
 		}
 		procSendMessageW.Call(hwnd, lvmSetBkColor, 0, bg)
 		procSendMessageW.Call(hwnd, lvmSetTextBkColor, 0, bg)

@@ -1,62 +1,77 @@
-# EasyRenamer v0.7.0
+# EasyRenamer v0.8.0
 
-Major UI release driven directly by the supplied modern desktop mockup.
+This release replaces the release UI layer instead of continuing to patch the old Win32/Walk forms.
 
-## New shell
+## New desktop technology
 
-- Added a product header with the ER badge, app version, subtitle and localized tagline.
-- Reworked the dark palette into a blue/graphite hierarchy closer to the mockup.
-- Enlarged the main command bar and made Add files / Start the primary actions.
-- Filter and workspace sections now use distinct card-like surfaces.
+- The production UI is now **Wails v2 + React + TypeScript**.
+- The existing Go rename engine remains the source of truth for preview, validation, metadata, transactional rename and Undo.
+- The old Walk frontend remains in the repository temporarily as a legacy fallback, but it is no longer the release shell.
+- Wails v2 was chosen because it is the stable Wails line; v3 is still beta.
+
+## Mockup-driven shell
+
+- Frameless custom title bar with EasyRenamer branding and native window controls.
+- Large primary command bar matching the approved mockup.
+- Dedicated filter row.
+- Card-based rename-method sidebar.
+- Modern settings card below the selected method.
+- Large file workspace with sticky table header.
+- Selected-file thumbnail and metadata preview.
+- Original → new filename comparison card.
+- Full-width bottom status bar.
+- Responsive layout for smaller Windows displays.
+
+## Modern interaction
+
+- CSS-based dark/light/system themes apply instantly.
+- Language switching applies instantly using the existing Go translation tables.
+- Native Wails drag & drop accepts files and folders.
+- Folder drops use a custom in-app choice dialog.
+- Native multi-file picker and multi-folder picker remain available.
+- Ctrl+Z performs Undo.
+- Save/load method sets remain supported.
+- Local image thumbnails are shown only for the currently selected file.
 
 ## Rename methods
 
-- Method rows are taller and easier to scan.
-- Each method shows a localized short description plus a chevron.
-- The left working pane is wider and behaves more like a modern sidebar.
-- Selected-method settings remain immediately below the method stack.
+The React settings editor supports the existing engine methods:
 
-## Files workspace
+- New Name / template tags
+- Replace
+- Renumber
+- Change case
+- Remove
+- Remove pattern
+- Add text
+- Move
+- List
+- List Replace
+- Swap
+- Trim
+- Timestamp
+- Script expressions
 
-- The main file table now focuses on source name, new name, path, size, type and status.
-- Source rows show the associated file icon.
-- Ready/conflict states use localized green/red/muted status styling.
-- The Files heading now shows the current item count.
-
-## Selected-file preview
-
-- Added a detail card below the file table.
-- It shows the selected filename, path, dimensions when available, file size and type.
-- The right side compares the original filename with the computed new filename.
-- Selecting another row updates this card immediately.
-
-## Status bar
-
-- Added a full-width bottom status bar.
-- Shows ready/error state, collision state and the current file/selection summary.
+The method chain on the left remains the single source of truth.
 
 ## Tags
 
-- Added search inside the built-in tag browser.
-- Search matches both raw tag syntax and localized descriptions.
+- Built-in tag catalog.
+- Category selector.
+- Search by raw token or localized description.
+- Tags insert directly at the caret in the New Name field.
+- Functions and Script variables are available alongside tags.
 
-## Existing behavior retained
+## Build and stability
 
-- Always-on live preview with cancellation.
-- Native multi-select folder picker.
-- Live language/theme switching.
-- Built-in Help and tag reference.
-- Transactional rename and Undo.
-- Four-language UI with translation completeness tests.
-
-## Quality
-
-- Core tests must pass.
-- Windows build must pass.
-- Startup smoke test must pass.
+- GitHub Actions now builds the Wails production executable.
+- React/TypeScript frontend is compiled as part of the release.
+- Core Go tests pass.
+- Windows production build passes.
+- The produced EXE passes the startup smoke test.
 
 ## Downloads
 
 - **EasyRenamer.exe** — portable Windows x64 executable.
-- **EasyRenamer-v0.7.0-windows-x64.zip** — EXE + README + license + documentation.
+- **EasyRenamer-v0.8.0-windows-x64.zip** — EXE + README + license + documentation.
 - **SHA256SUMS.txt** — checksums.

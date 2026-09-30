@@ -35,9 +35,11 @@ High-value next work:
 - true filesystem Timestamp method (Created / Modified / Accessed);
 - method conditions;
 - richer Apply To support for name / extension / both;
+- tags in all compatible method fields;
 - stronger Renumber for existing numbers;
 - richer Remove and Change Case modes;
-- list import/export;
+- list import/export and per-item filename override;
+- mark/unmark/remove by condition;
 - CSV data import and CSV tags;
 - folder rename mode;
 - safe Copy / Move batch modes;
@@ -48,13 +50,15 @@ High-value next work:
 
 ## v1.2 — power features
 
-- metadata details panel and tag discovery;
+- metadata details panel, tag discovery and favorite tags;
+- thumbnail grid mode;
 - broader native metadata readers;
 - optional ExifTool integration;
 - richer Script runtime;
 - CLI automation;
 - export list to text / CSV / JSON / HTML;
-- advanced collision rules;
+- advanced collision rules (character, subsecond, tag pattern, replacement pattern);
+- remember last/default configuration per method type;
 - operation profiles and preset import/export;
 - additional sort/filter rules.
 

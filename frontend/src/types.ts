@@ -1,4 +1,5 @@
 export type ThemeMode = 'system' | 'dark' | 'light'
+export type SortMode = 'name' | 'created' | 'modified' | 'size' | 'extension' | 'path' | 'added' | 'manual'
 
 export interface RenameMethod {
   type: string
@@ -70,6 +71,14 @@ export interface OperationPair {
 export interface OperationResult {
   count: number
   pairs?: OperationPair[]
+  cancelled?: boolean
+}
+
+export interface ExecuteProgress {
+  phase: 'staging' | 'renaming'
+  completed: number
+  total: number
+  current: string
 }
 
 export interface PathClassification {
@@ -89,10 +98,14 @@ export interface BackendApp {
     recursive: boolean,
     category: string,
     customExtensions: string,
-    methods: RenameMethod[]
+    methods: RenameMethod[],
+    sortBy: SortMode,
+    sortDescending: boolean,
+    sortPerFolder: boolean
   ): Promise<PreviewResult>
   CancelPreview(): Promise<void>
   Execute(selectedPaths: string[]): Promise<OperationResult>
+  CancelExecute(): Promise<void>
   Undo(): Promise<OperationResult>
   Reveal(path: string): Promise<void>
   Thumbnail(path: string): Promise<string>
@@ -106,6 +119,8 @@ export interface WailsRuntime {
   Quit(): void
   OnFileDrop(callback: (x: number, y: number, paths: string[]) => void, useDropTarget: boolean): void
   OnFileDropOff(): void
+  EventsOn?(eventName: string, callback: (data: any) => void): () => void
+  EventsOff?(eventName: string): void
 }
 
 declare global {

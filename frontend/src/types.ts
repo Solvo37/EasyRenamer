@@ -72,12 +72,18 @@ export interface OperationResult {
   pairs?: OperationPair[]
 }
 
+export interface PathClassification {
+  files: string[]
+  folders: string[]
+}
+
 export interface BackendApp {
   Bootstrap(): Promise<BootstrapData>
   SetLanguage(lang: string): Promise<Record<string, string>>
   NewMethod(kind: string): Promise<RenameMethod>
   PickFiles(): Promise<string[]>
   PickFolders(): Promise<string[]>
+  ClassifyPaths(paths: string[]): Promise<PathClassification>
   Preview(
     sources: string[],
     recursive: boolean,

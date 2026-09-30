@@ -110,6 +110,7 @@ export interface BackendApp {
   ClassifyPaths(paths: string[]): Promise<PathClassification>
   Preview(
     sources: string[],
+    excludedPaths: string[],
     recursive: boolean,
     category: string,
     customExtensions: string,
@@ -125,6 +126,8 @@ export interface BackendApp {
   History(): Promise<HistoryEntry[]>
   UndoHistory(id: string): Promise<OperationResult>
   Reveal(path: string): Promise<void>
+  Open(path: string): Promise<void>
+  OpenFolder(path: string): Promise<void>
   FileDetails(path: string): Promise<FileDetails>
   Thumbnail(path: string): Promise<string>
   SaveMethodSet(methods: RenameMethod[]): Promise<void>

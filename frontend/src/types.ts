@@ -1,5 +1,6 @@
 export type ThemeMode = 'system' | 'dark' | 'light'
 export type SortMode = 'name' | 'created' | 'modified' | 'size' | 'extension' | 'path' | 'added' | 'manual'
+export type CollisionPolicy = 'skip' | 'auto-number' | 'overwrite' | 'stop'
 
 export interface RenameMethod {
   type: string
@@ -117,7 +118,8 @@ export interface BackendApp {
     methods: RenameMethod[],
     sortBy: SortMode,
     sortDescending: boolean,
-    sortPerFolder: boolean
+    sortPerFolder: boolean,
+    collisionPolicy: CollisionPolicy
   ): Promise<PreviewResult>
   CancelPreview(): Promise<void>
   Execute(selectedPaths: string[]): Promise<OperationResult>

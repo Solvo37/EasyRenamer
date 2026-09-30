@@ -119,6 +119,7 @@ export interface BackendApp {
     sortBy: SortMode,
     sortDescending: boolean,
     sortPerFolder: boolean,
+    manualOrder: string[],
     collisionPolicy: CollisionPolicy
   ): Promise<PreviewResult>
   CancelPreview(): Promise<void>

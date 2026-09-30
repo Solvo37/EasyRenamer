@@ -40,6 +40,7 @@ import { methodCatalog, tagCatalog } from './catalog'
 import type {
   BootstrapData,
   ExecuteProgress,
+  HistoryEntry,
   PathClassification,
   PreviewItem,
   RenameMethod,
@@ -188,6 +189,9 @@ function App() {
   const [methodsHeight, setMethodsHeight] = useState(() => Number(localStorage.getItem('easyrenamer-methods-height')) || 260)
   const [executing, setExecuting] = useState(false)
   const [executeProgress, setExecuteProgress] = useState<ExecuteProgress | null>(null)
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const [historyItems, setHistoryItems] = useState<HistoryEntry[]>([])
+  const [historyBusy, setHistoryBusy] = useState(false)
 
   const [tagTab, setTagTab] = useState<'tags' | 'functions' | 'variables'>('tags')
   const [tagCategory, setTagCategory] = useState(0)
@@ -204,7 +208,9 @@ function App() {
     noGrouping: 'Группировка: нет', search: 'Имя или путь...', check: 'Проверить',
     errorsOnly: 'Только ошибки', allFiles: 'Все файлы', addMethod: '+ Метод', folders: 'Папок',
     cancelOperation: 'Отмена', preparing: 'Подготовка', renaming: 'Переименование файлов',
-    cancelled: 'Операция отменена, исходные имена восстановлены'
+    cancelled: 'Операция отменена, исходные имена восстановлены',
+    history: 'История', rollback: 'Откатить', rolledBack: 'Откат выполнен', undone: 'Откат выполнен',
+    noHistory: 'История операций пока пуста', filesRenamed: 'Переименовано'
   } : {
     order: 'Order', name: 'Name', created: 'Created', modified: 'Modified',
     size: 'Size', extension: 'Extension', path: 'Path', added: 'Added order', manual: 'Manual order',
@@ -212,7 +218,9 @@ function App() {
     noGrouping: 'Grouping: none', search: 'Name or path...', check: 'Check',
     errorsOnly: 'Errors only', allFiles: 'All files', addMethod: '+ Method', folders: 'Folders',
     cancelOperation: 'Cancel', preparing: 'Preparing', renaming: 'Renaming files',
-    cancelled: 'Operation cancelled; original names restored'
+    cancelled: 'Operation cancelled; original names restored',
+    history: 'History', rollback: 'Rollback', rolledBack: 'Rollback complete', undone: 'Undone',
+    noHistory: 'Operation history is empty', filesRenamed: 'Renamed'
   }, [language])
 
   const effectiveTheme = theme === 'system' ? (systemDark ? 'dark' : 'light') : theme
@@ -586,6 +594,42 @@ function App() {
     }
   }
 
+  const loadHistory = async () => {
+    setHistoryBusy(true)
+    try {
+      setHistoryItems(await appApi().History())
+    } catch (err) {
+      setToast(String(err))
+    } finally {
+      setHistoryBusy(false)
+    }
+  }
+
+  const openHistory = async () => {
+    setHistoryOpen(true)
+    await loadHistory()
+  }
+
+  const rollbackHistory = async (id: string) => {
+    setHistoryBusy(true)
+    try {
+      const result = await appApi().UndoHistory(id)
+      if (result.pairs?.length) {
+        setSources((prev) =>
+          prev.map((source) => result.pairs!.find((pair) => pair.to.toLowerCase() === source.toLowerCase())?.from || source)
+        )
+      }
+      setToast(ux.rolledBack)
+      setSelectionTouched(false)
+      await requestPreview()
+      setHistoryItems(await appApi().History())
+    } catch (err) {
+      setToast(String(err))
+    } finally {
+      setHistoryBusy(false)
+    }
+  }
+
   const insertTag = (token: string) => {
     if (!selectedMethodValue || selectedMethodValue.type !== 'template') return
     const input = templateInputRef.current
@@ -746,7 +790,7 @@ function App() {
         />
         <label>{t('collision.label')}</label>
         <select className="collision" value="prevent" disabled><option value="prevent">{t('collision.prevent')}</option></select>
-        <button className="mini-more"><MoreHorizontal /></button>
+        <button className="mini-more" onClick={openHistory} title={ux.history}><MoreHorizontal /></button>
       </section>
 
       <main className="workspace">
@@ -989,6 +1033,34 @@ function App() {
           <progress max={Math.max(1, executeProgress?.total || checked.size)} value={executeProgress?.completed || 0} />
           <small title={executeProgress?.current || ''}>{executeProgress?.current || '...'}</small>
           <button onClick={cancelExecution}>{ux.cancelOperation}</button>
+        </div>
+      )}
+
+      {historyOpen && (
+        <div className="modal-backdrop" onMouseDown={() => setHistoryOpen(false)}>
+          <div className="modal history-modal" onMouseDown={(e) => e.stopPropagation()}>
+            <button className="modal-close" onClick={() => setHistoryOpen(false)}><X /></button>
+            <h2>{ux.history}</h2>
+            <div className="history-list">
+              {historyBusy && !historyItems.length && <div className="history-empty">...</div>}
+              {!historyBusy && !historyItems.length && <div className="history-empty">{ux.noHistory}</div>}
+              {historyItems.map((entry) => (
+                <div className={`history-entry ${entry.undone ? 'undone' : ''}`} key={entry.id}>
+                  <div className="history-entry-main">
+                    <strong>{entry.createdAt}</strong>
+                    <span>{ux.filesRenamed}: {entry.count}</span>
+                    <small title={entry.folder}>{entry.folder || '—'}</small>
+                  </div>
+                  <button
+                    disabled={entry.undone || historyBusy || executing}
+                    onClick={() => rollbackHistory(entry.id)}
+                  >
+                    <Undo2 />{entry.undone ? ux.undone : ux.rollback}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       )}
 

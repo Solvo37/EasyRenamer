@@ -348,6 +348,23 @@ function App() {
     showColumn: t('columns.show'),
   }), [t])
 
+  const localizeItemError = useCallback((error?: string) => {
+    if (!error) return ''
+    switch (error) {
+      case 'duplicate target name': return t('item.error.duplicate_target')
+      case 'target already exists': return t('item.error.target_exists')
+      case 'empty file name': return t('item.error.empty_name')
+      case 'name contains Windows-forbidden characters': return t('item.error.forbidden_chars')
+      case 'name cannot end with a dot or space': return t('item.error.trailing_dot_space')
+      case 'name contains control characters': return t('item.error.control_chars')
+      case 'name is reserved by Windows': return t('item.error.reserved_name')
+      case 'file not found': return t('item.error.file_not_found')
+      case 'destination path is too long': return t('item.error.path_too_long')
+      case 'safe overwrite is not available': return t('item.error.safe_overwrite')
+      default: return error
+    }
+  }, [t])
+
   const effectiveTheme = theme === 'system' ? (systemDark ? 'dark' : 'light') : theme
 
   useEffect(() => {
@@ -1031,7 +1048,7 @@ function App() {
         return <td key={column.key}>{item.type || 'FILE'}</td>
       case 'status':
         return (
-          <td key={column.key} title={item.error || ''}>
+          <td key={column.key} title={localizeItemError(item.error)}>
             <span className={`status-pill status-${item.status.toLowerCase()}`}>
               <i />{t(statusKey(item.status), item.status)}
             </span>
@@ -1087,7 +1104,7 @@ function App() {
         }
         setContextMenu({ kind: 'file', x: e.clientX, y: e.clientY, item })
       }}
-      title={item.error || item.sourcePath}
+      title={item.error ? localizeItemError(item.error) : item.sourcePath}
     >
       <td className="checkcol" onClick={(e) => e.stopPropagation()}>
         <input

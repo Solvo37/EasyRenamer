@@ -159,6 +159,12 @@ type FileTableRow =
   | { kind: 'folder'; folder: string; group: PreviewItem[] }
   | { kind: 'file'; item: PreviewItem }
 
+interface UserPreset {
+  id: string
+  name: string
+  template: string
+}
+
 function App() {
   const [bootstrap, setBootstrap] = useState<BootstrapData | null>(null)
   const [strings, setStrings] = useState<Record<string, string>>({})
@@ -200,6 +206,13 @@ function App() {
   const [historyOpen, setHistoryOpen] = useState(false)
   const [historyItems, setHistoryItems] = useState<HistoryEntry[]>([])
   const [historyBusy, setHistoryBusy] = useState(false)
+  const [userPresets, setUserPresets] = useState<UserPreset[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('easyrenamer-user-presets') || '[]')
+    } catch {
+      return []
+    }
+  })
   const [tableScrollTop, setTableScrollTop] = useState(0)
   const [tableViewportHeight, setTableViewportHeight] = useState(640)
 
@@ -239,6 +252,10 @@ function App() {
     document.documentElement.dataset.theme = effectiveTheme
     localStorage.setItem('easyrenamer-theme', theme)
   }, [effectiveTheme, theme])
+
+  useEffect(() => {
+    localStorage.setItem('easyrenamer-user-presets', JSON.stringify(userPresets))
+  }, [userPresets])
 
   useEffect(() => {
     localStorage.setItem('easyrenamer-sort', sortBy)
@@ -936,6 +953,9 @@ function App() {
                 setTagSearch={setTagSearch}
                 filteredTags={filteredTags}
                 insertTag={insertTag}
+                language={language}
+                userPresets={userPresets}
+                setUserPresets={setUserPresets}
               />
             )}
           </section>
@@ -1177,6 +1197,9 @@ interface MethodEditorProps {
   setTagSearch: (value: string) => void
   filteredTags: { token: string; labelKey: string }[]
   insertTag: (token: string) => void
+  language: string
+  userPresets: UserPreset[]
+  setUserPresets: (presets: UserPreset[]) => void
 }
 
 function MethodEditor(props: MethodEditorProps) {
@@ -1185,6 +1208,8 @@ function MethodEditor(props: MethodEditorProps) {
   const [autocompleteQuery, setAutocompleteQuery] = useState('')
   const [autocompleteIndex, setAutocompleteIndex] = useState(0)
   const [guideSelected, setGuideSelected] = useState('')
+  const [selectedUserPreset, setSelectedUserPreset] = useState('')
+  const [presetName, setPresetName] = useState('')
 
   const autocompleteMatches = useMemo(() => {
     const query = autocompleteQuery.toLowerCase()
@@ -1227,6 +1252,50 @@ function MethodEditor(props: MethodEditorProps) {
     })
   }
 
+  const presetCopy = props.language === 'ru' ? 'копия' : 'copy'
+  const presetLabels = props.language === 'ru'
+    ? { name: 'Имя пресета', save: 'Сохранить', rename: 'Переименовать', duplicate: 'Дублировать', remove: 'Удалить' }
+    : { name: 'Preset name', save: 'Save', rename: 'Rename', duplicate: 'Duplicate', remove: 'Delete' }
+
+  const saveUserPreset = () => {
+    const name = presetName.trim() || `Preset ${props.userPresets.length + 1}`
+    const preset: UserPreset = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      name,
+      template: method.template || '<Name>',
+    }
+    props.setUserPresets([...props.userPresets, preset])
+    setSelectedUserPreset(preset.id)
+    setPresetName(preset.name)
+  }
+
+  const renameUserPreset = () => {
+    if (!selectedUserPreset || !presetName.trim()) return
+    props.setUserPresets(props.userPresets.map((preset) =>
+      preset.id === selectedUserPreset ? { ...preset, name: presetName.trim() } : preset
+    ))
+  }
+
+  const duplicateUserPreset = () => {
+    const source = props.userPresets.find((preset) => preset.id === selectedUserPreset)
+    const preset: UserPreset = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      name: source ? `${source.name} ${presetCopy}` : (presetName.trim() || `Preset ${props.userPresets.length + 1}`),
+      template: source?.template || method.template || '<Name>',
+    }
+    props.setUserPresets([...props.userPresets, preset])
+    setSelectedUserPreset(preset.id)
+    setPresetName(preset.name)
+    update({ template: preset.template })
+  }
+
+  const deleteUserPreset = () => {
+    if (!selectedUserPreset) return
+    props.setUserPresets(props.userPresets.filter((preset) => preset.id !== selectedUserPreset))
+    setSelectedUserPreset('')
+    setPresetName('')
+  }
+
   const number = (key: keyof RenameMethod, value = 1, min?: number) => (
     <input type="number" min={min} value={(method[key] as number | undefined) ?? value} onChange={(e) => update({ [key]: Number(e.target.value) } as Partial<RenameMethod>)} />
   )
@@ -1237,12 +1306,37 @@ function MethodEditor(props: MethodEditorProps) {
         <div className="field-row">
           <label>{t('label.preset')}</label>
           <select
-            value={presetOptions.find((p) => p.value === method.template)?.value || ''}
-            onChange={(e) => e.target.value && update({ template: e.target.value })}
+            value={selectedUserPreset ? `user:${selectedUserPreset}` : (presetOptions.find((p) => p.value === method.template)?.value || '')}
+            onChange={(e) => {
+              const value = e.target.value
+              if (value.startsWith('user:')) {
+                const id = value.slice(5)
+                const preset = props.userPresets.find((entry) => entry.id === id)
+                if (preset) {
+                  setSelectedUserPreset(id)
+                  setPresetName(preset.name)
+                  update({ template: preset.template })
+                }
+                return
+              }
+              setSelectedUserPreset('')
+              setPresetName('')
+              if (value) update({ template: value })
+            }}
           >
             <option value="">{t('preset.sequence_original')}</option>
             {presetOptions.map((preset) => <option key={preset.value} value={preset.value}>{t(preset.labelKey)}</option>)}
+            {props.userPresets.length > 0 && <optgroup label={props.language === 'ru' ? 'Мои пресеты' : 'My presets'}>
+              {props.userPresets.map((preset) => <option key={preset.id} value={`user:${preset.id}`}>{preset.name}</option>)}
+            </optgroup>}
           </select>
+        </div>
+        <div className="preset-manager">
+          <input value={presetName} onChange={(e) => setPresetName(e.target.value)} placeholder={presetLabels.name} />
+          <button type="button" onClick={saveUserPreset} title={presetLabels.save}><Save />{presetLabels.save}</button>
+          <button type="button" onClick={renameUserPreset} disabled={!selectedUserPreset || !presetName.trim()} title={presetLabels.rename}>{presetLabels.rename}</button>
+          <button type="button" onClick={duplicateUserPreset} title={presetLabels.duplicate}><Copy />{presetLabels.duplicate}</button>
+          <button type="button" className="danger" onClick={deleteUserPreset} disabled={!selectedUserPreset} title={presetLabels.remove}><Trash2 /></button>
         </div>
         <div className="field-row template-field">
           <label>{t('label.new_name')}</label>

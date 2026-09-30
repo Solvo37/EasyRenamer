@@ -1,50 +1,45 @@
-# EasyRenamer — руководство
+# EasyRenamer — User Guide
 
-Практическое руководство для EasyRenamer v1.x.
+<p align="center"><strong>English</strong> · <a href="LEARN.ru.md">Русский</a> · <a href="LEARN.es.md">Español</a> · <a href="LEARN.zh-CN.md">中文</a></p>
 
-## Быстрый старт
+Practical guide for EasyRenamer v1.x.
 
-1. Добавьте файлы кнопкой **+ Файлы**, папки кнопкой **+ Папки** или перетащите их из Проводника.
-2. При необходимости включите или отключите **Включая подпапки** и фильтр расширений.
-3. Слева соберите цепочку методов.
-4. Выберите порядок обработки файлов.
-5. Проверьте колонку **Новое имя** и статус ошибок.
-6. Нажмите **Запустить**.
-7. При необходимости используйте **Ctrl+Z** или **Историю** для отката.
+## Quick start
 
-Preview пересчитывается автоматически. Кнопка **Проверить** запускает явную повторную проверку текущей задачи.
+1. Add files with **+ Files**, folders with **+ Folders**, or drag them from Explorer.
+2. Enable or disable **Include subfolders** and the extension filter as needed.
+3. Build the method chain on the left.
+4. Choose the file processing order.
+5. Review **New filename** and error status.
+6. Click **Start**.
+7. Use **Ctrl+Z** or **History** when you need to roll an operation back.
 
-## Файлы и папки
+Preview recalculates automatically. **Check** forces a fresh validation of the current task.
 
-Можно одновременно работать с файлами из нескольких директорий.
+## Files and folders
 
-При включённой группировке каждая папка показывается отдельным блоком. Группу можно:
+Files from several directories can be processed in the same task.
 
-- свернуть / развернуть;
-- выбрать целиком;
-- снять выбор;
-- убрать из текущей задачи;
-- открыть в Проводнике;
-- скопировать путь.
+With folder grouping enabled, every directory is shown as its own group. A group can be collapsed, selected, deselected, removed from the task, opened in Explorer, or have its path copied.
 
-Удаление из списка **не удаляет файл с диска**.
+Removing an item from the list **does not delete it from disk**.
 
-## Порядок обработки
+## Processing order
 
-Порядок важен для последовательной нумерации и List-метода.
+Order matters for sequential numbering and the List method.
 
-Доступны:
+Available order modes:
 
-- natural name;
-- дата создания;
-- дата изменения;
-- размер;
-- расширение;
-- путь;
-- порядок добавления;
-- ручной порядок.
+- natural filename;
+- creation date;
+- modification date;
+- size;
+- extension;
+- path;
+- added order;
+- manual order.
 
-Natural sorting даёт:
+Natural sorting gives:
 
 ```text
 1.jpg
@@ -52,112 +47,99 @@ Natural sorting даёт:
 10.jpg
 ```
 
-а не `1.jpg, 10.jpg, 2.jpg`.
+instead of `1.jpg, 10.jpg, 2.jpg`.
 
-Опция **Сортировать отдельно внутри каждой папки** сохраняет папки группами и сортирует содержимое каждой группы независимо.
+**Sort separately inside each folder** keeps folder groups together and sorts the contents of each group independently.
 
-### Ручной порядок
+### Manual order
 
-Выберите **Ручной порядок** и перетаскивайте строки мышкой. Preview и нумерация пересчитаются по новому порядку.
+Choose **Manual order** and drag rows. Preview and numbering are recalculated using the new order.
 
-## Нумерация по папкам
+## Per-folder numbering
 
-Тег:
+The tag:
 
 ```text
 <Inc NrDir:01>
 ```
 
-начинает счётчик заново для каждой директории.
-
-Пример:
+restarts the counter for each directory.
 
 ```text
-Папка A:
+Folder A:
 1.jpg → 01_1.jpg
 2.jpg → 02_2.jpg
 
-Папка B:
+Folder B:
 a.jpg → 01_a.jpg
 b.jpg → 02_b.jpg
 ```
 
-## Цепочка методов
+## Method chain
 
-Методы применяются **сверху вниз**. Результат одного метода становится входом следующего.
+Methods are applied **top to bottom**. The result of one method becomes the input for the next.
 
-Метод можно:
+A method can be enabled/disabled, selected for editing, moved up/down, duplicated, deleted, and saved as part of a method set.
 
-- включить / отключить;
-- выбрать для настройки;
-- переместить вверх / вниз;
-- дублировать;
-- удалить;
-- сохранить в набор методов.
-
-## Методы
+## Methods
 
 ### New Name
 
-Строит имя из текста и тегов:
+Builds a name from text and tags:
 
 ```text
 <Inc NrDir:01>_<Name>
 ```
 
-Начните вводить `<` — откроется autocomplete тегов. Используйте ↑ / ↓, Enter и Esc.
+Type `<` to open tag autocomplete. Use ↑ / ↓, Enter and Esc.
 
 ### Replace
 
-Поиск и замена обычного текста или regex.
+Find and replace plain text or regular expressions.
 
 ### Renumber
 
-Добавляет последовательный номер как prefix/suffix. Настраиваются Start, Step, Padding, Separator и reset per folder.
+Adds a sequential number as a prefix or suffix. Start, Step, Padding, Separator and per-folder reset are configurable.
 
 ### Add text
 
-Добавляет prefix и suffix.
+Adds a prefix and/or suffix.
 
 ### Change case
 
-Изменяет регистр основной части имени:
-
-- lower case;
-- UPPER CASE;
-- Title Case.
+Changes the case of the base filename: lower case, UPPER CASE or Title Case.
 
 ### Remove
 
-Удаляет заданное число символов начиная с указанной позиции.
+Removes a number of characters starting at a selected position.
 
 ### Remove pattern
 
-Удаляет текст или совпадения regex.
+Removes text or regular-expression matches.
 
 ### Move
 
-Перемещает часть имени на другую позицию.
+Moves a part of the filename to another position.
 
 ### Swap
 
-Меняет местами две части вокруг выбранного разделителя.
+Swaps two parts around a selected separator.
 
 ### Trim
 
-Убирает пробелы по краям и при необходимости нормализует повторяющиеся пробелы.
+Trims surrounding whitespace and can collapse repeated whitespace.
 
 ### Timestamp
 
-Добавляет modified time файла или время текущего batch.
+Adds the file modified time or current batch time to the filename.
 
 ### List
 
-Назначает итоговые имена построчно.
+Assigns final names line by line.
 
 ### List Replace
 
-Применяет несколько правил:
+Applies several replacement rules:
 
 ```text
 draft => final
@@ -166,21 +148,17 @@ IMG_ => product_
 
 ### Script
 
-Безопасное выражение без прямого доступа к файловой системе или сети.
+Evaluates a safe expression with no direct filesystem or network access.
 
-Переменные:
+Variables: `Name`, `Ext`, `FullName`, `Index`, `DirIndex`, `DirName`, `UnixTimestamp`, `ModifiedUnix`.
 
-`Name`, `Ext`, `FullName`, `Index`, `DirIndex`, `DirName`, `UnixTimestamp`, `ModifiedUnix`.
+Functions: `lower()`, `upper()`, `trim()`, `replace()`, `concat()`, `substr()`.
 
-Функции:
+## Tags
 
-`lower()`, `upper()`, `trim()`, `replace()`, `concat()`, `substr()`.
+Full reference: [TAGS.md](TAGS.md).
 
-## Теги
-
-Полный справочник: [TAGS.md](TAGS.md).
-
-Часто используемые:
+Frequently used:
 
 ```text
 <Name>
@@ -196,155 +174,91 @@ IMG_ => product_
 <MD5>
 ```
 
-Теги поддерживают fallback chains и modifiers.
+Tags support fallback chains and modifiers.
 
-## Пользовательские пресеты
+## User presets
 
-В методе **New Name** можно сохранить текущий шаблон как пользовательский preset, затем:
+In **New Name**, the current template can be saved as a user preset. Presets can be applied, renamed, duplicated and deleted. They persist between launches.
 
-- применить;
-- переименовать;
-- дублировать;
-- удалить.
+## Search and table
 
-Пользовательские presets сохраняются между запусками.
+Search filters the loaded list by original name, new name and full path. **Errors only** limits the view to problem rows.
 
-## Поиск и таблица
+Columns can be hidden, reordered and resized. The configuration is persisted.
 
-Поле поиска фильтрует уже загруженный список по:
-
-- исходному имени;
-- новому имени;
-- полному пути.
-
-Есть режим **Только ошибки**.
-
-Колонки можно скрывать, менять местами и изменять их ширину. Настройка сохраняется.
-
-Стандартное выделение строк:
-
-- Ctrl + Click;
-- Shift + Click;
-- Ctrl + A.
-
-Checkbox файла определяет участие в rename и не конфликтует с выделением строки.
+Row selection supports Ctrl+Click, Shift+Click and Ctrl+A. The file checkbox controls participation in the rename operation independently of row selection.
 
 ## Collision policy
 
-По умолчанию: **не переименовывать конфликтующие**.
+Default: **skip conflicting files**.
 
-Доступны:
+Available policies:
 
-- пропустить конфликтующие;
-- автоматически добавить номер;
-- остановить операцию при конфликте.
+- skip conflicts;
+- add a number automatically;
+- stop the operation on conflict.
 
-Destructive overwrite отображается как недоступный вариант, пока не реализован безопасный backup/restore.
+Destructive overwrite is shown as unavailable until safe backup/restore exists.
 
-## Проверка Windows-имён
+## Windows filename validation
 
-Перед запуском EasyRenamer проверяет:
+Before execution EasyRenamer checks forbidden characters, empty or whitespace-only names, trailing dots/spaces, reserved names such as CON/PRN/AUX/NUL/COM1…COM9/LPT1…LPT9, duplicate destinations, existing targets, path length and missing files.
 
-- `< > : " / \ | ? *`;
-- пустое имя;
-- имя только из пробелов;
-- точку или пробел в конце;
-- `CON`, `PRN`, `AUX`, `NUL`;
-- `COM1 ... COM9`;
-- `LPT1 ... LPT9`;
-- одинаковые destination paths;
-- существующий destination;
-- слишком длинный путь;
-- исчезнувший файл.
+## Safe rename
 
-## Безопасный rename
-
-Файлы сначала получают уникальные временные имена:
-
-```text
-A.jpg → .easyrenamer_tmp_...
-B.jpg → .easyrenamer_tmp_...
-```
-
-и только затем итоговые.
-
-Это позволяет безопасно обработать:
+Files first receive unique temporary names and only then their final names. This safely supports swaps such as:
 
 ```text
 A.jpg → B.jpg
 B.jpg → A.jpg
 ```
 
-При Cancel EasyRenamer прекращает операцию и пытается вернуть исходные имена, не оставляя временные файлы.
+On Cancel, EasyRenamer stops and attempts to restore the original names without leaving temporary files behind.
 
-## Undo и история
+## Undo and history
 
-После успешной операции сохраняются фактические пары полных путей:
+Successful operations store the actual full-path pairs:
 
 ```text
-старый путь → новый путь
+old path → new path
 ```
 
-Undo не пересчитывает имена из текущего шаблона.
+Undo does not recalculate anything from the current template.
 
-История хранит до 20 последних операций. Старую операцию можно откатить, если файлы всё ещё находятся по ожидаемым путям, а исходные имена свободны.
+History keeps up to 20 recent operations. An older operation can be rolled back while its files remain at the expected paths and the original names are free.
 
-## Preview выбранного файла
+## Selected-file preview
 
-Для выбранного файла показываются:
+For a selected file EasyRenamer can show a thumbnail, size, type, image dimensions, original/new name and visual name diff. Heavy image preview data is loaded lazily.
 
-- thumbnail для поддерживаемых изображений;
-- размер;
-- тип;
-- размеры изображения;
-- исходное и новое имя;
-- визуальная подсветка изменившейся части.
+## Keyboard shortcuts
 
-Тяжёлые image preview-данные не вычисляются сразу для всего списка.
-
-## Горячие клавиши
-
-| Shortcut | Действие |
+| Shortcut | Action |
 | --- | --- |
-| `Ctrl + O` | Добавить файлы |
-| `Ctrl + Shift + O` | Добавить папки |
-| `Ctrl + A` | Выделить строки |
+| `Ctrl + O` | Add files |
+| `Ctrl + Shift + O` | Add folders |
+| `Ctrl + A` | Select rows |
 | `Ctrl + Z` | Undo |
-| `Delete` | Убрать выбранное из задачи |
-| `Ctrl + Enter` | Запустить |
-| `F5` | Пересчитать / проверить |
-| `Esc` | Отменить текущую операцию |
+| `Delete` | Remove selected items from the task |
+| `Ctrl + Enter` | Start |
+| `F5` | Recalculate / check |
+| `Esc` | Cancel current operation |
 
-## Метаданные
+## Metadata
 
-EasyRenamer остаётся self-contained и не требует ExifTool для основных metadata.
+EasyRenamer is self-contained and does not require ExifTool for its common metadata readers.
 
-Встроенные readers покрывают распространённые данные:
+Built-in readers cover common JPEG/TIFF EXIF and GPS, MP3 ID3, FLAC Vorbis comments, MP4/MOV, PDF, Office Open XML, EPUB, EML and Windows EXE version resources.
 
-- JPEG/TIFF EXIF и GPS;
-- MP3 ID3;
-- FLAC Vorbis comments;
-- MP4/MOV;
-- PDF;
-- Office Open XML;
-- EPUB;
-- EML;
-- Windows EXE version resources.
+## Languages and theme
 
-## Языки и тема
+Supported UI languages: English, Русский, Español and 中文.
 
-Поддерживаются:
+Theme modes: System / Light / Dark.
 
-- English;
-- Русский;
-- Español;
-- 中文.
+Language and theme changes do not require restarting the application.
 
-Тема: System / Light / Dark.
-
-Переключение языка и темы не требует перезапуска.
-
-## Дополнительно
+## More
 
 Roadmap: [ROADMAP.md](ROADMAP.md)  
-Исходный код и релизы: [GitHub](https://github.com/Solvo37/easyrenamer)
+Source and releases: [GitHub](https://github.com/Solvo37/easyrenamer)

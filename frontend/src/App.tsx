@@ -92,6 +92,8 @@ const variableEntries = [
   ['ModifiedUnix', 'Modified time Unix timestamp'],
 ]
 
+const autocompleteTags = tagCatalog.flatMap((category) => category.items)
+
 function methodIcon(kind: string) {
   const cls = 'method-icon-svg'
   switch (kind) {
@@ -1126,6 +1128,52 @@ interface MethodEditorProps {
 
 function MethodEditor(props: MethodEditorProps) {
   const { method, update, t } = props
+  const [autocompleteOpen, setAutocompleteOpen] = useState(false)
+  const [autocompleteQuery, setAutocompleteQuery] = useState('')
+  const [autocompleteIndex, setAutocompleteIndex] = useState(0)
+  const [guideSelected, setGuideSelected] = useState('')
+
+  const autocompleteMatches = useMemo(() => {
+    const query = autocompleteQuery.toLowerCase()
+    return autocompleteTags
+      .filter((entry) => !query || entry.token.toLowerCase().startsWith('<' + query) || entry.token.toLowerCase().includes(query))
+      .slice(0, 10)
+  }, [autocompleteQuery])
+
+  const updateAutocomplete = (value: string, caret: number | null) => {
+    const position = caret ?? value.length
+    const before = value.slice(0, position)
+    const open = before.lastIndexOf('<')
+    if (open < 0 || before.slice(open).includes('>')) {
+      setAutocompleteOpen(false)
+      return
+    }
+    const query = before.slice(open + 1)
+    setAutocompleteQuery(query)
+    setAutocompleteIndex(0)
+    setAutocompleteOpen(true)
+  }
+
+  const acceptAutocomplete = (token: string) => {
+    const input = props.templateInputRef.current
+    const value = method.template || ''
+    const caret = input?.selectionStart ?? value.length
+    const open = value.slice(0, caret).lastIndexOf('<')
+    if (open < 0) {
+      props.insertTag(token)
+      setAutocompleteOpen(false)
+      return
+    }
+    const next = value.slice(0, open) + token + value.slice(caret)
+    const nextCaret = open + token.length
+    update({ template: next })
+    setAutocompleteOpen(false)
+    requestAnimationFrame(() => {
+      input?.focus()
+      input?.setSelectionRange(nextCaret, nextCaret)
+    })
+  }
+
   const number = (key: keyof RenameMethod, value = 1, min?: number) => (
     <input type="number" min={min} value={(method[key] as number | undefined) ?? value} onChange={(e) => update({ [key]: Number(e.target.value) } as Partial<RenameMethod>)} />
   )
@@ -1143,9 +1191,51 @@ function MethodEditor(props: MethodEditorProps) {
             {presetOptions.map((preset) => <option key={preset.value} value={preset.value}>{t(preset.labelKey)}</option>)}
           </select>
         </div>
-        <div className="field-row">
+        <div className="field-row template-field">
           <label>{t('label.new_name')}</label>
-          <input ref={props.templateInputRef} value={method.template || ''} onChange={(e) => update({ template: e.target.value })} />
+          <div className="template-input-wrap">
+            <input
+              ref={props.templateInputRef}
+              value={method.template || ''}
+              onChange={(e) => {
+                update({ template: e.target.value })
+                updateAutocomplete(e.target.value, e.target.selectionStart)
+              }}
+              onKeyDown={(e) => {
+                if (!autocompleteOpen || !autocompleteMatches.length) return
+                if (e.key === 'ArrowDown') {
+                  e.preventDefault()
+                  setAutocompleteIndex((index) => (index + 1) % autocompleteMatches.length)
+                } else if (e.key === 'ArrowUp') {
+                  e.preventDefault()
+                  setAutocompleteIndex((index) => (index - 1 + autocompleteMatches.length) % autocompleteMatches.length)
+                } else if (e.key === 'Enter') {
+                  e.preventDefault()
+                  acceptAutocomplete(autocompleteMatches[Math.min(autocompleteIndex, autocompleteMatches.length - 1)].token)
+                } else if (e.key === 'Escape') {
+                  e.preventDefault()
+                  setAutocompleteOpen(false)
+                }
+              }}
+              onBlur={() => window.setTimeout(() => setAutocompleteOpen(false), 120)}
+            />
+            {autocompleteOpen && autocompleteMatches.length > 0 && (
+              <div className="tag-autocomplete">
+                {autocompleteMatches.map((entry, index) => (
+                  <button
+                    type="button"
+                    key={entry.token}
+                    className={index === autocompleteIndex ? 'active' : ''}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => acceptAutocomplete(entry.token)}
+                  >
+                    <code>{entry.token}</code>
+                    <span>{t(entry.labelKey)}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
         <div className="field-row">
           <label>{t('tag.category')}</label>
@@ -1161,7 +1251,19 @@ function MethodEditor(props: MethodEditorProps) {
         <div className="tag-search"><Search /><input value={props.tagSearch} onChange={(e) => props.setTagSearch(e.target.value)} placeholder={t('tag.search')} /></div>
         <div className="tag-grid">
           {props.tagTab === 'tags' && props.filteredTags.map((tag) => (
-            <button key={tag.token} onDoubleClick={() => props.insertTag(tag.token)} onClick={() => props.insertTag(tag.token)}>
+            <button
+              key={tag.token}
+              className={guideSelected === tag.token ? 'selected' : ''}
+              title={`${tag.token} — ${t(tag.labelKey)}`}
+              onClick={() => setGuideSelected(tag.token)}
+              onDoubleClick={() => props.insertTag(tag.token)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  props.insertTag(tag.token)
+                }
+              }}
+            >
               <code>{tag.token}</code><span>{t(tag.labelKey)}</span>
             </button>
           ))}

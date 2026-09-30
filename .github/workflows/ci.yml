@@ -28,24 +28,23 @@ jobs:
         with:
           go-version: '1.23.x'
           cache: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
       - name: Test core
         run: go test ./internal/...
-      - name: Download modules
-        run: go mod download
-      - name: Embed Windows manifest
+      - name: Install Wails
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.15.0
+      - name: Build modern desktop app
         shell: pwsh
         run: |
-          go run github.com/akavel/rsrc@latest -manifest cmd/easyrenamer/easyrenamer.exe.manifest -o cmd/easyrenamer/rsrc.syso
-      - name: Build single executable
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force dist | Out-Null
-          go build -trimpath -ldflags "-H windowsgui -X github.com/Solvo37/easyrenamer/internal/version.Version=ci" -o dist/EasyRenamer.exe ./cmd/easyrenamer
+          wails build -clean -platform windows/amd64 -o EasyRenamer.exe -ldflags "-X github.com/Solvo37/easyrenamer/internal/version.Version=ci"
       - name: Smoke test startup
         shell: pwsh
         run: |
-          $p = Start-Process -FilePath .\dist\EasyRenamer.exe -PassThru
-          Start-Sleep -Seconds 3
+          $exe = ".\\build\\bin\\EasyRenamer.exe"
+          $p = Start-Process -FilePath $exe -PassThru
+          Start-Sleep -Seconds 6
           $p.Refresh()
           if ($p.HasExited) {
             throw "EasyRenamer exited during startup smoke test with code $($p.ExitCode)"
@@ -54,4 +53,4 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: EasyRenamer-windows-x64
-          path: dist/EasyRenamer.exe
+          path: build/bin/EasyRenamer.exe

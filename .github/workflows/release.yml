@@ -24,6 +24,10 @@ jobs:
           go-version: '1.23.x'
           cache: true
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
       - name: Determine version
         id: version
         shell: pwsh
@@ -44,26 +48,27 @@ jobs:
       - name: Test
         run: go test ./internal/...
 
+      - name: Install Wails
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.15.0
+
       - name: Build portable release
         shell: pwsh
         run: |
           $version = "${{ steps.version.outputs.version }}"
 
-          go mod download
-          go run github.com/akavel/rsrc@latest -manifest cmd/easyrenamer/easyrenamer.exe.manifest -o cmd/easyrenamer/rsrc.syso
+          wails build -clean -platform windows/amd64 -o EasyRenamer.exe -ldflags "-X github.com/Solvo37/easyrenamer/internal/version.Version=$version"
 
-          New-Item -ItemType Directory -Force dist | Out-Null
-
-          go build -trimpath -ldflags "-s -w -H windowsgui -X github.com/Solvo37/easyrenamer/internal/version.Version=$version" -o dist/EasyRenamer.exe ./cmd/easyrenamer
-
-          $p = Start-Process -FilePath .\dist\EasyRenamer.exe -PassThru
-          Start-Sleep -Seconds 3
+          $exe = ".\\build\\bin\\EasyRenamer.exe"
+          $p = Start-Process -FilePath $exe -PassThru
+          Start-Sleep -Seconds 6
           $p.Refresh()
           if ($p.HasExited) {
             throw "EasyRenamer exited during startup smoke test with code $($p.ExitCode)"
           }
           Stop-Process -Id $p.Id -Force
 
+          New-Item -ItemType Directory -Force dist | Out-Null
+          Copy-Item $exe dist/EasyRenamer.exe
           Copy-Item README.md dist/README.md
           Copy-Item LICENSE dist/LICENSE
           Copy-Item docs/TAGS.md dist/TAGS.md

@@ -262,5 +262,6 @@ func init() {
 		"method.desc.trim": "清理并规范空格",
 		"method.desc.timestamp": "添加文件或批处理日期时间",
 		"tag.search": "搜索标签...",
+		"status.of": "共",
 	}
 }

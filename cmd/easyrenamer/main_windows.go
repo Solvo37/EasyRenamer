@@ -509,7 +509,8 @@ func runMainWindow(state *uiState) uiRunResult {
 	var methodTable, table *walk.TableView
 	var editorPanels [14]*walk.Composite
 	var methodSettingsTitleLbl *walk.Label
-	var sourceCountLbl, statusLbl, collisionLbl, dropHintLbl *walk.Label
+	var sourceCountLbl, statusLbl, collisionLbl, dropHintLbl, filesTitleLbl, readyLbl *walk.Label
+	var selectedTypeLbl, selectedFileNameLbl, selectedMetaLbl, selectedPathLbl, selectedOldNameLbl, selectedNewNameLbl *walk.Label
 	var previewPB, undoPB *walk.ToolButton
 	var renamePB *walk.PushButton
 
@@ -560,9 +561,6 @@ func runMainWindow(state *uiState) uiRunResult {
 	}
 
 	updateStatus := func() {
-		if statusLbl == nil {
-			return
-		}
 		checked, ok, problems := 0, 0, 0
 		for _, it := range model.items {
 			if it.Status == engine.StatusOK {
@@ -575,7 +573,12 @@ func runMainWindow(state *uiState) uiRunResult {
 				checked++
 			}
 		}
-		statusLbl.SetText(fmt.Sprintf(i18n.T("status.summary"), len(model.items), ok, checked, problems))
+		if statusLbl != nil {
+			statusLbl.SetText(fmt.Sprintf(i18n.T("status.summary"), len(model.items), ok, checked, problems))
+		}
+		if filesTitleLbl != nil {
+			filesTitleLbl.SetText(fmt.Sprintf(i18n.T("files.title_count"), len(model.items)))
+		}
 		if collisionLbl != nil {
 			if problems > 0 {
 				collisionLbl.SetText(i18n.T("status.errors"))
@@ -583,6 +586,13 @@ func runMainWindow(state *uiState) uiRunResult {
 				collisionLbl.SetText(i18n.T("status.ok"))
 			} else {
 				collisionLbl.SetText(i18n.T("status.waiting"))
+			}
+		}
+		if readyLbl != nil {
+			if problems > 0 {
+				readyLbl.SetText("●  " + i18n.T("status.errors"))
+			} else {
+				readyLbl.SetText("●  " + i18n.T("status.ready"))
 			}
 		}
 		if renamePB != nil {
@@ -597,6 +607,59 @@ func runMainWindow(state *uiState) uiRunResult {
 		}
 		if dropHintLbl != nil {
 			dropHintLbl.SetVisible(len(sources) == 0)
+		}
+	}
+
+	updateSelectedPreview := func() {
+		index := -1
+		if table != nil {
+			index = table.CurrentIndex()
+		}
+		if index < 0 || index >= len(model.items) {
+			if selectedTypeLbl != nil {
+				selectedTypeLbl.SetText("—")
+			}
+			if selectedFileNameLbl != nil {
+				selectedFileNameLbl.SetText(i18n.T("preview.no_selection"))
+			}
+			if selectedMetaLbl != nil {
+				selectedMetaLbl.SetText("")
+			}
+			if selectedPathLbl != nil {
+				selectedPathLbl.SetText("")
+			}
+			if selectedOldNameLbl != nil {
+				selectedOldNameLbl.SetText("—")
+			}
+			if selectedNewNameLbl != nil {
+				selectedNewNameLbl.SetText("—")
+			}
+			return
+		}
+
+		it := model.items[index]
+		fileType := fileTypeLabel(it.OldName)
+		meta := []string{formatBytes(it.Size), fileType}
+		if it.Width > 0 && it.Height > 0 {
+			meta = append([]string{fmt.Sprintf("%d × %d", it.Width, it.Height)}, meta...)
+		}
+		if selectedTypeLbl != nil {
+			selectedTypeLbl.SetText(fileType)
+		}
+		if selectedFileNameLbl != nil {
+			selectedFileNameLbl.SetText(it.OldName)
+		}
+		if selectedMetaLbl != nil {
+			selectedMetaLbl.SetText(strings.Join(meta, "   •   "))
+		}
+		if selectedPathLbl != nil {
+			selectedPathLbl.SetText(filepath.Dir(it.SourcePath))
+		}
+		if selectedOldNameLbl != nil {
+			selectedOldNameLbl.SetText(it.OldName)
+		}
+		if selectedNewNameLbl != nil {
+			selectedNewNameLbl.SetText(it.NewName)
 		}
 	}
 
@@ -1064,8 +1127,12 @@ func runMainWindow(state *uiState) uiRunResult {
 
 				model.SetItems(items)
 				if table != nil {
+					if len(items) > 0 {
+						_ = table.SetCurrentIndex(0)
+					}
 					_ = table.Invalidate()
 				}
+				updateSelectedPreview()
 				if len(items) == 0 {
 					showAppInfo(mw, darkTheme, "EasyRenamer", i18n.T("dialog.no_match"))
 				}
@@ -1222,6 +1289,7 @@ func runMainWindow(state *uiState) uiRunResult {
 		sources = nil
 		model.SetItems(nil)
 		refreshSourceCount()
+		updateSelectedPreview()
 		if statusLbl != nil {
 			statusLbl.SetText(fmt.Sprintf(i18n.T("status.summary"), 0, 0, 0, 0))
 		}

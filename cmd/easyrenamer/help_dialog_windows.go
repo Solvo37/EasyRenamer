@@ -17,7 +17,7 @@ func showHelpDialog(owner walk.Form, dark bool, initialTab int) {
 	var tabs *walk.TabWidget
 	var closePB *walk.PushButton
 
-	tagPages := buildTagPages(dark, nil)
+	tagBrowser := buildTagBrowser(dark, nil, func() walk.Form { return dlg })
 
 	dialog := Dialog{
 		AssignTo:      &dlg,
@@ -51,10 +51,7 @@ func showHelpDialog(owner walk.Form, dark bool, initialTab int) {
 						Background: uiPanelBrush(dark),
 						Layout:     VBox{Margins: Margins{Left: 8, Top: 8, Right: 8, Bottom: 8}},
 						Children: []Widget{
-							TabWidget{
-								Background: uiPanelBrush(dark),
-								Pages:      tagPages,
-							},
+							tagBrowser,
 						},
 					},
 					{

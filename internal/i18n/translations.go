@@ -261,5 +261,6 @@ var translations = map[Language]map[string]string{
 		"method.desc.swap": "Swap two parts around a separator",
 		"method.desc.trim": "Trim and normalize spaces",
 		"method.desc.timestamp": "Add file or batch date/time",
+		"tag.search": "Search tags...",
 	},
 }

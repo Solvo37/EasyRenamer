@@ -4,12 +4,14 @@ import {
   ArrowUp,
   CaseUpper,
   Check,
+  ChevronDown,
   ChevronRight,
   CircleHelp,
   Copy,
   Eraser,
   Eye,
   File,
+  Folder,
   FileImage,
   FilePlus2,
   Film,
@@ -32,14 +34,16 @@ import {
   Maximize2,
 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { CSSProperties, RefObject } from 'react'
+import type { CSSProperties, PointerEvent as ReactPointerEvent, RefObject } from 'react'
 import { appApi, runtimeApi } from './api'
 import { methodCatalog, tagCatalog } from './catalog'
 import type {
   BootstrapData,
+  ExecuteProgress,
   PathClassification,
   PreviewItem,
   RenameMethod,
+  SortMode,
   ThemeMode,
 } from './types'
 
@@ -174,6 +178,17 @@ function App() {
   const [dropMode, setDropMode] = useState<'both' | 'files' | 'folders'>('both')
   const [compactView, setCompactView] = useState(false)
 
+  const [sortBy, setSortBy] = useState<SortMode>(() => (localStorage.getItem('easyrenamer-sort') as SortMode) || 'name')
+  const [sortDescending, setSortDescending] = useState(() => localStorage.getItem('easyrenamer-sort-desc') === '1')
+  const [sortPerFolder, setSortPerFolder] = useState(() => localStorage.getItem('easyrenamer-sort-per-folder') !== '0')
+  const [groupByFolder, setGroupByFolder] = useState(() => localStorage.getItem('easyrenamer-group-folders') !== '0')
+  const [fileSearch, setFileSearch] = useState('')
+  const [showErrorsOnly, setShowErrorsOnly] = useState(false)
+  const [collapsedFolders, setCollapsedFolders] = useState<Set<string>>(new Set())
+  const [methodsHeight, setMethodsHeight] = useState(() => Number(localStorage.getItem('easyrenamer-methods-height')) || 260)
+  const [executing, setExecuting] = useState(false)
+  const [executeProgress, setExecuteProgress] = useState<ExecuteProgress | null>(null)
+
   const [tagTab, setTagTab] = useState<'tags' | 'functions' | 'variables'>('tags')
   const [tagCategory, setTagCategory] = useState(0)
   const [tagSearch, setTagSearch] = useState('')
@@ -182,6 +197,23 @@ function App() {
   const previewTimer = useRef<number | null>(null)
 
   const t = useCallback((key: string, fallback?: string) => strings[key] || fallback || key, [strings])
+  const ux = useMemo(() => language === 'ru' ? {
+    order: 'Порядок', name: 'Имя', created: 'Дата создания', modified: 'Дата изменения',
+    size: 'Размер', extension: 'Расширение', path: 'Путь', added: 'Порядок добавления', manual: 'Ручной порядок',
+    perFolder: 'Сортировать отдельно внутри каждой папки', groupFolders: 'Группировка: по папкам',
+    noGrouping: 'Группировка: нет', search: 'Имя или путь...', check: 'Проверить',
+    errorsOnly: 'Только ошибки', allFiles: 'Все файлы', addMethod: '+ Метод', folders: 'Папок',
+    cancelOperation: 'Отмена', preparing: 'Подготовка', renaming: 'Переименование файлов',
+    cancelled: 'Операция отменена, исходные имена восстановлены'
+  } : {
+    order: 'Order', name: 'Name', created: 'Created', modified: 'Modified',
+    size: 'Size', extension: 'Extension', path: 'Path', added: 'Added order', manual: 'Manual order',
+    perFolder: 'Sort separately inside each folder', groupFolders: 'Grouping: folders',
+    noGrouping: 'Grouping: none', search: 'Name or path...', check: 'Check',
+    errorsOnly: 'Errors only', allFiles: 'All files', addMethod: '+ Method', folders: 'Folders',
+    cancelOperation: 'Cancel', preparing: 'Preparing', renaming: 'Renaming files',
+    cancelled: 'Operation cancelled; original names restored'
+  }, [language])
 
   const effectiveTheme = theme === 'system' ? (systemDark ? 'dark' : 'light') : theme
 
@@ -189,6 +221,13 @@ function App() {
     document.documentElement.dataset.theme = effectiveTheme
     localStorage.setItem('easyrenamer-theme', theme)
   }, [effectiveTheme, theme])
+
+  useEffect(() => {
+    localStorage.setItem('easyrenamer-sort', sortBy)
+    localStorage.setItem('easyrenamer-sort-desc', sortDescending ? '1' : '0')
+    localStorage.setItem('easyrenamer-sort-per-folder', sortPerFolder ? '1' : '0')
+    localStorage.setItem('easyrenamer-group-folders', groupByFolder ? '1' : '0')
+  }, [sortBy, sortDescending, sortPerFolder, groupByFolder])
 
   useEffect(() => {
     const media = window.matchMedia?.('(prefers-color-scheme: dark)')
@@ -249,6 +288,17 @@ function App() {
     }
   }, [addSources])
 
+  useEffect(() => {
+    let off: (() => void) | undefined
+    try {
+      const runtime = runtimeApi()
+      off = runtime.EventsOn?.('rename:progress', (progress: ExecuteProgress) => setExecuteProgress(progress))
+    } catch {
+      // Runtime is unavailable only during plain browser development.
+    }
+    return () => off?.()
+  }, [])
+
   const requestPreview = useCallback(async () => {
     if (!sources.length || !methods.length) {
       setItems([])
@@ -257,7 +307,7 @@ function App() {
     }
     setPreviewBusy(true)
     try {
-      const result = await appApi().Preview(sources, recursive, category, extensions, methods)
+      const result = await appApi().Preview(sources, recursive, category, extensions, methods, sortBy, sortDescending, sortPerFolder)
       const nextItems = result.items || []
       setItems(nextItems)
       setChecked((prev) => {
@@ -280,7 +330,7 @@ function App() {
     } finally {
       setPreviewBusy(false)
     }
-  }, [sources, recursive, category, extensions, methods, selectionTouched])
+  }, [sources, recursive, category, extensions, methods, selectionTouched, sortBy, sortDescending, sortPerFolder])
 
   useEffect(() => {
     if (previewTimer.current) window.clearTimeout(previewTimer.current)
@@ -310,9 +360,30 @@ function App() {
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') {
+      const ctrl = event.ctrlKey || event.metaKey
+      const key = event.key.toLowerCase()
+      if (ctrl && key === 'z') {
         event.preventDefault()
         handleUndo()
+      } else if (ctrl && !event.shiftKey && key === 'o') {
+        event.preventDefault()
+        addFiles()
+      } else if (ctrl && event.shiftKey && key === 'o') {
+        event.preventDefault()
+        addFolders()
+      } else if (ctrl && key === 'a' && items.length) {
+        event.preventDefault()
+        setSelectionTouched(true)
+        setChecked(new Set(validItems.map((item) => item.sourcePath)))
+      } else if (ctrl && event.key === 'Enter' && checked.size && !errorCount && !executing) {
+        event.preventDefault()
+        setExecuteConfirm(true)
+      } else if (event.key === 'F5') {
+        event.preventDefault()
+        requestPreview()
+      } else if (event.key === 'Escape' && executing) {
+        event.preventDefault()
+        cancelExecution()
       }
     }
     window.addEventListener('keydown', onKey)
@@ -438,13 +509,43 @@ function App() {
     })
   }
 
-  const validItems = items.filter((item) => item.status === 'OK')
-  const errorCount = items.filter((item) => item.status === 'Conflict' || item.status === 'Invalid').length
+  const validItems = useMemo(() => items.filter((item) => item.status === 'OK'), [items])
+  const errorCount = useMemo(
+    () => items.filter((item) => item.status === 'Conflict' || item.status === 'Invalid').length,
+    [items]
+  )
+  const folderCount = useMemo(() => new Set(items.map((item) => item.path.toLowerCase())).size, [items])
+  const visibleItems = useMemo(() => {
+    const query = fileSearch.trim().toLowerCase()
+    return items.filter((item) => {
+      if (showErrorsOnly && item.status !== 'Conflict' && item.status !== 'Invalid') return false
+      if (!query) return true
+      return item.oldName.toLowerCase().includes(query)
+        || item.newName.toLowerCase().includes(query)
+        || item.sourcePath.toLowerCase().includes(query)
+    })
+  }, [items, fileSearch, showErrorsOnly])
+  const groupedItems = useMemo(() => {
+    const groups = new Map<string, PreviewItem[]>()
+    for (const item of visibleItems) {
+      const group = groups.get(item.path) || []
+      group.push(item)
+      groups.set(item.path, group)
+    }
+    return groups
+  }, [visibleItems])
 
   const execute = async () => {
     setExecuteConfirm(false)
+    setExecuting(true)
+    setExecuteProgress({ phase: 'staging', completed: 0, total: checked.size, current: '' })
     try {
       const result = await appApi().Execute([...checked])
+      if (result.cancelled) {
+        setToast(ux.cancelled)
+        await requestPreview()
+        return
+      }
       if (result.pairs?.length) {
         setSources((prev) =>
           prev.map((source) => result.pairs!.find((pair) => pair.from.toLowerCase() === source.toLowerCase())?.to || source)
@@ -453,6 +554,17 @@ function App() {
       setToast(t('dialog.renamed').replace('%d', String(result.count)))
       setSelectionTouched(false)
       await requestPreview()
+    } catch (err) {
+      setToast(String(err))
+    } finally {
+      setExecuting(false)
+      setExecuteProgress(null)
+    }
+  }
+
+  const cancelExecution = async () => {
+    try {
+      await appApi().CancelExecute()
     } catch (err) {
       setToast(String(err))
     }
@@ -511,6 +623,62 @@ function App() {
     setDropState({ open: false, files: [], folders: [] })
   }
 
+  const startSidebarResize = (event: ReactPointerEvent<HTMLDivElement>) => {
+    event.preventDefault()
+    const startY = event.clientY
+    const startHeight = methodsHeight
+    const move = (moveEvent: PointerEvent) => {
+      const next = Math.max(118, Math.min(460, startHeight + moveEvent.clientY - startY))
+      setMethodsHeight(next)
+    }
+    const stop = () => {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', stop)
+      localStorage.setItem('easyrenamer-methods-height', String(Math.round(methodsHeight)))
+    }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', stop)
+  }
+
+  const toggleFolder = (folder: string) => {
+    setCollapsedFolders((prev) => {
+      const next = new Set(prev)
+      if (next.has(folder)) next.delete(folder)
+      else next.add(folder)
+      return next
+    })
+  }
+
+  const renderFileRow = (item: PreviewItem) => (
+    <tr
+      key={item.sourcePath}
+      className={selectedItem?.sourcePath === item.sourcePath ? 'selected' : ''}
+      onClick={() => setSelectedPath(item.sourcePath)}
+      onDoubleClick={() => appApi().Reveal(item.sourcePath)}
+      title={item.error || item.sourcePath}
+    >
+      <td className="checkcol" onClick={(e) => e.stopPropagation()}>
+        <input
+          type="checkbox"
+          disabled={item.status !== 'OK' || executing}
+          checked={checked.has(item.sourcePath)}
+          onChange={() => toggleChecked(item.sourcePath)}
+        />
+      </td>
+      <td>{item.globalIndex}</td>
+      <td><span className="file-name">{fileIcon(item.type)}{item.oldName}</span></td>
+      <td className="new-name">{item.newName}</td>
+      <td className={`path-cell path-column ${groupByFolder ? 'hidden' : ''}`} title={item.path}>{item.path}</td>
+      <td>{formatBytes(item.size)}</td>
+      <td>{item.type || 'FILE'}</td>
+      <td title={item.error || ''}>
+        <span className={`status-pill status-${item.status.toLowerCase()}`}>
+          <i />{t(statusKey(item.status), item.status)}
+        </span>
+      </td>
+    </tr>
+  )
+
   return (
     <div className="app-shell">
       <header className="titlebar" style={{ '--wails-draggable': 'drag' } as CSSProperties}>
@@ -529,15 +697,20 @@ function App() {
 
       <section className="commandbar">
         <div className="command-left">
-          <button className="action primary" onClick={addFiles}><FilePlus2 />{t('button.files')}</button>
-          <button className="action" onClick={addFolders}><FolderPlus />{t('button.folders')}</button>
-          <button className="action danger-soft" onClick={clearAll}><Trash2 />{t('button.clear')}</button>
-          <button className="action" onClick={() => previewBusy ? appApi().CancelPreview() : requestPreview()}>
-            <Eye />{previewBusy ? t('button.cancel_preview') : t('button.preview')}
+          <button className={`action ${items.length ? '' : 'primary'}`} disabled={executing} onClick={addFiles} title="Ctrl+O"><FilePlus2 />{t('button.files')}</button>
+          <button className="action" disabled={executing} onClick={addFolders} title="Ctrl+Shift+O"><FolderPlus />{t('button.folders')}</button>
+          <button className="action danger-soft" disabled={executing} onClick={clearAll}><Trash2 />{t('button.clear')}</button>
+          <button className="action" disabled={executing || previewBusy || !sources.length} onClick={requestPreview} title="F5">
+            <Eye />{ux.check}
           </button>
         </div>
         <div className="command-right">
-          <button className="start-btn" disabled={!checked.size || previewBusy} onClick={() => setExecuteConfirm(true)}>
+          <button
+            className={`start-btn ${items.length && !errorCount && checked.size ? 'primary' : ''}`}
+            disabled={!checked.size || previewBusy || executing || errorCount > 0}
+            onClick={() => setExecuteConfirm(true)}
+            title="Ctrl+Enter"
+          >
             <Play fill="currentColor" />{t('button.start')}
           </button>
           <span className="source-count">{t('sources.count').replace('%d', String(sources.length))}</span>
@@ -576,9 +749,22 @@ function App() {
       </section>
 
       <main className="workspace">
-        <aside className="sidebar">
+        <aside className="sidebar" style={{ '--methods-height': `${methodsHeight}px` } as CSSProperties}>
           <section className="panel methods-panel">
-            <div className="panel-title"><span>✦</span>{t('group.methods')}</div>
+            <div className="panel-title method-panel-title">
+              <span className="panel-title-copy"><b>✦</b>{t('group.methods')}</span>
+              <select
+                className="method-add-select"
+                value=""
+                onChange={(e) => {
+                  if (e.target.value) addMethod(e.target.value)
+                }}
+                title={ux.addMethod}
+              >
+                <option value="">{ux.addMethod}</option>
+                {methodCatalog.map((entry) => <option key={entry.type} value={entry.type}>{t(entry.titleKey)}</option>)}
+              </select>
+            </div>
             <div className="method-list">
               {methods.map((method, index) => {
                 const def = methodCatalog.find((entry) => entry.type === method.type)
@@ -602,14 +788,16 @@ function App() {
               })}
             </div>
             <div className="method-toolbar">
-              <button onClick={() => moveMethod(-1)} disabled={selectedMethod === 0}><ArrowUp /></button>
-              <button onClick={() => moveMethod(1)} disabled={selectedMethod >= methods.length - 1}><ArrowDown /></button>
-              <button onClick={duplicateMethod}><Copy /></button>
-              <button onClick={saveMethods}><Save /></button>
-              <button onClick={loadMethods}><RefreshCcw /></button>
-              <button onClick={removeMethod} disabled={methods.length === 1}><Trash2 /></button>
+              <button title={t('toolbar.move_up', 'Переместить выше')} onClick={() => moveMethod(-1)} disabled={selectedMethod === 0}><ArrowUp /></button>
+              <button title={t('toolbar.move_down', 'Переместить ниже')} onClick={() => moveMethod(1)} disabled={selectedMethod >= methods.length - 1}><ArrowDown /></button>
+              <button title={t('toolbar.duplicate', 'Дублировать метод')} onClick={duplicateMethod}><Copy /></button>
+              <button title={t('menu.save_methods')} onClick={saveMethods}><Save /></button>
+              <button title={t('menu.load_methods')} onClick={loadMethods}><RefreshCcw /></button>
+              <button title={t('toolbar.delete', 'Удалить метод')} onClick={removeMethod} disabled={methods.length === 1}><Trash2 /></button>
             </div>
           </section>
+
+          <div className="sidebar-splitter" onPointerDown={startSidebarResize} title="Drag to resize" />
 
           <section className="panel settings-panel">
             <h2>{t('group.settings')}: {selectedMethodValue ? t(methodCatalog.find((x) => x.type === selectedMethodValue.type)?.titleKey || '') : ''}</h2>
@@ -629,26 +817,53 @@ function App() {
                 insertTag={insertTag}
               />
             )}
-            <div className="add-method">
-              <span>{t('group.add_method')}</span>
-              <select id="add-method-select" defaultValue="replace">
-                {methodCatalog.map((entry) => <option key={entry.type} value={entry.type}>{t(entry.titleKey)}</option>)}
-              </select>
-              <button onClick={() => {
-                const select = document.getElementById('add-method-select') as HTMLSelectElement
-                addMethod(select.value)
-              }}>＋ {t('button.add')}</button>
-            </div>
           </section>
         </aside>
 
         <section className="files-panel">
           <div className="files-head">
-            <h1>{t('files.title_count').replace('%d', String(items.length))}</h1>
-            <div className="drop-hint"><FolderPlus size={18} />{t('drop.hint')} · {t('drop.subhint')}</div>
-            <div className="view-toggle">
-              <button className={!compactView ? 'active' : ''} onClick={() => setCompactView(false)}><List /></button>
-              <button className={compactView ? 'active' : ''} onClick={() => setCompactView(true)}>▦</button>
+            <div className="files-title-line">
+              <h1>{t('files.title_count').replace('%d', String(items.length))}</h1>
+              <div className="drop-hint"><FolderPlus size={18} />{t('drop.hint')} · {t('drop.subhint')}</div>
+            </div>
+            <div className="file-tools">
+              <label className="table-search" title={ux.search}>
+                <Search size={16} />
+                <input value={fileSearch} onChange={(e) => setFileSearch(e.target.value)} placeholder={ux.search} />
+              </label>
+              <label className="sort-control">
+                <span>{ux.order}:</span>
+                <select value={sortBy} onChange={(e) => setSortBy(e.target.value as SortMode)}>
+                  <option value="name">{ux.name}</option>
+                  <option value="created">{ux.created}</option>
+                  <option value="modified">{ux.modified}</option>
+                  <option value="size">{ux.size}</option>
+                  <option value="extension">{ux.extension}</option>
+                  <option value="path">{ux.path}</option>
+                  <option value="added">{ux.added}</option>
+                  <option value="manual">{ux.manual}</option>
+                </select>
+              </label>
+              <button className="sort-direction" onClick={() => setSortDescending((value) => !value)} title={sortDescending ? 'Descending' : 'Ascending'}>
+                {sortDescending ? <ArrowDown /> : <ArrowUp />}
+              </button>
+              <label className="checkline sort-per-folder">
+                <input type="checkbox" checked={sortPerFolder} onChange={(e) => setSortPerFolder(e.target.checked)} />
+                <span>{ux.perFolder}</span>
+              </label>
+              <select className="group-select" value={groupByFolder ? 'folder' : 'none'} onChange={(e) => setGroupByFolder(e.target.value === 'folder')}>
+                <option value="folder">{ux.groupFolders}</option>
+                <option value="none">{ux.noGrouping}</option>
+              </select>
+              {errorCount > 0 && (
+                <button className={`errors-toggle ${showErrorsOnly ? 'active' : ''}`} onClick={() => setShowErrorsOnly((value) => !value)}>
+                  {ux.errorsOnly} ({errorCount})
+                </button>
+              )}
+              <div className="view-toggle">
+                <button title="Comfortable rows" className={!compactView ? 'active' : ''} onClick={() => setCompactView(false)}><List /></button>
+                <button title="Compact rows" className={compactView ? 'active' : ''} onClick={() => setCompactView(true)}>▦</button>
+              </div>
             </div>
           </div>
 
@@ -669,48 +884,59 @@ function App() {
                   <th>#</th>
                   <th>{t('column.filename')}</th>
                   <th>{t('column.new_filename')}</th>
-                  <th>{t('column.path')}</th>
+                  <th className={`path-column ${groupByFolder ? 'hidden' : ''}`}>{t('column.path')}</th>
                   <th>{t('column.size')}</th>
                   <th>{t('column.type')}</th>
                   <th>{t('column.status')}</th>
                 </tr>
               </thead>
               <tbody>
-                {items.map((item) => (
-                  <tr
-                    key={item.sourcePath}
-                    className={selectedItem?.sourcePath === item.sourcePath ? 'selected' : ''}
-                    onClick={() => setSelectedPath(item.sourcePath)}
-                    onDoubleClick={() => appApi().Reveal(item.sourcePath)}
-                  >
-                    <td className="checkcol" onClick={(e) => e.stopPropagation()}>
-                      <input
-                        type="checkbox"
-                        disabled={item.status !== 'OK'}
-                        checked={checked.has(item.sourcePath)}
-                        onChange={() => toggleChecked(item.sourcePath)}
-                      />
-                    </td>
-                    <td>{item.globalIndex}</td>
-                    <td><span className="file-name">{fileIcon(item.type)}{item.oldName}</span></td>
-                    <td className="new-name">{item.newName}</td>
-                    <td className="path-cell">{item.path}</td>
-                    <td>{formatBytes(item.size)}</td>
-                    <td>{item.type || 'FILE'}</td>
-                    <td>
-                      <span className={`status-pill status-${item.status.toLowerCase()}`}>
-                        <i />{t(statusKey(item.status), item.status)}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-                {!items.length && (
+                {groupByFolder
+                  ? Array.from(groupedItems.entries()).flatMap(([folder, group]) => {
+                      const folderValid = group.filter((item) => item.status === 'OK')
+                      const folderChecked = folderValid.length > 0 && folderValid.every((item) => checked.has(item.sourcePath))
+                      const collapsed = collapsedFolders.has(folder)
+                      const rows = [
+                        <tr className="folder-group-row" key={`folder:${folder}`} onClick={() => toggleFolder(folder)}>
+                          <td className="checkcol" onClick={(e) => e.stopPropagation()}>
+                            <input
+                              type="checkbox"
+                              disabled={!folderValid.length || executing}
+                              checked={folderChecked}
+                              onChange={(e) => {
+                                setSelectionTouched(true)
+                                setChecked((prev) => {
+                                  const next = new Set(prev)
+                                  for (const item of folderValid) {
+                                    if (e.target.checked) next.add(item.sourcePath)
+                                    else next.delete(item.sourcePath)
+                                  }
+                                  return next
+                                })
+                              }}
+                            />
+                          </td>
+                          <td colSpan={7}>
+                            <span className="folder-group-copy" title={folder}>
+                              <ChevronDown className={collapsed ? 'collapsed' : ''} />
+                              <Folder />
+                              <strong>{folder}</strong>
+                              <em>{group.length}</em>
+                            </span>
+                          </td>
+                        </tr>
+                      ]
+                      if (!collapsed) rows.push(...group.map(renderFileRow))
+                      return rows
+                    })
+                  : visibleItems.map(renderFileRow)}
+                {!visibleItems.length && (
                   <tr className="empty-row">
                     <td colSpan={8}>
                       <div className="empty-state">
                         <FolderPlus />
-                        <strong>{t('drop.hint')}</strong>
-                        <span>{t('drop.subhint')}</span>
+                        <strong>{items.length ? ux.allFiles : t('drop.hint')}</strong>
+                        <span>{items.length ? ux.search : t('drop.subhint')}</span>
                       </div>
                     </td>
                   </tr>
@@ -733,14 +959,10 @@ function App() {
               )}
             </div>
             <div className="name-compare">
-              <div className="compare-tabs">
-                <span>{t('preview.original')}</span>
-                <span className="active">{t('preview.new')}</span>
-              </div>
               <div className="compare-values">
-                <strong>{selectedItem?.oldName || '—'}</strong>
+                <strong title={selectedItem?.oldName || ''}>{selectedItem?.oldName || '—'}</strong>
                 <ArrowRight />
-                <strong>{selectedItem?.newName || '—'}</strong>
+                <strong title={selectedItem?.newName || ''}>{selectedItem?.newName || '—'}</strong>
               </div>
             </div>
           </section>
@@ -748,13 +970,26 @@ function App() {
       </main>
 
       <footer className="statusbar">
-        <span className={errorCount ? 'state error' : 'state'}><i />{errorCount ? t('status.errors') : t('status.ready')}</span>
+        <span className={`state ${executing ? 'busy' : errorCount ? 'error' : ''}`}><i />{executing ? ux.renaming : errorCount ? t('status.errors') : t('status.ready')}</span>
         <div>
           <span>{t('button.select_valid')}: {checked.size} {t('status.of')} {validItems.length}</span>
           <span>{t('group.files')}: {items.length}</span>
-          <span>{errorCount} {t('status.errors')}</span>
+          <span>{ux.folders}: {folderCount}</span>
+          <span>{t('status.errors')}: {errorCount}</span>
         </div>
       </footer>
+
+      {executing && (
+        <div className="operation-progress">
+          <div className="operation-progress-head">
+            <strong>{executeProgress?.phase === 'renaming' ? ux.renaming : ux.preparing}</strong>
+            <span>{executeProgress?.completed || 0} / {executeProgress?.total || checked.size}</span>
+          </div>
+          <progress max={Math.max(1, executeProgress?.total || checked.size)} value={executeProgress?.completed || 0} />
+          <small title={executeProgress?.current || ''}>{executeProgress?.current || '...'}</small>
+          <button onClick={cancelExecution}>{ux.cancelOperation}</button>
+        </div>
+      )}
 
       {helpOpen && (
         <div className="modal-backdrop" onMouseDown={() => setHelpOpen(false)}>

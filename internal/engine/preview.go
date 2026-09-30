@@ -305,6 +305,13 @@ func scanFilesContext(ctx context.Context, cfg Config) ([]string, error) {
 	}
 
 	seen := make(map[string]struct{})
+	excluded := make(map[string]struct{}, len(cfg.ExcludedPaths))
+	for _, path := range cfg.ExcludedPaths {
+		if abs, err := filepath.Abs(path); err == nil {
+			path = abs
+		}
+		excluded[strings.ToLower(filepath.Clean(path))] = struct{}{}
+	}
 	out := make([]string, 0)
 	add := func(path string) {
 		abs, err := filepath.Abs(path)
@@ -313,6 +320,9 @@ func scanFilesContext(ctx context.Context, cfg Config) ([]string, error) {
 		}
 		path = filepath.Clean(path)
 		key := strings.ToLower(path)
+		if _, ok := excluded[key]; ok {
+			return
+		}
 		if _, ok := seen[key]; ok {
 			return
 		}

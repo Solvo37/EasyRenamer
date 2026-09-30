@@ -178,7 +178,7 @@ var tagCatalog = []tagCategory{
 }
 
 
-func buildTagBrowser(dark bool, insert func(string)) declarative.Composite {
+func buildTagBrowser(dark bool, insert func(string), owner func() walk.Form) declarative.Composite {
 	categoryNames := make([]string, len(tagCatalog))
 	for i, category := range tagCatalog {
 		categoryNames[i] = i18n.T(category.TitleKey)
@@ -220,8 +220,10 @@ func buildTagBrowser(dark bool, insert func(string)) declarative.Composite {
 						Background:   uiFieldBrush(dark),
 						StretchFactor: 1,
 						OnMouseDown: func(x, y int, button walk.MouseButton) {
-							if form := categoryCB.Form(); form != nil {
-								scheduleFloatingTheme(form, dark)
+							if owner != nil {
+								if form := owner(); form != nil {
+									scheduleFloatingTheme(form, dark)
+								}
 							}
 						},
 						OnCurrentIndexChanged: func() {

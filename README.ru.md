@@ -21,11 +21,11 @@
 <p align="center">
   <a href="https://github.com/Solvo37/easyrenamer/releases/latest/download/EasyRenamer.exe"><strong>Скачать EasyRenamer.exe</strong></a>
   ·
-  <a href="docs/LEARN.md">Руководство</a>
+  <a href="docs/LEARN.ru.md">Руководство</a>
   ·
-  <a href="docs/TAGS.md">Справочник тегов</a>
+  <a href="docs/TAGS.ru.md">Справочник тегов</a>
   ·
-  <a href="docs/ROADMAP.md">Roadmap</a>
+  <a href="docs/ROADMAP.ru.md">Roadmap</a>
 </p>
 
 ---
@@ -89,7 +89,7 @@ EasyRenamer поддерживает цепочки из нескольких м
 - **List / List Replace** — имена и правила построчно;
 - **Script** — безопасные выражения без доступа к сети или файловой системе.
 
-Полный разбор: [docs/LEARN.md](docs/LEARN.md).
+Полный разбор: [docs/LEARN.ru.md](docs/LEARN.ru.md).
 
 ## Теги и метаданные
 
@@ -109,7 +109,7 @@ EasyRenamer поддерживает цепочки из нескольких м
 <MD5>
 ```
 
-Теги поддерживают fallback и modifiers. Полный список: [docs/TAGS.md](docs/TAGS.md).
+Теги поддерживают fallback и modifiers. Полный список: [docs/TAGS.ru.md](docs/TAGS.ru.md).
 
 В поле **New Name** есть autocomplete: начните ввод с `<`, затем выбирайте тег стрелками и Enter.
 
@@ -235,7 +235,7 @@ docs/                  guide, tags and roadmap
 
 ## Участие в разработке
 
-Баги, идеи и pull requests приветствуются. Перед изменениями посмотрите [CONTRIBUTING.md](CONTRIBUTING.md).
+Баги, идеи и pull requests приветствуются. Перед изменениями посмотрите [CONTRIBUTING.ru.md](CONTRIBUTING.ru.md).
 
 ## Лицензия
 

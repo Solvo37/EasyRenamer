@@ -235,5 +235,9 @@ func init() {
 		"item.error.trailing_dot_space": "名称不能以点或空格结尾",
 		"item.error.control_chars": "名称包含控制字符",
 		"item.error.reserved_name": "该名称被 Windows 保留",
+		"tag.category": "类别：",
+		"tag.hint_browse": "选择类别并浏览内置标签。",
+		"button.save_short": "保存",
+		"button.load_short": "加载",
 	}
 }

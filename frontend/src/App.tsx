@@ -1482,7 +1482,7 @@ function App() {
           <i />{executing ? ux.renaming : criticalErrorCount ? t('status.errors') : conflictCount ? t('status.warnings') : t('status.ready')}
         </span>
         <div>
-          <span>{t('button.select_valid')}: {checked.size} {t('status.of')} {validItems.length}</span>
+          <span>{t('status.selected')}: {checked.size} {t('status.of')} {validItems.length}</span>
           <span>{t('group.files')}: {items.length}</span>
           <span>{ux.folders}: {folderCount}</span>
           <span>{t('status.errors')}: {errorCount}</span>

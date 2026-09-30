@@ -1599,7 +1599,7 @@ func runMainWindow(state *uiState) uiRunResult {
 				},
 			},
 			HSplitter{
-				HandleWidth: 7,
+				HandleWidth: 6,
 				Children: []Widget{
 					ScrollView{
 						Background:      uiPanelBrush(darkTheme),
@@ -1607,8 +1607,8 @@ func runMainWindow(state *uiState) uiRunResult {
 						HorizontalFixed: true,
 						Layout:          VBox{Spacing: 6},
 						Children: []Widget{
-							Composite{Background: uiPanelBrush(darkTheme),
-								Layout: VBox{Spacing: 6, Margins: Margins{Left: 4, Top: 4, Right: 4, Bottom: 4}},
+							Composite{Background: uiCardBrush(darkTheme),
+								Layout: VBox{Spacing: 8, Margins: Margins{Left: 8, Top: 8, Right: 8, Bottom: 8}},
 								Children: []Widget{
 									Label{
 										Text:       i18n.T("group.methods"),
@@ -1682,8 +1682,8 @@ func runMainWindow(state *uiState) uiRunResult {
 									},
 								},
 							},
-Composite{Background: uiPanelBrush(darkTheme),
-								Layout: VBox{Spacing: 6, Margins: Margins{Left: 4, Top: 4, Right: 4, Bottom: 4}},
+Composite{Background: uiCardBrush(darkTheme),
+								Layout: VBox{Spacing: 8, Margins: Margins{Left: 8, Top: 8, Right: 8, Bottom: 8}},
 								Children: []Widget{
 									Label{
 										AssignTo:    &methodSettingsTitleLbl,
@@ -1974,8 +1974,8 @@ Composite{Background: uiPanelBrush(darkTheme),
 									},
 								},
 							},
-							Composite{Background: uiPanelBrush(darkTheme),
-								Layout: VBox{Spacing: 6, Margins: Margins{Left: 4, Top: 4, Right: 4, Bottom: 4}},
+							Composite{Background: uiCardBrush(darkTheme),
+								Layout: VBox{Spacing: 8, Margins: Margins{Left: 8, Top: 8, Right: 8, Bottom: 8}},
 								Children: []Widget{
 									Label{
 										Text:       i18n.T("group.add_method"),

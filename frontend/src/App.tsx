@@ -40,6 +40,7 @@ import { methodCatalog, tagCatalog } from './catalog'
 import type {
   BootstrapData,
   ExecuteProgress,
+  FileDetails,
   HistoryEntry,
   PathClassification,
   PreviewItem,
@@ -177,6 +178,7 @@ function App() {
   const [selectionTouched, setSelectionTouched] = useState(false)
   const [selectedPath, setSelectedPath] = useState('')
   const [thumbnail, setThumbnail] = useState('')
+  const [selectedDetails, setSelectedDetails] = useState<FileDetails | null>(null)
   const [previewBusy, setPreviewBusy] = useState(false)
   const [toast, setToast] = useState('')
   const [helpOpen, setHelpOpen] = useState(false)
@@ -364,11 +366,16 @@ function App() {
   useEffect(() => {
     let alive = true
     setThumbnail('')
+    setSelectedDetails(null)
     if (!selectedItem) return
-    appApi()
-      .Thumbnail(selectedItem.sourcePath)
-      .then((data) => alive && setThumbnail(data || ''))
-      .catch(() => {})
+    Promise.all([
+      appApi().Thumbnail(selectedItem.sourcePath).catch(() => ''),
+      appApi().FileDetails(selectedItem.sourcePath).catch(() => null),
+    ]).then(([image, details]) => {
+      if (!alive) return
+      setThumbnail(image || '')
+      setSelectedDetails(details)
+    })
     return () => {
       alive = false
     }
@@ -1046,7 +1053,7 @@ function App() {
               <strong>{selectedItem?.oldName || t('preview.no_selection')}</strong>
               {selectedItem && (
                 <>
-                  <span>{selectedItem.width && selectedItem.height ? `${selectedItem.width} × ${selectedItem.height} · ` : ''}{formatBytes(selectedItem.size)} · {selectedItem.type}</span>
+                  <span>{selectedDetails?.width && selectedDetails?.height ? `${selectedDetails.width} × ${selectedDetails.height} · ` : ''}{formatBytes(selectedDetails?.size ?? selectedItem.size)} · {selectedDetails?.type || selectedItem.type}</span>
                   <span>{selectedItem.path}</span>
                 </>
               )}

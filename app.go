@@ -212,7 +212,7 @@ func (a *App) PickFolders() ([]string, error) {
 	return pickFoldersMulti(0, i18n.T("menu.add_folder"))
 }
 
-func (a *App) Preview(sources []string, recursive bool, category string, customExtensions string, methods []engine.RenameMethod, sortBy string, sortDescending bool, sortPerFolder bool) (PreviewResult, error) {
+func (a *App) Preview(sources []string, excludedPaths []string, recursive bool, category string, customExtensions string, methods []engine.RenameMethod, sortBy string, sortDescending bool, sortPerFolder bool) (PreviewResult, error) {
 	if len(sources) == 0 {
 		return PreviewResult{}, nil
 	}
@@ -236,6 +236,7 @@ func (a *App) Preview(sources []string, recursive bool, category string, customE
 
 	cfg := engine.Config{
 		Sources:          append([]string(nil), sources...),
+		ExcludedPaths:    append([]string(nil), excludedPaths...),
 		Recursive:        recursive,
 		Category:         engine.Category(category),
 		CustomExtensions: customExtensions,
@@ -417,6 +418,22 @@ func (a *App) Reveal(path string) error {
 		return nil
 	}
 	return exec.Command("explorer.exe", "/select,"+path).Start()
+}
+
+func (a *App) Open(path string) error {
+	path = filepath.Clean(strings.TrimSpace(path))
+	if path == "" {
+		return nil
+	}
+	return exec.Command("rundll32.exe", "url.dll,FileProtocolHandler", path).Start()
+}
+
+func (a *App) OpenFolder(path string) error {
+	path = filepath.Clean(strings.TrimSpace(path))
+	if path == "" {
+		return nil
+	}
+	return exec.Command("explorer.exe", path).Start()
 }
 
 func (a *App) FileDetails(path string) (FileDetails, error) {

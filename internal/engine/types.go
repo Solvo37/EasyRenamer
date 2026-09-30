@@ -119,8 +119,9 @@ type RenameMethod struct {
 type Config struct {
 	// Sources may contain any mix of files and directories.
 	// Root is kept for compatibility with older callers and is used when Sources is empty.
-	Sources []string
-	Root    string
+	Sources       []string
+	Root          string
+	ExcludedPaths []string
 
 	Recursive        bool
 	Category         Category

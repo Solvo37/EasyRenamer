@@ -1865,3 +1865,26 @@ table.compact .folder-group-row td {
   margin: 3px 4px;
   background: var(--border);
 }
+
+
+.compare-values mark {
+  padding: 1px 2px;
+  border-radius: 3px;
+  color: inherit;
+}
+
+.diff-added {
+  background: rgba(84, 221, 160, 0.18);
+  text-decoration: none;
+}
+
+.diff-removed {
+  background: rgba(255, 113, 128, 0.16);
+  text-decoration: line-through;
+}
+
+.diff-empty {
+  opacity: 0.72;
+  text-decoration: none;
+  font-size: 9px;
+}

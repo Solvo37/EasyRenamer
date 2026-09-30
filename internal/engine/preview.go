@@ -90,11 +90,6 @@ func PreviewContext(ctx context.Context, cfg Config) ([]*Item, error) {
 			continue
 		}
 
-		if width, height, ok := readImageDimensions(path); ok {
-			item.Width = width
-			item.Height = height
-		}
-
 		if buildErr != nil {
 			item.Status = StatusInvalid
 			item.Error = buildErr.Error()
@@ -263,6 +258,12 @@ func timeCompare(a, b time.Time) int {
 		return -1
 	}
 	return 1
+}
+
+// ImageDimensions reads only the selected image header and is intentionally
+// not called during bulk preview generation.
+func ImageDimensions(path string) (int, int, bool) {
+	return readImageDimensions(path)
 }
 
 func readImageDimensions(path string) (int, int, bool) {

@@ -261,5 +261,6 @@ func init() {
 		"method.desc.swap": "交换分隔符两侧的两部分",
 		"method.desc.trim": "清理并规范空格",
 		"method.desc.timestamp": "添加文件或批处理日期时间",
+		"tag.search": "搜索标签...",
 	}
 }

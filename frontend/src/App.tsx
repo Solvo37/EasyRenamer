@@ -223,6 +223,8 @@ function App() {
   const [checked, setChecked] = useState<Set<string>>(new Set())
   const [selectionTouched, setSelectionTouched] = useState(false)
   const [selectedPath, setSelectedPath] = useState('')
+  const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set())
+  const [selectionAnchor, setSelectionAnchor] = useState('')
   const [thumbnail, setThumbnail] = useState('')
   const [selectedDetails, setSelectedDetails] = useState<FileDetails | null>(null)
   const [previewBusy, setPreviewBusy] = useState(false)
@@ -443,6 +445,11 @@ function App() {
   )
 
   useEffect(() => {
+    const available = new Set(items.map((item) => item.sourcePath))
+    setSelectedRows((prev) => new Set([...prev].filter((path) => available.has(path))))
+  }, [items])
+
+  useEffect(() => {
     let alive = true
     setThumbnail('')
     setSelectedDetails(null)
@@ -475,17 +482,26 @@ function App() {
         addFolders()
       } else if (ctrl && key === 'a' && items.length) {
         event.preventDefault()
-        setSelectionTouched(true)
-        setChecked(new Set(validItems.map((item) => item.sourcePath)))
+        setSelectedRows(new Set(visibleFileOrder))
+        if (visibleFileOrder.length) {
+          setSelectedPath(visibleFileOrder[0])
+          setSelectionAnchor(visibleFileOrder[0])
+        }
       } else if (ctrl && event.key === 'Enter' && checked.size && !errorCount && !executing) {
         event.preventDefault()
         setExecuteConfirm(true)
       } else if (event.key === 'F5') {
         event.preventDefault()
         requestPreview()
-      } else if (event.key === 'Delete' && selectedPath && !executing) {
+      } else if (event.key === 'Delete' && (selectedRows.size || selectedPath) && !executing) {
         event.preventDefault()
-        setExcludedPaths((prev) => new Set(prev).add(selectedPath.toLowerCase()))
+        setExcludedPaths((prev) => {
+          const next = new Set(prev)
+          if (selectedRows.size) selectedRows.forEach((path) => next.add(path.toLowerCase()))
+          else if (selectedPath) next.add(selectedPath.toLowerCase())
+          return next
+        })
+        setSelectedRows(new Set())
       } else if (event.key === 'Escape' && executing) {
         event.preventDefault()
         cancelExecution()
@@ -531,6 +547,8 @@ function App() {
     setItems([])
     setChecked(new Set())
     setSelectedPath('')
+    setSelectedRows(new Set())
+    setSelectionAnchor('')
     setSelectionTouched(false)
   }
 
@@ -605,6 +623,41 @@ function App() {
     }
   }
 
+  const handleRowSelection = (item: PreviewItem, event: React.MouseEvent<HTMLTableRowElement>) => {
+    const path = item.sourcePath
+    setSelectedPath(path)
+
+    if (event.shiftKey && selectionAnchor) {
+      const anchorIndex = visibleFileOrder.indexOf(selectionAnchor)
+      const currentIndex = visibleFileOrder.indexOf(path)
+      if (anchorIndex >= 0 && currentIndex >= 0) {
+        const [from, to] = anchorIndex < currentIndex ? [anchorIndex, currentIndex] : [currentIndex, anchorIndex]
+        const range = visibleFileOrder.slice(from, to + 1)
+        setSelectedRows((prev) => {
+          if (!(event.ctrlKey || event.metaKey)) return new Set(range)
+          const next = new Set(prev)
+          range.forEach((entry) => next.add(entry))
+          return next
+        })
+        return
+      }
+    }
+
+    if (event.ctrlKey || event.metaKey) {
+      setSelectedRows((prev) => {
+        const next = new Set(prev)
+        if (next.has(path)) next.delete(path)
+        else next.add(path)
+        return next
+      })
+      setSelectionAnchor(path)
+      return
+    }
+
+    setSelectedRows(new Set([path]))
+    setSelectionAnchor(path)
+  }
+
   const toggleChecked = (path: string) => {
     setSelectionTouched(true)
     setChecked((prev) => {
@@ -652,6 +705,11 @@ function App() {
     }
     return rows
   }, [visibleItems, groupedItems, groupByFolder, collapsedFolders])
+
+  const visibleFileOrder = useMemo(
+    () => tableRows.filter((row): row is Extract<FileTableRow, { kind: 'file' }> => row.kind === 'file').map((row) => row.item.sourcePath),
+    [tableRows]
+  )
 
   const virtualRowHeight = compactView ? 30 : 36
   const virtualOverscan = 14
@@ -820,12 +878,16 @@ function App() {
   const renderFileRow = (item: PreviewItem) => (
     <tr
       key={item.sourcePath}
-      className={selectedItem?.sourcePath === item.sourcePath ? 'selected' : ''}
-      onClick={() => setSelectedPath(item.sourcePath)}
+      className={selectedRows.has(item.sourcePath) ? 'selected' : ''}
+      onClick={(e) => handleRowSelection(item, e)}
       onDoubleClick={() => appApi().Open(item.sourcePath)}
       onContextMenu={(e) => {
         e.preventDefault()
         setSelectedPath(item.sourcePath)
+        if (!selectedRows.has(item.sourcePath)) {
+          setSelectedRows(new Set([item.sourcePath]))
+          setSelectionAnchor(item.sourcePath)
+        }
         setContextMenu({ kind: 'file', x: e.clientX, y: e.clientY, item })
       }}
       title={item.error || item.sourcePath}

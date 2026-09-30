@@ -1772,3 +1772,51 @@ tbody tr.selected {
 table.compact .folder-group-row td {
   height: 30px;
 }
+
+
+.preset-manager {
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) auto auto auto 34px;
+  gap: 5px;
+  align-items: center;
+}
+
+.preset-manager input {
+  min-width: 0;
+  height: 32px;
+}
+
+.preset-manager button {
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--panel-2);
+  color: var(--text-2);
+  cursor: pointer;
+  font-size: 10px;
+}
+
+.preset-manager button svg {
+  width: 13px;
+}
+
+.preset-manager button:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+.preset-manager button.danger:hover:not(:disabled) {
+  border-color: var(--red);
+  background: var(--red-bg);
+}
+
+.preset-manager button:disabled {
+  opacity: 0.42;
+  cursor: default;
+}

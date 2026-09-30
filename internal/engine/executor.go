@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
@@ -15,6 +16,13 @@ type RenamePair struct {
 	To   string `json:"to"`
 }
 
+type ExecuteProgress struct {
+	Phase     string `json:"phase"`
+	Completed int    `json:"completed"`
+	Total     int    `json:"total"`
+	Current   string `json:"current"`
+}
+
 type execWork struct {
 	item *Item
 	temp string
@@ -22,6 +30,14 @@ type execWork struct {
 }
 
 func Execute(items []*Item) ([]RenamePair, error) {
+	return ExecuteContext(context.Background(), items, nil)
+}
+
+func ExecuteContext(ctx context.Context, items []*Item, progress func(ExecuteProgress)) ([]RenamePair, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
 	selected := make([]*Item, 0, len(items))
 	for _, it := range items {
 		if it.Checked && it.Status == StatusOK {
@@ -33,8 +49,10 @@ func Execute(items []*Item) ([]RenamePair, error) {
 	}
 
 	works := make([]execWork, 0, len(selected))
-
 	for _, it := range selected {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		if _, err := os.Stat(it.SourcePath); err != nil {
 			return nil, fmt.Errorf("source missing: %s", it.SourcePath)
 		}
@@ -45,8 +63,20 @@ func Execute(items []*Item) ([]RenamePair, error) {
 		works = append(works, execWork{item: it, to: to})
 	}
 
+	emit := func(phase string, completed int, current string) {
+		if progress != nil {
+			progress(ExecuteProgress{
+				Phase: phase, Completed: completed, Total: len(works), Current: current,
+			})
+		}
+	}
+
 	movedToTemp := 0
 	for i := range works {
+		if err := ctx.Err(); err != nil {
+			rollbackTemps(works[:movedToTemp])
+			return nil, err
+		}
 		temp, err := uniqueTemp(filepath.Dir(works[i].item.SourcePath), filepath.Ext(works[i].item.SourcePath))
 		if err != nil {
 			rollbackTemps(works[:movedToTemp])
@@ -58,20 +88,25 @@ func Execute(items []*Item) ([]RenamePair, error) {
 			return nil, err
 		}
 		movedToTemp++
+		emit("staging", i+1, works[i].item.SourcePath)
 	}
 
 	completed := 0
 	for i := range works {
-		if err := os.Rename(works[i].temp, works[i].to); err != nil {
-			for j := completed - 1; j >= 0; j-- {
-				_ = os.Rename(works[j].to, works[j].item.SourcePath)
+		if err := ctx.Err(); err != nil {
+			if rollbackErr := rollbackAll(works, completed); rollbackErr != nil {
+				return nil, fmt.Errorf("%w; rollback failed: %v", err, rollbackErr)
 			}
-			for j := i; j < len(works); j++ {
-				_ = os.Rename(works[j].temp, works[j].item.SourcePath)
+			return nil, err
+		}
+		if err := os.Rename(works[i].temp, works[i].to); err != nil {
+			if rollbackErr := rollbackAll(works, completed); rollbackErr != nil {
+				return nil, fmt.Errorf("%w; rollback failed: %v", err, rollbackErr)
 			}
 			return nil, err
 		}
 		completed++
+		emit("renaming", completed, works[i].to)
 	}
 
 	pairs := make([]RenamePair, 0, len(works))
@@ -129,9 +164,54 @@ func Undo(pairs []RenamePair) error {
 	return nil
 }
 
+func rollbackAll(works []execWork, completed int) error {
+	if completed < 0 {
+		completed = 0
+	}
+	if completed > len(works) {
+		completed = len(works)
+	}
+
+	finalTemps := make([]string, completed)
+	for i := 0; i < completed; i++ {
+		temp, err := uniqueTemp(filepath.Dir(works[i].to), filepath.Ext(works[i].to))
+		if err != nil {
+			for j := i - 1; j >= 0; j-- {
+				_ = os.Rename(finalTemps[j], works[j].to)
+			}
+			return err
+		}
+		finalTemps[i] = temp
+		if err := os.Rename(works[i].to, temp); err != nil {
+			for j := i - 1; j >= 0; j-- {
+				_ = os.Rename(finalTemps[j], works[j].to)
+			}
+			return err
+		}
+	}
+
+	var firstErr error
+	for i := 0; i < completed; i++ {
+		if err := os.Rename(finalTemps[i], works[i].item.SourcePath); err != nil && firstErr == nil {
+			firstErr = err
+		}
+	}
+	for i := completed; i < len(works); i++ {
+		if works[i].temp == "" {
+			continue
+		}
+		if err := os.Rename(works[i].temp, works[i].item.SourcePath); err != nil && firstErr == nil {
+			firstErr = err
+		}
+	}
+	return firstErr
+}
+
 func rollbackTemps(works []execWork) {
 	for i := len(works) - 1; i >= 0; i-- {
-		_ = os.Rename(works[i].temp, works[i].item.SourcePath)
+		if works[i].temp != "" {
+			_ = os.Rename(works[i].temp, works[i].item.SourcePath)
+		}
 	}
 }
 
@@ -141,7 +221,7 @@ func uniqueTemp(dir, ext string) (string, error) {
 		if _, err := rand.Read(buf); err != nil {
 			return "", err
 		}
-		name := ".easyrenamer-" + hex.EncodeToString(buf) + ext
+		name := ".easyrenamer_tmp_" + hex.EncodeToString(buf) + ext
 		path := filepath.Join(dir, name)
 		if _, err := os.Stat(path); os.IsNotExist(err) {
 			return path, nil

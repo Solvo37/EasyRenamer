@@ -308,9 +308,7 @@ func (a *App) Execute(selectedPaths []string) (OperationResult, error) {
 
 	defer func() {
 		a.executeMu.Lock()
-		if a.executeCancel == cancel {
-			a.executeCancel = nil
-		}
+		a.executeCancel = nil
 		a.executeMu.Unlock()
 		cancel()
 	}()

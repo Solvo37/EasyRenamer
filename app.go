@@ -28,6 +28,9 @@ type App struct {
 	previewCancel context.CancelFunc
 	previewSeq    uint64
 	lastItems     []*engine.Item
+
+	executeMu     sync.Mutex
+	executeCancel context.CancelFunc
 }
 
 type BootstrapData struct {
@@ -55,8 +58,9 @@ type PreviewResult struct {
 }
 
 type OperationResult struct {
-	Count int                 `json:"count"`
-	Pairs []engine.RenamePair `json:"pairs,omitempty"`
+	Count     int                 `json:"count"`
+	Pairs     []engine.RenamePair `json:"pairs,omitempty"`
+	Cancelled bool                `json:"cancelled,omitempty"`
 }
 
 type PathClassification struct {
@@ -85,6 +89,13 @@ func (a *App) shutdown(ctx context.Context) {
 		a.previewCancel = nil
 	}
 	a.previewMu.Unlock()
+
+	a.executeMu.Lock()
+	if a.executeCancel != nil {
+		a.executeCancel()
+		a.executeCancel = nil
+	}
+	a.executeMu.Unlock()
 }
 
 func (a *App) Bootstrap() BootstrapData {
@@ -186,7 +197,7 @@ func (a *App) PickFolders() ([]string, error) {
 	return pickFoldersMulti(0, i18n.T("menu.add_folder"))
 }
 
-func (a *App) Preview(sources []string, recursive bool, category string, customExtensions string, methods []engine.RenameMethod) (PreviewResult, error) {
+func (a *App) Preview(sources []string, recursive bool, category string, customExtensions string, methods []engine.RenameMethod, sortBy string, sortDescending bool, sortPerFolder bool) (PreviewResult, error) {
 	if len(sources) == 0 {
 		return PreviewResult{}, nil
 	}
@@ -214,6 +225,9 @@ func (a *App) Preview(sources []string, recursive bool, category string, customE
 		Category:         engine.Category(category),
 		CustomExtensions: customExtensions,
 		Methods:          methods,
+		SortBy:           engine.SortMode(sortBy),
+		SortDescending:   sortDescending,
+		SortPerFolder:    sortPerFolder,
 		BatchTime:        time.Now(),
 	}
 
@@ -278,14 +292,53 @@ func (a *App) Execute(selectedPaths []string) (OperationResult, error) {
 	if len(items) == 0 {
 		return OperationResult{}, errors.New("preview is empty")
 	}
-	pairs, err := engine.Execute(items)
+
+	a.executeMu.Lock()
+	if a.executeCancel != nil {
+		a.executeMu.Unlock()
+		return OperationResult{}, errors.New("rename operation is already running")
+	}
+	baseCtx := a.ctx
+	if baseCtx == nil {
+		baseCtx = context.Background()
+	}
+	ctx, cancel := context.WithCancel(baseCtx)
+	a.executeCancel = cancel
+	a.executeMu.Unlock()
+
+	defer func() {
+		a.executeMu.Lock()
+		if a.executeCancel == cancel {
+			a.executeCancel = nil
+		}
+		a.executeMu.Unlock()
+		cancel()
+	}()
+
+	pairs, err := engine.ExecuteContext(ctx, items, func(progress engine.ExecuteProgress) {
+		if a.ctx != nil {
+			wailsruntime.EventsEmit(a.ctx, "rename:progress", progress)
+		}
+	})
 	if err != nil {
+		if errors.Is(err, context.Canceled) {
+			return OperationResult{Cancelled: true}, nil
+		}
 		return OperationResult{}, err
 	}
 	if err := history.Save(pairs); err != nil {
 		return OperationResult{Count: len(pairs), Pairs: pairs}, fmt.Errorf("renamed %d files but could not save undo history: %w", len(pairs), err)
 	}
 	return OperationResult{Count: len(pairs), Pairs: pairs}, nil
+}
+
+func (a *App) CancelExecute() {
+	a.executeMu.Lock()
+	cancel := a.executeCancel
+	a.executeMu.Unlock()
+	if cancel != nil {
+		cancel()
+	}
 }
 
 func (a *App) Undo() (OperationResult, error) {

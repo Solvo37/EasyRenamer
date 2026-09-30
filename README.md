@@ -1,13 +1,9 @@
-<p align="center">
-  <img src="frontend/public/easyrenamer.svg" width="96" height="96" alt="EasyRenamer">
-</p>
-
+<p align="center"><img src="frontend/public/easyrenamer.svg" width="96" height="96" alt="EasyRenamer"></p>
 <h1 align="center">EasyRenamer</h1>
 
-<p align="center">
-  Быстрый и безопасный пакетный переименователь файлов для Windows.<br>
-  <strong>Бесплатно · Open Source · Без рекламы · Без подписки · Без телеметрии</strong>
-</p>
+<p align="center"><strong>English</strong> · <a href="README.ru.md">Русский</a> · <a href="README.es.md">Español</a> · <a href="README.zh-CN.md">中文</a></p>
+
+<p align="center">Fast and safe batch file renaming for Windows.<br><strong>Free · Open Source · No ads · No subscription · No telemetry</strong></p>
 
 <p align="center">
   <a href="https://github.com/Solvo37/easyrenamer/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/Solvo37/easyrenamer/actions/workflows/ci.yml/badge.svg"></a>
@@ -17,224 +13,142 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Solvo37/easyrenamer/releases/latest/download/EasyRenamer.exe"><strong>Скачать EasyRenamer.exe</strong></a>
-  ·
-  <a href="docs/LEARN.md">Руководство</a>
-  ·
-  <a href="docs/TAGS.md">Справочник тегов</a>
-  ·
-  <a href="docs/ROADMAP.md">Roadmap</a>
+  <a href="https://github.com/Solvo37/easyrenamer/releases/latest/download/EasyRenamer.exe"><strong>Download EasyRenamer.exe</strong></a>
+  · <a href="docs/LEARN.md">User guide</a>
+  · <a href="docs/TAGS.md">Tag reference</a>
+  · <a href="docs/ROADMAP.md">Roadmap</a>
 </p>
 
 ---
 
-## Зачем EasyRenamer
+## Why EasyRenamer
 
-EasyRenamer рассчитан на реальную пакетную работу: от нескольких файлов до больших наборов из разных папок. Итоговые имена видны **до запуска**, порядок обработки задаётся явно, конфликты проверяются заранее, а сама операция выполняется транзакционно и может быть отменена.
+EasyRenamer is built for real batch-renaming work, from a few files to large sets spread across multiple folders. Final names are visible <strong>before anything is changed</strong>, processing order is explicit, conflicts are checked in advance, and rename operations are transactional and reversible.
 
-Основной интерфейс остаётся компактным и одностраничным:
+<strong>Add files → configure methods → review the result → run</strong>
 
-**добавил файлы → настроил методы → проверил результат → запустил**
+## Highlights
 
-## Главное
-
-| Возможность | Что даёт |
+| Feature | What it gives you |
 | --- | --- |
-| **Live preview** | Новые имена пересчитываются автоматически при изменении шаблона, методов, сортировки и фильтров |
-| **Группировка по папкам** | Видно, где начинается новая группа и почему `<Inc NrDir:01>` сбрасывает счётчик |
-| **Natural sorting** | `1, 2, 10` вместо `1, 10, 2` |
-| **Порядок обработки** | Имя, дата создания/изменения, размер, расширение, путь, порядок добавления и ручной drag & drop |
-| **Цепочка методов** | Методы выполняются сверху вниз; их можно включать, отключать, дублировать и переставлять |
-| **Поиск и фильтр ошибок** | Поиск по исходному имени, новому имени и полному пути |
-| **Collision policies** | Пропуск конфликтов, автоматическая нумерация или остановка операции |
-| **Progress + Cancel** | Большая операция не блокирует интерфейс и может быть безопасно остановлена |
-| **Undo + History** | Откат последней операции и журнал последних 20 переименований |
-| **Большие списки** | Виртуализированная таблица и ленивое получение тяжёлых preview-данных |
-| **4 языка** | English, Русский, Español, 中文 |
-| **Portable** | Один EXE, без отдельного установщика |
+| Live preview | New names update automatically when templates, methods, sorting or filters change |
+| Folder grouping | Clear folder boundaries and predictable per-folder numbering |
+| Natural sorting | 1, 2, 10 instead of 1, 10, 2 |
+| Processing order | Name, creation/modification date, size, extension, path, added order or manual drag & drop |
+| Method chain | Enable, disable, duplicate and reorder rename methods |
+| Search & error filter | Search original names, new names and full paths |
+| Collision policies | Skip conflicts, auto-number them, or stop the operation |
+| Progress + Cancel | Large operations stay responsive and can be stopped safely |
+| Undo + History | Undo and a journal of the latest 20 rename operations |
+| Large lists | Virtualized table and lazy heavy preview data |
+| 4 UI languages | English, Русский, Español, 中文 |
+| Portable | One EXE, no installer required |
 
-## Пример
+## Example
 
-Шаблон:
+Template: <code>&lt;Inc NrDir:01&gt;_&lt;Name&gt;</code>
 
-```text
-<Inc NrDir:01>_<Name>
-```
-
-Файлы в каждой папке получат собственную последовательность:
-
-```text
+<pre>
 1.jpg   → 01_1.jpg
 2.jpg   → 02_2.jpg
 10.jpg  → 03_10.jpg
-```
+</pre>
 
-При добавлении следующей папки счётчик `NrDir` снова начинается с `01`.
+The <code>NrDir</code> counter starts again from <code>01</code> for each folder.
 
-## Методы переименования
+## Rename methods
 
-EasyRenamer поддерживает цепочки из нескольких методов:
+EasyRenamer supports chained methods:
 
-- **New Name** — шаблон из текста и тегов;
-- **Replace** — поиск и замена, включая regex;
-- **Renumber** — нумерация, в том числе отдельно по папкам;
-- **Add text** — префикс и суффикс;
-- **Change case** — lower / UPPER / Title Case;
-- **Remove / Remove pattern** — удаление по позиции, тексту или regex;
-- **Move / Swap** — перестановка частей имени;
-- **Trim** — очистка лишних пробелов;
-- **Timestamp** — дата/время файла или текущего batch;
-- **List / List Replace** — имена и правила построчно;
-- **Script** — безопасные выражения без доступа к сети или файловой системе.
+- <strong>New Name</strong> — names from text and tags;
+- <strong>Replace</strong> — find and replace, including regex;
+- <strong>Renumber</strong> — sequential numbering, including per-folder numbering;
+- <strong>Add text</strong> — prefix and suffix;
+- <strong>Change case</strong> — lower / UPPER / Title Case;
+- <strong>Remove / Remove pattern</strong> — remove by position, text or regex;
+- <strong>Move / Swap</strong> — rearrange filename parts;
+- <strong>Trim</strong> — clean up whitespace;
+- <strong>Timestamp</strong> — add file or batch date/time;
+- <strong>List / List Replace</strong> — names and rules line by line;
+- <strong>Script</strong> — safe expressions without direct filesystem or network access.
 
-Полный разбор: [docs/LEARN.md](docs/LEARN.md).
+Detailed guide: [docs/LEARN.md](docs/LEARN.md).
 
-## Теги и метаданные
+## Tags and metadata
 
-В шаблонах доступны счётчики, папки, даты, размеры, случайные значения, checksums и распространённые метаданные:
+Templates support counters, folders, dates, sizes, random values, checksums and common metadata, for example:
 
-```text
-<Name>
-<Ext>
-<FolderName:1>
-<Inc Nr:001>
-<Inc NrDir:01>
-<Date Modified:yyyy-mm-dd>
-<Artist>
-<Album>
-<Width>
-<Height>
-<MD5>
-```
+<pre>
+&lt;Name&gt;
+&lt;Ext&gt;
+&lt;FolderName:1&gt;
+&lt;Inc Nr:001&gt;
+&lt;Inc NrDir:01&gt;
+&lt;Date Modified:yyyy-mm-dd&gt;
+&lt;Artist&gt;
+&lt;Album&gt;
+&lt;Width&gt;
+&lt;Height&gt;
+&lt;MD5&gt;
+</pre>
 
-Теги поддерживают fallback и modifiers. Полный список: [docs/TAGS.md](docs/TAGS.md).
+Tags support fallback chains and modifiers. Full reference: [docs/TAGS.md](docs/TAGS.md).
 
-В поле **New Name** есть autocomplete: начните ввод с `<`, затем выбирайте тег стрелками и Enter.
+## Safety
 
-## Безопасность
+Before execution EasyRenamer checks invalid Windows names, forbidden characters, reserved names such as CON/NUL/COM1/LPT1, duplicate destination paths, existing targets, overly long paths and missing source files.
 
-EasyRenamer не выполняет массовый rename наивно по одному файлу.
+Renaming runs in two phases through unique temporary names such as <code>.easyrenamer_tmp_*</code>, so swaps and case-only renames are safe.
 
-Перед запуском проверяются:
+<strong>Destructive overwrite is intentionally disabled</strong> until safe backup/restore is implemented.
 
-- пустые и недопустимые имена;
-- запрещённые Windows-символы;
-- системные имена вроде `CON`, `NUL`, `COM1`, `LPT1`;
-- одинаковые итоговые пути;
-- уже существующие destination-файлы;
-- слишком длинные пути;
-- исчезнувшие файлы.
+## Shortcuts
 
-Переименование выполняется в две фазы через уникальные временные имена `.easyrenamer_tmp_*`. Поэтому корректно обрабатываются сценарии вроде:
-
-```text
-A.jpg → B.jpg
-B.jpg → A.jpg
-```
-
-и изменение только регистра:
-
-```text
-photo.jpg → PHOTO.jpg
-```
-
-**Destructive overwrite намеренно отключён**, пока для него не реализован безопасный backup/restore.
-
-## Горячие клавиши
-
-| Shortcut | Действие |
+| Shortcut | Action |
 | --- | --- |
-| `Ctrl + O` | Добавить файлы |
-| `Ctrl + Shift + O` | Добавить папки |
-| `Ctrl + A` | Выделить строки |
-| `Ctrl + Z` | Откатить последнюю доступную операцию |
-| `Delete` | Убрать выбранное из задачи |
-| `Ctrl + Enter` | Запустить |
-| `F5` | Пересчитать / проверить |
-| `Esc` | Отменить текущую операцию |
+| Ctrl + O | Add files |
+| Ctrl + Shift + O | Add folders |
+| Ctrl + A | Select rows |
+| Ctrl + Z | Undo latest available operation |
+| Delete | Remove selected items from the task |
+| Ctrl + Enter | Start |
+| F5 | Recalculate / check |
+| Esc | Cancel current operation |
 
-## Интерфейс и настройки
+## Languages
 
-EasyRenamer запоминает рабочие настройки интерфейса:
+The application UI supports <strong>English, Русский, Español and 中文</strong>. Translation completeness is covered by tests and language switching does not require a restart.
 
-- тему;
-- сортировку и направление;
-- группировку по папкам;
-- collision policy;
-- положение splitter'ов;
-- ширину, порядок и видимость колонок;
-- пользовательские шаблонные пресеты.
+## Technology
 
-Список файлов предыдущей сессии автоматически не восстанавливается.
+Go 1.23+ · Wails v2 · React · TypeScript · Lucide · MIT License.
 
-## Языки
+No accounts, cloud backend, analytics or mandatory network service.
 
-Интерфейс полностью ведётся через общий i18n-слой:
+## Build from source
 
-- English
-- Русский
-- Español
-- 中文
+Requirements: Go 1.23+, Node.js 20+, Wails v2.15, Windows x64 for the final desktop build.
 
-Полнота таблиц переводов проверяется тестом. Переключение языка применяется без перезапуска приложения.
-
-## Технологии
-
-- **Go 1.23+** — движок, файловые операции, метаданные и backend;
-- **Wails v2** — Windows desktop shell;
-- **React + TypeScript** — интерфейс;
-- **Lucide** — единый набор UI-иконок;
-- **MIT License**.
-
-Никаких аккаунтов, облака, аналитики или обязательного сетевого сервиса.
-
-## Сборка
-
-Требования:
-
-- Go 1.23+;
-- Node.js 20+;
-- Wails v2.15;
-- Windows x64 для финальной desktop-сборки.
-
-```powershell
+<pre>
 git clone https://github.com/Solvo37/easyrenamer.git
 cd easyrenamer
-
 go test ./internal/...
 go install github.com/wailsapp/wails/v2/cmd/wails@v2.15.0
 wails build -clean -platform windows/amd64 -o EasyRenamer.exe
-```
+</pre>
 
-CI выполняет core tests, production Windows build и smoke-test запуска EXE.
+## Downloads
 
-## Структура репозитория
+Current builds: [GitHub Releases](https://github.com/Solvo37/easyrenamer/releases/latest)
 
-```text
-app.go                 Wails backend/API
-main.go                desktop entry point
-folder_picker_windows.go
-frontend/              React + TypeScript UI
-internal/engine/       scan, sorting, tags, preview, validation, rename
-internal/history/      operation journal and Undo
-internal/i18n/         EN / RU / ES / ZH translations
-internal/version/      build version
-docs/                  guide, tags and roadmap
-.github/workflows/     CI and release automation
-```
+- EasyRenamer.exe — portable Windows x64;
+- EasyRenamer-vX.Y.Z-windows-x64.zip — EXE + documentation;
+- SHA256SUMS.txt — checksums.
 
-## Скачать
+## Contributing
 
-Актуальные сборки находятся в [GitHub Releases](https://github.com/Solvo37/easyrenamer/releases/latest):
+Bug reports, ideas and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
-- `EasyRenamer.exe` — portable Windows x64;
-- `EasyRenamer-vX.Y.Z-windows-x64.zip` — EXE + документация;
-- `SHA256SUMS.txt` — контрольные суммы.
-
-## Участие в разработке
-
-Баги, идеи и pull requests приветствуются. Перед изменениями посмотрите [CONTRIBUTING.md](CONTRIBUTING.md).
-
-## Лицензия
+## License
 
 [MIT](LICENSE).

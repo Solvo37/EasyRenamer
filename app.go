@@ -212,7 +212,7 @@ func (a *App) PickFolders() ([]string, error) {
 	return pickFoldersMulti(0, i18n.T("menu.add_folder"))
 }
 
-func (a *App) Preview(sources []string, excludedPaths []string, recursive bool, category string, customExtensions string, methods []engine.RenameMethod, sortBy string, sortDescending bool, sortPerFolder bool, collisionPolicy string) (PreviewResult, error) {
+func (a *App) Preview(sources []string, excludedPaths []string, recursive bool, category string, customExtensions string, methods []engine.RenameMethod, sortBy string, sortDescending bool, sortPerFolder bool, manualOrder []string, collisionPolicy string) (PreviewResult, error) {
 	if len(sources) == 0 {
 		return PreviewResult{}, nil
 	}
@@ -244,6 +244,7 @@ func (a *App) Preview(sources []string, excludedPaths []string, recursive bool, 
 		SortBy:              engine.SortMode(sortBy),
 		SortDescending:      sortDescending,
 		SortPerFolder:       sortPerFolder,
+		ManualOrder:         append([]string(nil), manualOrder...),
 		CollisionPolicy:     engine.CollisionPolicy(collisionPolicy),
 		SkipImageDimensions: true,
 		BatchTime:           time.Now(),

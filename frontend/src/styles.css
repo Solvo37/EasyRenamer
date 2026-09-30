@@ -1682,3 +1682,73 @@ tbody tr.selected {
   opacity: 0.48;
   cursor: default;
 }
+
+
+.template-field {
+  position: relative;
+}
+
+.template-input-wrap {
+  position: relative;
+  min-width: 0;
+}
+
+.template-input-wrap > input {
+  width: 100%;
+}
+
+.tag-autocomplete {
+  position: absolute;
+  z-index: 45;
+  left: 0;
+  right: 0;
+  top: calc(100% + 4px);
+  max-height: 260px;
+  overflow: auto;
+  padding: 5px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+
+.tag-autocomplete button {
+  width: 100%;
+  min-height: 34px;
+  display: grid;
+  grid-template-columns: minmax(130px, auto) minmax(0, 1fr);
+  gap: 9px;
+  align-items: center;
+  padding: 5px 8px;
+  border: 0;
+  border-radius: 5px;
+  text-align: left;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.tag-autocomplete button:hover,
+.tag-autocomplete button.active {
+  background: var(--accent-soft);
+}
+
+.tag-autocomplete code {
+  font-family: "Cascadia Mono", Consolas, monospace;
+  color: #bcd5ff;
+  font-size: 11px;
+}
+
+.tag-autocomplete span {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.tag-grid button.selected {
+  outline: 1px solid var(--accent);
+  background: var(--accent-soft);
+}

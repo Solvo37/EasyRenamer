@@ -1,57 +1,42 @@
 # Contributing to EasyRenamer
 
-Спасибо за интерес к EasyRenamer. Баг-репорты, идеи и pull requests приветствуются.
+<p align="center"><strong>English</strong> · <a href="CONTRIBUTING.ru.md">Русский</a> · <a href="CONTRIBUTING.es.md">Español</a> · <a href="CONTRIBUTING.zh-CN.md">中文</a></p>
 
-## Перед началом
+Bug reports, ideas and pull requests are welcome.
 
-1. Проверьте существующие Issues и Pull Requests.
-2. Для заметной новой функции лучше сначала описать сценарий использования в Issue.
-3. Не добавляйте телеметрию, рекламу, аккаунты или обязательные сетевые зависимости.
+## Before you start
 
-## Локальная разработка
+1. Check existing Issues and Pull Requests.
+2. For a substantial feature, describe the real workflow first.
+3. Do not add telemetry, advertising, accounts or mandatory network dependencies.
 
-Требования:
+## Local development
 
-- Go 1.23+;
-- Node.js 20+;
-- Wails v2.15;
-- Windows для production desktop build.
-
-Базовая проверка движка:
+Requirements: Go 1.23+, Node.js 20+, Wails v2.15, and Windows for the final desktop build.
 
 ```powershell
 go test ./internal/...
-```
 
-Frontend:
-
-```powershell
 cd frontend
 npm install
 npm run build
-```
 
-Production desktop build:
-
-```powershell
 go install github.com/wailsapp/wails/v2/cmd/wails@v2.15.0
 wails build -clean -platform windows/amd64 -o EasyRenamer.exe
 ```
 
-## Pull Request checklist
+## Pull request checklist
 
-Перед PR:
+- code is formatted;
+- `go test ./internal/...` passes;
+- TypeScript build passes;
+- new UI strings exist in EN / RU / ES / ZH;
+- file operations still go through preview and validation;
+- destructive overwrite is not enabled without safe rollback;
+- user-facing workflow changes update the relevant README/LEARN documentation;
+- generated binaries and build output are not committed.
 
-- код форматирован;
-- `go test ./internal/...` проходит;
-- TypeScript build проходит;
-- новые UI-строки добавлены во **все четыре** таблицы переводов;
-- массовые файловые операции не обходят preview/validation;
-- destructive overwrite не включается без безопасного rollback;
-- README/LEARN обновлены, если меняется пользовательский workflow;
-- бинарники и generated build output не коммитятся.
-
-## Архитектура
+## Architecture
 
 ```text
 app.go                 Wails backend/API
@@ -62,16 +47,16 @@ internal/i18n/         translations
 docs/                  user documentation
 ```
 
-UI не должен дублировать критическую rename-логику: порядок обработки, validation и фактические файловые операции должны оставаться в Go-движке.
+The UI must not duplicate critical rename logic. Processing order, validation and filesystem mutations belong in the Go engine.
 
-## Стиль изменений
+## Change style
 
-Предпочтительны небольшие, понятные commits. Не смешивайте крупный feature, массовое форматирование и несвязанный cleanup без необходимости.
+Prefer small, understandable commits. Avoid mixing a major feature, mass formatting and unrelated cleanup.
 
 ## Security
 
-Если проблема может привести к потере или перезаписи пользовательских файлов, не публикуйте опасный proof-of-concept с реальными данными. Опишите сценарий достаточно подробно для воспроизведения на временных тестовых файлах.
+If a problem could overwrite, lose or corrupt user files, reproduce it with disposable test files and do not publish private data.
 
 ## License
 
-Отправляя изменения, вы соглашаетесь на их публикацию по лицензии [MIT](LICENSE).
+By contributing, you agree that your changes are distributed under the [MIT License](LICENSE).

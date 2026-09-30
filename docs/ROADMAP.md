@@ -1,84 +1,84 @@
 # EasyRenamer Roadmap
 
-Roadmap отражает текущее состояние проекта после **v1.0.0**. Даты намеренно не фиксируются: приоритет — стабильность и качество, а не обещания по календарю.
+<p align="center"><strong>English</strong> · <a href="ROADMAP.ru.md">Русский</a> · <a href="ROADMAP.es.md">Español</a> · <a href="ROADMAP.zh-CN.md">中文</a></p>
+
+This roadmap reflects the project after **v1.0.x**. Dates are intentionally not promised; stability and file safety come before calendar targets.
 
 ## ✅ v1.0 — shipped
 
-Базовый desktop workflow считается готовым:
+The core desktop workflow is complete:
 
 - Wails + React production UI;
-- несколько папок за одну операцию;
-- drag & drop файлов и папок;
-- группировка файлов по директориям;
-- natural sorting и явный порядок обработки;
-- отдельная нумерация внутри папки;
-- цепочка методов;
-- автоматический preview;
-- проверка конфликтов и Windows-ограничений;
-- безопасный двухэтапный rename;
+- multiple folders in one task;
+- file/folder drag & drop;
+- folder grouping;
+- natural sorting and explicit processing order;
+- per-folder numbering;
+- method chains;
+- automatic preview;
+- conflict and Windows filename validation;
+- safe two-phase rename;
 - progress + cancel;
-- Undo;
-- история последних операций;
-- поиск по загруженным файлам;
-- autocomplete тегов;
-- контекстные меню;
-- горячие клавиши;
-- настраиваемые колонки;
-- пользовательские пресеты;
-- виртуализация таблицы;
-- EN / RU / ES / ZH.
+- Undo and recent history;
+- file search;
+- tag autocomplete;
+- context menus and shortcuts;
+- configurable columns;
+- user presets;
+- table virtualization;
+- EN / RU / ES / ZH UI.
 
-## v1.1 — polish & reliability
+## v1.1 — reliability and parity
 
-Приоритет после 1.0:
+High-value next work:
 
-- экспорт / импорт пользовательских пресетов;
-- сохранение полного профиля операции;
-- более подробный итог batch: успешно / пропущено / ошибки;
-- улучшенная диагностика ошибок доступа и блокировок;
-- локализация оставшихся динамических ошибок движка;
-- тесты на большие наборы файлов и дополнительные edge cases;
-- восстановление полной геометрии окна между запусками;
-- дальнейшая клавиатурная доступность и focus states;
-- релизная иконка Windows / version resources.
+- true filesystem Timestamp method (Created / Modified / Accessed);
+- method conditions;
+- richer Apply To support for name / extension / both;
+- tags in all compatible method fields;
+- stronger Renumber for existing numbers;
+- richer Remove and Change Case modes;
+- list import/export and per-item filename override;
+- mark/unmark/remove by condition;
+- CSV data import and CSV tags;
+- folder rename mode;
+- safe Copy / Move batch modes;
+- file-pair workflows;
+- operation-result summary;
+- full window geometry persistence;
+- accessibility and focus polish.
 
 ## v1.2 — power features
 
-- дополнительные правила сортировки;
-- расширенные операции с расширением файла;
-- новые rename methods без перестройки главного окна;
-- импорт внешних metadata/CSV-полей;
-- более сложные metadata transformations;
-- расширение Script expression;
-- профили для повторяемых рабочих сценариев.
+- metadata details panel, tag discovery and favorite tags;
+- thumbnail grid mode;
+- broader native metadata readers;
+- optional ExifTool integration;
+- richer Script runtime;
+- CLI automation;
+- export list to text / CSV / JSON / HTML;
+- advanced collision rules (character, subsecond, tag pattern, replacement pattern);
+- remember last/default configuration per method type;
+- operation profiles and preset import/export;
+- additional sort/filter rules.
 
 ## Later
 
-Идеи, которые полезны, но не должны усложнять базовый сценарий:
-
-- переименование папок;
-- CLI для автоматизации;
-- file-pair workflows (например RAW + JPEG);
-- дополнительные metadata readers;
-- подписывание Windows-бинарников при появлении подходящей инфраструктуры.
+- metadata writer;
+- GPS reverse geocoding as an optional network feature;
+- signed Windows binaries when infrastructure is available;
+- macOS support if it can be maintained without hurting the Windows workflow.
 
 ## Non-goals
 
-EasyRenamer не планируется превращать в:
+EasyRenamer is not intended to become a file manager, cloud service, account-based product, subscription product, advertising platform, or telemetry-heavy application.
 
-- файловый менеджер;
-- облачный сервис;
-- приложение с аккаунтами;
-- продукт с подпиской;
-- рекламную платформу;
-- инструмент со скрытой телеметрией.
-
-Главный сценарий остаётся коротким:
+Core workflow:
 
 ```text
-Добавить файлы / папки
-→ настроить методы
-→ проверить итоговые имена
-→ запустить
-→ при необходимости откатить
+Add files / folders
+→ configure methods
+→ verify output
+→ run
+→ undo if needed
 ```

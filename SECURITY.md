@@ -1,5 +1,7 @@
 # Security
 
+<p align="center"><strong>English</strong> · <a href="SECURITY.ru.md">Русский</a> · <a href="SECURITY.es.md">Español</a> · <a href="SECURITY.zh-CN.md">中文</a></p>
+
 EasyRenamer performs destructive filesystem operations by design, so file-safety bugs are treated seriously.
 
 ## Reporting

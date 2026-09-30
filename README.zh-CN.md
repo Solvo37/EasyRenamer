@@ -14,9 +14,9 @@
 
 <p align="center">
   <a href="https://github.com/Solvo37/easyrenamer/releases/latest/download/EasyRenamer.exe"><strong>下载 EasyRenamer.exe</strong></a>
-  · <a href="docs/LEARN.md">使用指南</a>
-  · <a href="docs/TAGS.md">标签参考</a>
-  · <a href="docs/ROADMAP.md">Roadmap</a>
+  · <a href="docs/LEARN.zh-CN.md">使用指南</a>
+  · <a href="docs/TAGS.zh-CN.md">标签参考</a>
+  · <a href="docs/ROADMAP.zh-CN.md">Roadmap</a>
 </p>
 
 ---
@@ -72,7 +72,7 @@ EasyRenamer 支持方法链：
 - <strong>List / List Replace</strong> — 按行指定名称或规则；
 - <strong>Script</strong> — 安全表达式，不直接访问网络或文件系统。
 
-详细说明：[docs/LEARN.md](docs/LEARN.md)。
+详细说明：[docs/LEARN.zh-CN.md](docs/LEARN.zh-CN.md)。
 
 ## 标签与元数据
 
@@ -92,7 +92,7 @@ EasyRenamer 支持方法链：
 &lt;MD5&gt;
 </pre>
 
-标签支持 fallback 链和 modifiers。完整参考：[docs/TAGS.md](docs/TAGS.md)。
+标签支持 fallback 链和 modifiers。完整参考：[docs/TAGS.zh-CN.md](docs/TAGS.zh-CN.md)。
 
 ## 安全性
 
@@ -147,7 +147,7 @@ wails build -clean -platform windows/amd64 -o EasyRenamer.exe
 
 ## 参与贡献
 
-欢迎提交 bug、想法和 pull request。请阅读 [CONTRIBUTING.md](CONTRIBUTING.md)。
+欢迎提交 bug、想法和 pull request。请阅读 [CONTRIBUTING.zh-CN.md](CONTRIBUTING.zh-CN.md)。
 
 ## 许可证
 

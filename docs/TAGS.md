@@ -1,5 +1,7 @@
 # EasyRenamer Tags
 
+<p align="center"><strong>English</strong> · <a href="TAGS.ru.md">Русский</a> · <a href="TAGS.es.md">Español</a> · <a href="TAGS.zh-CN.md">中文</a></p>
+
 EasyRenamer supports a large Advanced Renamer-style tag vocabulary while keeping the program portable and self-contained.
 
 Tags are case-insensitive and are written inside angle brackets:

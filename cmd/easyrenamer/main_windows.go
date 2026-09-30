@@ -50,16 +50,8 @@ func (m *previewModel) Value(row, col int) interface{} {
 	case 4:
 		return formatBytes(it.Size)
 	case 5:
-		if it.Width > 0 {
-			return it.Width
-		}
-		return ""
+		return fileTypeLabel(it.OldName)
 	case 6:
-		if it.Height > 0 {
-			return it.Height
-		}
-		return ""
-	case 7:
 		status := localizedItemStatus(it.Status)
 		if it.Error != "" {
 			return status + ": " + localizedItemError(it.Error)
@@ -111,7 +103,16 @@ func (m *methodModel) Value(row, col int) interface{} {
 		return ""
 	}
 	method := (*m.methods)[row]
-	return fmt.Sprintf("%d. %s", row+1, methodTitle(method.Type))
+	switch col {
+	case 0:
+		return fmt.Sprintf("%d. %s", row+1, methodTitle(method.Type))
+	case 1:
+		return methodDescription(method.Type)
+	case 2:
+		return "›"
+	default:
+		return ""
+	}
 }
 
 func (m *methodModel) Checked(row int) bool {
@@ -196,6 +197,49 @@ func methodTitle(method engine.Method) string {
 	default:
 		return i18n.T("column.method")
 	}
+}
+
+func methodDescription(method engine.Method) string {
+	switch method {
+	case engine.MethodTemplate:
+		return i18n.T("method.desc.template")
+	case engine.MethodList:
+		return i18n.T("method.desc.list")
+	case engine.MethodListReplace:
+		return i18n.T("method.desc.list_replace")
+	case engine.MethodCase:
+		return i18n.T("method.desc.case")
+	case engine.MethodMove:
+		return i18n.T("method.desc.move")
+	case engine.MethodRemove:
+		return i18n.T("method.desc.remove")
+	case engine.MethodRemovePattern:
+		return i18n.T("method.desc.remove_pattern")
+	case engine.MethodRenumber:
+		return i18n.T("method.desc.renumber")
+	case engine.MethodReplace:
+		return i18n.T("method.desc.replace")
+	case engine.MethodPrefixSuffix:
+		return i18n.T("method.desc.add_text")
+	case engine.MethodScript:
+		return i18n.T("method.desc.script")
+	case engine.MethodSwap:
+		return i18n.T("method.desc.swap")
+	case engine.MethodTrim:
+		return i18n.T("method.desc.trim")
+	case engine.MethodTimestamp:
+		return i18n.T("method.desc.timestamp")
+	default:
+		return ""
+	}
+}
+
+func fileTypeLabel(name string) string {
+	ext := strings.TrimPrefix(strings.ToUpper(filepath.Ext(name)), ".")
+	if ext == "" {
+		return "FILE"
+	}
+	return ext
 }
 
 func categoryTitle(category engine.Category) string {
@@ -465,7 +509,8 @@ func runMainWindow(state *uiState) uiRunResult {
 	var methodTable, table *walk.TableView
 	var editorPanels [14]*walk.Composite
 	var methodSettingsTitleLbl *walk.Label
-	var sourceCountLbl, statusLbl, collisionLbl, dropHintLbl *walk.Label
+	var sourceCountLbl, statusLbl, collisionLbl, dropHintLbl, filesTitleLbl, readyLbl *walk.Label
+	var selectedTypeLbl, selectedFileNameLbl, selectedMetaLbl, selectedPathLbl, selectedOldNameLbl, selectedNewNameLbl *walk.Label
 	var previewPB, undoPB *walk.ToolButton
 	var renamePB *walk.PushButton
 
@@ -516,9 +561,6 @@ func runMainWindow(state *uiState) uiRunResult {
 	}
 
 	updateStatus := func() {
-		if statusLbl == nil {
-			return
-		}
 		checked, ok, problems := 0, 0, 0
 		for _, it := range model.items {
 			if it.Status == engine.StatusOK {
@@ -531,7 +573,12 @@ func runMainWindow(state *uiState) uiRunResult {
 				checked++
 			}
 		}
-		statusLbl.SetText(fmt.Sprintf(i18n.T("status.summary"), len(model.items), ok, checked, problems))
+		if statusLbl != nil {
+			statusLbl.SetText(fmt.Sprintf(i18n.T("status.summary"), len(model.items), ok, checked, problems))
+		}
+		if filesTitleLbl != nil {
+			filesTitleLbl.SetText(fmt.Sprintf(i18n.T("files.title_count"), len(model.items)))
+		}
 		if collisionLbl != nil {
 			if problems > 0 {
 				collisionLbl.SetText(i18n.T("status.errors"))
@@ -539,6 +586,13 @@ func runMainWindow(state *uiState) uiRunResult {
 				collisionLbl.SetText(i18n.T("status.ok"))
 			} else {
 				collisionLbl.SetText(i18n.T("status.waiting"))
+			}
+		}
+		if readyLbl != nil {
+			if problems > 0 {
+				readyLbl.SetText("●  " + i18n.T("status.errors"))
+			} else {
+				readyLbl.SetText("●  " + i18n.T("status.ready"))
 			}
 		}
 		if renamePB != nil {
@@ -553,6 +607,59 @@ func runMainWindow(state *uiState) uiRunResult {
 		}
 		if dropHintLbl != nil {
 			dropHintLbl.SetVisible(len(sources) == 0)
+		}
+	}
+
+	updateSelectedPreview := func() {
+		index := -1
+		if table != nil {
+			index = table.CurrentIndex()
+		}
+		if index < 0 || index >= len(model.items) {
+			if selectedTypeLbl != nil {
+				selectedTypeLbl.SetText("—")
+			}
+			if selectedFileNameLbl != nil {
+				selectedFileNameLbl.SetText(i18n.T("preview.no_selection"))
+			}
+			if selectedMetaLbl != nil {
+				selectedMetaLbl.SetText("")
+			}
+			if selectedPathLbl != nil {
+				selectedPathLbl.SetText("")
+			}
+			if selectedOldNameLbl != nil {
+				selectedOldNameLbl.SetText("—")
+			}
+			if selectedNewNameLbl != nil {
+				selectedNewNameLbl.SetText("—")
+			}
+			return
+		}
+
+		it := model.items[index]
+		fileType := fileTypeLabel(it.OldName)
+		meta := []string{formatBytes(it.Size), fileType}
+		if it.Width > 0 && it.Height > 0 {
+			meta = append([]string{fmt.Sprintf("%d × %d", it.Width, it.Height)}, meta...)
+		}
+		if selectedTypeLbl != nil {
+			selectedTypeLbl.SetText(fileType)
+		}
+		if selectedFileNameLbl != nil {
+			selectedFileNameLbl.SetText(it.OldName)
+		}
+		if selectedMetaLbl != nil {
+			selectedMetaLbl.SetText(strings.Join(meta, "   •   "))
+		}
+		if selectedPathLbl != nil {
+			selectedPathLbl.SetText(filepath.Dir(it.SourcePath))
+		}
+		if selectedOldNameLbl != nil {
+			selectedOldNameLbl.SetText(it.OldName)
+		}
+		if selectedNewNameLbl != nil {
+			selectedNewNameLbl.SetText(it.NewName)
 		}
 	}
 
@@ -1020,8 +1127,12 @@ func runMainWindow(state *uiState) uiRunResult {
 
 				model.SetItems(items)
 				if table != nil {
+					if len(items) > 0 {
+						_ = table.SetCurrentIndex(0)
+					}
 					_ = table.Invalidate()
 				}
+				updateSelectedPreview()
 				if len(items) == 0 {
 					showAppInfo(mw, darkTheme, "EasyRenamer", i18n.T("dialog.no_match"))
 				}
@@ -1178,6 +1289,7 @@ func runMainWindow(state *uiState) uiRunResult {
 		sources = nil
 		model.SetItems(nil)
 		refreshSourceCount()
+		updateSelectedPreview()
 		if statusLbl != nil {
 			statusLbl.SetText(fmt.Sprintf(i18n.T("status.summary"), 0, 0, 0, 0))
 		}
@@ -1415,16 +1527,26 @@ func runMainWindow(state *uiState) uiRunResult {
 		},
 		Children: []Widget{
 			Composite{Background: uiWindowBrush(darkTheme),
-				Layout: HBox{Spacing: 6, Margins: Margins{Left: 6, Top: 5, Right: 6, Bottom: 5}},
+				Layout: HBox{Spacing: 10, Margins: Margins{Left: 6, Top: 2, Right: 6, Bottom: 2}},
 				Children: []Widget{
-					ToolButton{Background: uiPanelBrush(darkTheme), Text: i18n.T("button.files"), MinSize: Size{88, 30}, OnClicked: addFiles},
-					ToolButton{Background: uiPanelBrush(darkTheme), Text: i18n.T("button.folders"), MinSize: Size{88, 30}, OnClicked: addFolder},
-					ToolButton{Background: uiPanelBrush(darkTheme), Text: i18n.T("button.clear"), MinSize: Size{78, 30}, OnClicked: clearSources},
-					ToolButton{Background: uiPanelBrush(darkTheme), AssignTo: &previewPB, Text: i18n.T("button.preview"), MinSize: Size{104, 30}, OnClicked: preview},
-					ToolButton{Background: uiPanelBrush(darkTheme), AssignTo: &undoPB, Text: i18n.T("button.undo"), MinSize: Size{88, 30}, OnClicked: undo},
+					Label{Text: "ER", Font: Font{PointSize: 11, Bold: true}, TextColor: walk.RGB(255, 255, 255), Background: uiAccentBrush(darkTheme), TextAlignment: AlignCenter, MinSize: Size{38, 32}},
+					Label{Text: "EasyRenamer " + version.Version, Font: Font{PointSize: 11, Bold: true}, TextColor: uiTextColor(darkTheme), Background: uiWindowBrush(darkTheme)},
+					Label{Text: i18n.T("app.subtitle"), TextColor: uiMutedTextColor(darkTheme), Background: uiWindowBrush(darkTheme)},
+					HSpacer{},
+					Label{Text: i18n.T("app.tagline"), TextColor: uiMutedTextColor(darkTheme), Background: uiWindowBrush(darkTheme)},
+				},
+			},
+			Composite{Background: uiWindowBrush(darkTheme),
+				Layout: HBox{Spacing: 8, Margins: Margins{Left: 6, Top: 5, Right: 6, Bottom: 5}},
+				Children: []Widget{
+					PushButton{Background: uiAccentBrush(darkTheme), Text: "＋  " + i18n.T("button.files"), Font: Font{PointSize: 10, Bold: true}, MinSize: Size{145, 38}, OnClicked: addFiles},
+					PushButton{Background: uiCardBrush(darkTheme), Text: "＋  " + i18n.T("button.folders"), MinSize: Size{135, 38}, OnClicked: addFolder},
+					PushButton{Background: uiCardBrush(darkTheme), Text: i18n.T("button.clear"), MinSize: Size{105, 38}, OnClicked: clearSources},
+					ToolButton{Background: uiCardBrush(darkTheme), AssignTo: &previewPB, Text: i18n.T("button.preview"), MinSize: Size{130, 38}, OnClicked: preview},
+					ToolButton{Background: uiCardBrush(darkTheme), AssignTo: &undoPB, Text: i18n.T("button.undo"), MinSize: Size{100, 38}, OnClicked: undo},
 					HSpacer{},
 					Label{TextColor: uiMutedTextColor(darkTheme), Background: uiWindowBrush(darkTheme), AssignTo: &sourceCountLbl, Text: fmt.Sprintf(i18n.T("sources.count"), 0)},
-					PushButton{Background: uiPanelBrush(darkTheme), AssignTo: &renamePB, Text: i18n.T("button.start"), Font: Font{PointSize: 10, Bold: true}, Enabled: false, MinSize: Size{150, 34}, OnClicked: rename},
+					PushButton{Background: uiAccentBrush(darkTheme), AssignTo: &renamePB, Text: "▶  " + i18n.T("button.start"), Font: Font{PointSize: 10, Bold: true}, Enabled: false, MinSize: Size{150, 40}, OnClicked: rename},
 					ComboBox{
 						AssignTo: &languageCB, Background: uiFieldBrush(darkTheme), Model: languageNames, CurrentIndex: languageIndex, MinSize: Size{105, 30},
 						OnMouseDown: func(x, y int, button walk.MouseButton) { scheduleFloatingTheme(mw, darkTheme) },
@@ -1452,8 +1574,8 @@ func runMainWindow(state *uiState) uiRunResult {
 					ToolButton{Background: uiPanelBrush(darkTheme), Text: i18n.T("button.help"), MinSize: Size{78, 30}, OnClicked: func() { showHelpDialog(mw, darkTheme, 0) }},
 				},
 			},
-			Composite{Background: uiPanelBrush(darkTheme),
-				Layout: HBox{Spacing: 6},
+			Composite{Background: uiCardBrush(darkTheme),
+				Layout: HBox{Spacing: 8, Margins: Margins{Left: 8, Top: 6, Right: 8, Bottom: 6}},
 				Children: []Widget{
 					Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("filter.label")},
 					ComboBox{Background: uiFieldBrush(darkTheme),OnMouseDown: func(x, y int, button walk.MouseButton) { scheduleFloatingTheme(mw, darkTheme) },AssignTo: &categoryCB, Model: categoryNames, CurrentIndex: state.CategoryIndex, MinSize: Size{130, 0}, OnCurrentIndexChanged: func() {
@@ -1477,16 +1599,16 @@ func runMainWindow(state *uiState) uiRunResult {
 				},
 			},
 			HSplitter{
-				HandleWidth: 7,
+				HandleWidth: 6,
 				Children: []Widget{
 					ScrollView{
 						Background:      uiPanelBrush(darkTheme),
-						MinSize:         Size{390, 0},
+						MinSize:         Size{430, 0},
 						HorizontalFixed: true,
 						Layout:          VBox{Spacing: 6},
 						Children: []Widget{
-							Composite{Background: uiPanelBrush(darkTheme),
-								Layout: VBox{Spacing: 6, Margins: Margins{Left: 4, Top: 4, Right: 4, Bottom: 4}},
+							Composite{Background: uiCardBrush(darkTheme),
+								Layout: VBox{Spacing: 8, Margins: Margins{Left: 8, Top: 8, Right: 8, Bottom: 8}},
 								Children: []Widget{
 									Label{
 										Text:       i18n.T("group.methods"),
@@ -1499,18 +1621,25 @@ func runMainWindow(state *uiState) uiRunResult {
 										Model:                       methodsModel,
 										CheckBoxes:                  true,
 										HeaderHidden:                true,
-										LastColumnStretched:         true,
+										LastColumnStretched:         false,
 										MultiSelection:              false,
+										ColumnsSizable:               false,
 										NotSortableByHeaderClick:    true,
 										SelectionHiddenWithoutFocus: false,
-										CustomRowHeight:              32,
-										MinSize:                      Size{360, 120},
+										CustomRowHeight:              42,
+										MinSize:                      Size{400, 185},
 										Columns: []TableViewColumn{
-											{Title: i18n.T("column.method"), Width: 235},
+											{Title: i18n.T("column.method"), Width: 135},
+											{Title: "", Width: 235},
+											{Title: "", Width: 22},
 										},
 										StyleCell: func(style *walk.CellStyle) {
 											style.BackgroundColor = uiTableAltColor(darkTheme, style.Row()%2 == 1)
-											style.TextColor = uiTextColor(darkTheme)
+											if style.Col() == 1 || style.Col() == 2 {
+												style.TextColor = uiMutedTextColor(darkTheme)
+											} else {
+												style.TextColor = uiTextColor(darkTheme)
+											}
 										},
 										OnCurrentIndexChanged: func() {
 											if updatingMethodUI || methodTable == nil {
@@ -1554,8 +1683,8 @@ func runMainWindow(state *uiState) uiRunResult {
 									},
 								},
 							},
-Composite{Background: uiPanelBrush(darkTheme),
-								Layout: VBox{Spacing: 6, Margins: Margins{Left: 4, Top: 4, Right: 4, Bottom: 4}},
+Composite{Background: uiCardBrush(darkTheme),
+								Layout: VBox{Spacing: 8, Margins: Margins{Left: 8, Top: 8, Right: 8, Bottom: 8}},
 								Children: []Widget{
 									Label{
 										AssignTo:    &methodSettingsTitleLbl,
@@ -1589,12 +1718,6 @@ Composite{Background: uiPanelBrush(darkTheme),
 													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.new_name")},
 													LineEdit{TextColor: uiTextColor(darkTheme), Background: uiFieldBrush(darkTheme),AssignTo: &templateLE, Text: methods[0].Template, ColumnSpan: 4, OnTextChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }, OnEditingFinished: maybePreview},
 													tagBrowser,
-													PushButton{
-														Background: uiPanelBrush(darkTheme),
-														Text: i18n.T("menu.tags"),
-														ColumnSpan: 5,
-														OnClicked: func() { showHelpDialog(mw, darkTheme, 1) },
-													},
 												},
 											},
 											Composite{
@@ -1852,8 +1975,8 @@ Composite{Background: uiPanelBrush(darkTheme),
 									},
 								},
 							},
-							Composite{Background: uiPanelBrush(darkTheme),
-								Layout: VBox{Spacing: 6, Margins: Margins{Left: 4, Top: 4, Right: 4, Bottom: 4}},
+							Composite{Background: uiCardBrush(darkTheme),
+								Layout: VBox{Spacing: 8, Margins: Margins{Left: 8, Top: 8, Right: 8, Bottom: 8}},
 								Children: []Widget{
 									Label{
 										Text:       i18n.T("group.add_method"),
@@ -1893,18 +2016,17 @@ Composite{Background: uiPanelBrush(darkTheme),
 									},
 								},
 							},
-							Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("tip.methods")},
-							VSpacer{},
 						},
 					},
-					Composite{Background: uiPanelBrush(darkTheme),
-						Layout: VBox{Spacing: 6},
+					Composite{Background: uiCardBrush(darkTheme),
+						Layout: VBox{Spacing: 8, Margins: Margins{Left: 8, Top: 8, Right: 8, Bottom: 8}},
 						Children: []Widget{
 							Label{
-								Text:       i18n.T("group.files"),
-								Font:       Font{PointSize: 10, Bold: true},
+								AssignTo:   &filesTitleLbl,
+								Text:       fmt.Sprintf(i18n.T("files.title_count"), 0),
+								Font:       Font{PointSize: 12, Bold: true},
 								TextColor:  uiTextColor(darkTheme),
-								Background: uiPanelBrush(darkTheme),
+								Background: uiCardBrush(darkTheme),
 							},
 							Label{
 								AssignTo:      &dropHintLbl,
@@ -1920,20 +2042,20 @@ Composite{Background: uiPanelBrush(darkTheme),
 								CheckBoxes:                   true,
 								MultiSelection:               true,
 								SelectionHiddenWithoutFocus:  false,
-								CustomRowHeight:              28,
+								CustomRowHeight:              34,
 								NotSortableByHeaderClick:     true,
 								ColumnsSizable:               true,
 								LastColumnStretched:          true,
 								OnItemActivated:              openSelectedFile,
+								OnCurrentIndexChanged:        updateSelectedPreview,
 								Columns: []TableViewColumn{
-									{Title: i18n.T("column.index"), Width: 55},
-									{Title: i18n.T("column.filename"), Width: 235},
-									{Title: i18n.T("column.new_filename"), Width: 300},
-									{Title: i18n.T("column.path"), Width: 300},
-									{Title: i18n.T("column.size"), Width: 80},
-									{Title: i18n.T("column.width"), Width: 65},
-									{Title: i18n.T("column.height"), Width: 65},
-									{Title: i18n.T("column.status"), Width: 220},
+									{Title: i18n.T("column.index"), Width: 52},
+									{Title: i18n.T("column.filename"), Width: 220},
+									{Title: i18n.T("column.new_filename"), Width: 250},
+									{Title: i18n.T("column.path"), Width: 270},
+									{Title: i18n.T("column.size"), Width: 90},
+									{Title: i18n.T("column.type"), Width: 75},
+									{Title: i18n.T("column.status"), Width: 150},
 								},
 								Model: model,
 								StyleCell: func(style *walk.CellStyle) {
@@ -1943,40 +2065,90 @@ Composite{Background: uiPanelBrush(darkTheme),
 									style.BackgroundColor = uiTableAltColor(darkTheme, style.Row()%2 == 1)
 									style.TextColor = uiTextColor(darkTheme)
 									it := model.items[style.Row()]
-									switch it.Status {
-									case engine.StatusConflict, engine.StatusInvalid:
-										style.TextColor = uiDangerTextColor(darkTheme)
-									case engine.StatusUnchanged:
-										style.TextColor = uiUnchangedTextColor(darkTheme)
+									if style.Col() == 1 {
+										style.Image = it.SourcePath
+									}
+									if style.Col() == 6 {
+										switch it.Status {
+										case engine.StatusOK:
+											style.TextColor = uiSuccessTextColor(darkTheme)
+										case engine.StatusConflict, engine.StatusInvalid:
+											style.TextColor = uiDangerTextColor(darkTheme)
+										case engine.StatusUnchanged:
+											style.TextColor = uiUnchangedTextColor(darkTheme)
+										}
 									}
 								},
 							},
 							Composite{Background: uiPanelBrush(darkTheme),
+								MinSize: Size{0, 112},
+								Layout: HBox{Spacing: 12, Margins: Margins{Left: 10, Top: 10, Right: 10, Bottom: 10}},
+								Children: []Widget{
+									Label{
+										AssignTo:      &selectedTypeLbl,
+										Text:          "—",
+										Font:          Font{PointSize: 14, Bold: true},
+										MinSize:       Size{72, 64},
+										TextColor:     walk.RGB(255, 255, 255),
+										Background:    uiAccentBrush(darkTheme),
+										TextAlignment: AlignCenter,
+									},
+									Composite{Background: uiPanelBrush(darkTheme),
+										MinSize: Size{260, 0},
+										Layout: VBox{Spacing: 4},
+										Children: []Widget{
+											Label{AssignTo: &selectedFileNameLbl, Text: i18n.T("preview.no_selection"), Font: Font{PointSize: 10, Bold: true}, TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme)},
+											Label{AssignTo: &selectedMetaLbl, Text: "", TextColor: uiMutedTextColor(darkTheme), Background: uiPanelBrush(darkTheme)},
+											Label{AssignTo: &selectedPathLbl, Text: "", TextColor: uiMutedTextColor(darkTheme), Background: uiPanelBrush(darkTheme)},
+										},
+									},
+									HSpacer{},
+									Composite{Background: uiFieldBrush(darkTheme),
+										MinSize: Size{430, 82},
+										Layout: Grid{Columns: 3, Spacing: 10, Margins: Margins{Left: 12, Top: 10, Right: 12, Bottom: 10}},
+										Children: []Widget{
+											Label{Text: i18n.T("preview.original"), TextColor: uiMutedTextColor(darkTheme), Background: uiFieldBrush(darkTheme)},
+											Label{Text: "", Background: uiFieldBrush(darkTheme)},
+											Label{Text: i18n.T("preview.new"), TextColor: uiMutedTextColor(darkTheme), Background: uiFieldBrush(darkTheme)},
+											Label{AssignTo: &selectedOldNameLbl, Text: "—", TextColor: uiTextColor(darkTheme), Background: uiFieldBrush(darkTheme)},
+											Label{Text: "→", Font: Font{PointSize: 12, Bold: true}, TextColor: uiMutedTextColor(darkTheme), Background: uiFieldBrush(darkTheme), TextAlignment: AlignCenter},
+											Label{AssignTo: &selectedNewNameLbl, Text: "—", Font: Font{Bold: true}, TextColor: uiTextColor(darkTheme), Background: uiFieldBrush(darkTheme)},
+										},
+									},
+								},
+							},
+							Composite{Background: uiCardBrush(darkTheme),
 								Layout: HBox{Spacing: 6},
 								Children: []Widget{
-									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("button.select_valid"), OnClicked: func() {
+									ToolButton{Background: uiPanelBrush(darkTheme), Text: i18n.T("button.select_valid"), OnClicked: func() {
 										for _, it := range model.items {
 											it.Checked = it.Status == engine.StatusOK
 										}
 										model.PublishRowsReset()
 										updateStatus()
 									}},
-									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("button.clear_selection"), OnClicked: func() {
+									ToolButton{Background: uiPanelBrush(darkTheme), Text: i18n.T("button.clear_selection"), OnClicked: func() {
 										for _, it := range model.items {
 											it.Checked = false
 										}
 										model.PublishRowsReset()
 										updateStatus()
 									}},
-									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("button.open_selected"), OnClicked: openSelectedFile},
+									ToolButton{Background: uiPanelBrush(darkTheme), Text: i18n.T("button.open_selected"), OnClicked: openSelectedFile},
 									HSpacer{},
-									Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),AssignTo: &collisionLbl, Text: i18n.T("status.waiting")},
-									Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: "   "},
-									Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),AssignTo: &statusLbl, Text: fmt.Sprintf(i18n.T("status.summary"), 0, 0, 0, 0)},
 								},
 							},
 						},
 					},
+				},
+			},
+			Composite{Background: uiWindowBrush(darkTheme),
+				Layout: HBox{Spacing: 12, Margins: Margins{Left: 8, Top: 5, Right: 8, Bottom: 3}},
+				Children: []Widget{
+					Label{AssignTo: &readyLbl, Text: "●  " + i18n.T("status.ready"), TextColor: uiSuccessTextColor(darkTheme), Background: uiWindowBrush(darkTheme)},
+					HSpacer{},
+					Label{AssignTo: &collisionLbl, Text: i18n.T("status.waiting"), TextColor: uiMutedTextColor(darkTheme), Background: uiWindowBrush(darkTheme)},
+					Label{AssignTo: &statusLbl, Text: fmt.Sprintf(i18n.T("status.summary"), 0, 0, 0, 0), TextColor: uiMutedTextColor(darkTheme), Background: uiWindowBrush(darkTheme)},
 				},
 			},
 		},

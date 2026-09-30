@@ -3,6 +3,8 @@
 package main
 
 import (
+	"strings"
+
 	"github.com/lxn/walk"
 	"github.com/lxn/walk/declarative"
 
@@ -191,7 +193,29 @@ func buildTagBrowser(dark bool, insert func(string), owner func() walk.Form) dec
 
 	model := &tagListModel{items: initialItems}
 	var categoryCB *walk.ComboBox
+	var searchLE *walk.LineEdit
 	var table *walk.TableView
+	currentCategory := 0
+
+	filterItems := func() {
+		items := tagCatalog[currentCategory].Items
+		query := ""
+		if searchLE != nil {
+			query = strings.ToLower(strings.TrimSpace(searchLE.Text()))
+		}
+		if query == "" {
+			model.SetItems(items)
+			return
+		}
+		filtered := make([]tagItem, 0, len(items))
+		for _, item := range items {
+			if strings.Contains(strings.ToLower(item.Token), query) ||
+				strings.Contains(strings.ToLower(i18n.T(item.LabelKey)), query) {
+				filtered = append(filtered, item)
+			}
+		}
+		model.SetItems(filtered)
+	}
 
 	hint := i18n.T("tag.hint")
 	if insert == nil {
@@ -232,11 +256,19 @@ func buildTagBrowser(dark bool, insert func(string), owner func() walk.Form) dec
 							}
 							idx := categoryCB.CurrentIndex()
 							if idx >= 0 && idx < len(tagCatalog) {
-								model.SetItems(tagCatalog[idx].Items)
+								currentCategory = idx
+								filterItems()
 							}
 						},
 					},
 				},
+			},
+			declarative.LineEdit{
+				AssignTo:    &searchLE,
+				Background:  uiFieldBrush(dark),
+				TextColor:   uiTextColor(dark),
+				CueBanner:   i18n.T("tag.search"),
+				OnTextChanged: filterItems,
 			},
 			declarative.Composite{
 				Background: uiPanelBrush(dark),

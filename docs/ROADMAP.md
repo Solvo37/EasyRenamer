@@ -145,3 +145,19 @@ EasyRenamer is intended to grow from a focused batch renamer into a serious open
 - [x] Custom readable tag headings in dark mode
 - [x] Reflow method action buttons into a 2×3 grid
 - [x] Short localized Save / Load labels so controls do not clip
+
+## v0.7.0 — Mockup-driven shell
+
+- [x] Product header with ER badge, version, subtitle and tagline
+- [x] Blue/graphite mockup-style dark palette
+- [x] Larger command bar with primary Add files and Start actions
+- [x] Card-style filter bar and working panels
+- [x] Method rows with localized descriptions and chevrons
+- [x] Wider/taller method stack matching the supplied mockup
+- [x] Simplified file table: source, new name, path, size, type, status
+- [x] File icons in source-name rows
+- [x] Localized status coloring
+- [x] Selected-file detail card with metadata and original → new comparison
+- [x] Full-width bottom status bar
+- [x] File count in the Files heading
+- [x] Search inside the built-in tag browser

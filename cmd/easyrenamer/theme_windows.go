@@ -118,45 +118,66 @@ func windowsAppsUseDarkTheme() bool {
 
 func uiWindowBrush(dark bool) declarative.Brush {
 	if dark {
-		return declarative.SolidColorBrush{Color: walk.RGB(32, 33, 35)}
+		return declarative.SolidColorBrush{Color: walk.RGB(15, 23, 34)}
 	}
 	return declarative.SolidColorBrush{Color: walk.RGB(247, 248, 250)}
 }
 
 func uiPanelBrush(dark bool) declarative.Brush {
 	if dark {
-		return declarative.SolidColorBrush{Color: walk.RGB(42, 43, 46)}
+		return declarative.SolidColorBrush{Color: walk.RGB(23, 34, 49)}
 	}
 	return declarative.SolidColorBrush{Color: walk.RGB(255, 255, 255)}
+}
+
+func uiCardBrush(dark bool) declarative.Brush {
+	if dark {
+		return declarative.SolidColorBrush{Color: walk.RGB(27, 40, 57)}
+	}
+	return declarative.SolidColorBrush{Color: walk.RGB(252, 253, 255)}
 }
 
 func uiFieldBrush(dark bool) declarative.Brush {
 	if dark {
-		return declarative.SolidColorBrush{Color: walk.RGB(48, 49, 52)}
+		return declarative.SolidColorBrush{Color: walk.RGB(18, 29, 42)}
 	}
 	return declarative.SolidColorBrush{Color: walk.RGB(255, 255, 255)}
 }
 
+func uiAccentBrush(dark bool) declarative.Brush {
+	if dark {
+		return declarative.SolidColorBrush{Color: walk.RGB(47, 111, 237)}
+	}
+	return declarative.SolidColorBrush{Color: walk.RGB(47, 111, 237)}
+}
+
 func uiTextColor(dark bool) walk.Color {
 	if dark {
-		return walk.RGB(242, 242, 242)
+		return walk.RGB(244, 247, 251)
 	}
 	return walk.RGB(28, 30, 34)
 }
 
 func uiMutedTextColor(dark bool) walk.Color {
 	if dark {
-		return walk.RGB(166, 166, 166)
+		return walk.RGB(157, 170, 192)
 	}
 	return walk.RGB(91, 96, 105)
+}
+
+func uiSuccessTextColor(dark bool) walk.Color {
+	if dark {
+		return walk.RGB(97, 214, 155)
+	}
+	return walk.RGB(30, 140, 84)
 }
 
 func uiTableAltColor(dark bool, odd bool) walk.Color {
 	if dark {
 		if odd {
-			return walk.RGB(45, 46, 49)
+			return walk.RGB(21, 32, 46)
 		}
-		return walk.RGB(50, 51, 54)
+		return walk.RGB(25, 38, 53)
 	}
 	if odd {
 		return walk.RGB(247, 248, 250)
@@ -173,7 +194,7 @@ func uiDangerTextColor(dark bool) walk.Color {
 
 func uiUnchangedTextColor(dark bool) walk.Color {
 	if dark {
-		return walk.RGB(145, 147, 154)
+		return walk.RGB(126, 141, 163)
 	}
 	return walk.RGB(110, 110, 110)
 }
@@ -234,8 +255,8 @@ func applyThemeToHWND(hwnd uintptr, dark bool) {
 		bg := colorRef(255, 255, 255)
 		text := colorRef(28, 30, 34)
 		if dark {
-			bg = colorRef(58, 60, 65)
-			text = colorRef(232, 233, 236)
+			bg = colorRef(18, 29, 42)
+			text = colorRef(244, 247, 251)
 		}
 		procSendMessageW.Call(hwnd, lvmSetBkColor, 0, bg)
 		procSendMessageW.Call(hwnd, lvmSetTextBkColor, 0, bg)

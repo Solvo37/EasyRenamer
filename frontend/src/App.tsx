@@ -39,6 +39,7 @@ import { appApi, runtimeApi } from './api'
 import { methodCatalog, tagCatalog } from './catalog'
 import type {
   BootstrapData,
+  CollisionPolicy,
   ExecuteProgress,
   FileDetails,
   HistoryEntry,
@@ -233,6 +234,10 @@ function App() {
   const [recursive, setRecursive] = useState(true)
   const [category, setCategory] = useState('All files')
   const [extensions, setExtensions] = useState('')
+  const [collisionPolicy, setCollisionPolicy] = useState<CollisionPolicy>(() => {
+    const saved = localStorage.getItem('easyrenamer-collision-policy')
+    return saved === 'auto-number' || saved === 'stop' ? saved : 'skip'
+  })
   const [methods, setMethods] = useState<RenameMethod[]>([])
   const [selectedMethod, setSelectedMethod] = useState(0)
 
@@ -342,6 +347,10 @@ function App() {
   }, [columns])
 
   useEffect(() => {
+    localStorage.setItem('easyrenamer-collision-policy', collisionPolicy)
+  }, [collisionPolicy])
+
+  useEffect(() => {
     localStorage.setItem('easyrenamer-sort', sortBy)
     localStorage.setItem('easyrenamer-sort-desc', sortDescending ? '1' : '0')
     localStorage.setItem('easyrenamer-sort-per-folder', sortPerFolder ? '1' : '0')
@@ -441,7 +450,7 @@ function App() {
     }
     setPreviewBusy(true)
     try {
-      const result = await appApi().Preview(sources, [...excludedPaths], recursive, category, extensions, methods, sortBy, sortDescending, sortPerFolder)
+      const result = await appApi().Preview(sources, [...excludedPaths], recursive, category, extensions, methods, sortBy, sortDescending, sortPerFolder, collisionPolicy)
       const nextItems = result.items || []
       setItems(nextItems)
       setChecked((prev) => {
@@ -464,7 +473,7 @@ function App() {
     } finally {
       setPreviewBusy(false)
     }
-  }, [sources, excludedPaths, recursive, category, extensions, methods, selectionTouched, sortBy, sortDescending, sortPerFolder])
+  }, [sources, excludedPaths, recursive, category, extensions, methods, selectionTouched, sortBy, sortDescending, sortPerFolder, collisionPolicy])
 
   useEffect(() => {
     if (previewTimer.current) window.clearTimeout(previewTimer.current)
@@ -522,7 +531,7 @@ function App() {
           setSelectedPath(visibleFileOrder[0])
           setSelectionAnchor(visibleFileOrder[0])
         }
-      } else if (ctrl && event.key === 'Enter' && checked.size && !errorCount && !executing) {
+      } else if (ctrl && event.key === 'Enter' && checked.size && !criticalErrorCount && !executing) {
         event.preventDefault()
         setExecuteConfirm(true)
       } else if (event.key === 'F5') {
@@ -704,10 +713,10 @@ function App() {
   }
 
   const validItems = useMemo(() => items.filter((item) => item.status === 'OK'), [items])
-  const errorCount = useMemo(
-    () => items.filter((item) => item.status === 'Conflict' || item.status === 'Invalid').length,
-    [items]
-  )
+  const invalidCount = useMemo(() => items.filter((item) => item.status === 'Invalid').length, [items])
+  const conflictCount = useMemo(() => items.filter((item) => item.status === 'Conflict').length, [items])
+  const errorCount = invalidCount + conflictCount
+  const criticalErrorCount = invalidCount + ((collisionPolicy === 'stop' || collisionPolicy === 'overwrite') ? conflictCount : 0)
   const folderCount = useMemo(() => new Set(items.map((item) => item.path.toLowerCase())).size, [items])
   const visibleItems = useMemo(() => {
     const query = fileSearch.trim().toLowerCase()
@@ -1082,8 +1091,8 @@ function App() {
         </div>
         <div className="command-right">
           <button
-            className={`start-btn ${items.length && !errorCount && checked.size ? 'primary' : ''}`}
-            disabled={!checked.size || previewBusy || executing || errorCount > 0}
+            className={`start-btn ${items.length && !criticalErrorCount && checked.size ? 'primary' : ''}`}
+            disabled={!checked.size || previewBusy || executing || criticalErrorCount > 0}
             onClick={() => setExecuteConfirm(true)}
             title="Ctrl+Enter"
           >
@@ -1120,7 +1129,12 @@ function App() {
           placeholder={t('filter.extensions_hint')}
         />
         <label>{t('collision.label')}</label>
-        <select className="collision" value="prevent" disabled><option value="prevent">{t('collision.prevent')}</option></select>
+        <select className="collision" value={collisionPolicy} onChange={(e) => setCollisionPolicy(e.target.value as CollisionPolicy)}>
+          <option value="skip">{language === 'ru' ? 'Не переименовывать конфликтующие' : 'Skip conflicting files'}</option>
+          <option value="auto-number">{language === 'ru' ? 'Добавлять номер автоматически' : 'Add number automatically'}</option>
+          <option value="overwrite" disabled>{language === 'ru' ? 'Перезаписывать — требует безопасного backup' : 'Overwrite — safe backup required'}</option>
+          <option value="stop">{language === 'ru' ? 'Остановить операцию при конфликте' : 'Stop operation on conflict'}</option>
+        </select>
         <button className="mini-more" onClick={openHistory} title={ux.history}><MoreHorizontal /></button>
       </section>
 
@@ -1360,7 +1374,9 @@ function App() {
       </main>
 
       <footer className="statusbar">
-        <span className={`state ${executing ? 'busy' : errorCount ? 'error' : ''}`}><i />{executing ? ux.renaming : errorCount ? t('status.errors') : t('status.ready')}</span>
+        <span className={`state ${executing ? 'busy' : criticalErrorCount ? 'error' : conflictCount ? 'warning' : ''}`}>
+          <i />{executing ? ux.renaming : criticalErrorCount ? t('status.errors') : conflictCount ? (language === 'ru' ? 'Есть предупреждения' : 'Warnings') : t('status.ready')}
+        </span>
         <div>
           <span>{t('button.select_valid')}: {checked.size} {t('status.of')} {validItems.length}</span>
           <span>{t('group.files')}: {items.length}</span>

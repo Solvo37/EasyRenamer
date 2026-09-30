@@ -6,7 +6,6 @@ func init() {
 		"menu.add_files": "添加文件...", "menu.add_folder": "添加文件夹...",
 		"menu.save_methods": "保存方法集...", "menu.load_methods": "加载方法集...",
 		"button.files": "+ 文件", "button.folders": "+ 文件夹", "button.clear": "清空", "button.start": "开始批处理",
-		"button.select_valid": "选择全部有效项",
 		"sources.count": "来源：%d", "filter.label": "筛选：", "filter.subfolders": "包含子文件夹",
 		"filter.extensions": "扩展名：",
 		"collision.label": "名称冲突：",

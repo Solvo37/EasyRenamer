@@ -14,6 +14,19 @@ const (
 	CategoryCustom    Category = "Custom"
 )
 
+type SortMode string
+
+const (
+	SortName      SortMode = "name"
+	SortCreated   SortMode = "created"
+	SortModified  SortMode = "modified"
+	SortSize      SortMode = "size"
+	SortExtension SortMode = "extension"
+	SortPath      SortMode = "path"
+	SortAdded     SortMode = "added"
+	SortManual    SortMode = "manual"
+)
+
 type Method string
 
 const (
@@ -113,6 +126,10 @@ type Config struct {
 	Category         Category
 	CustomExtensions string
 
+	SortBy         SortMode
+	SortDescending bool
+	SortPerFolder  bool
+
 	// Methods is the preferred API. If it is empty, the legacy single-method
 	// fields below are used so older integrations keep working.
 	Methods []RenameMethod
@@ -142,6 +159,7 @@ type Item struct {
 	Size     int64
 	Width    int
 	Height   int
+	Created  time.Time
 	Modified time.Time
 }
 

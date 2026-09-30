@@ -14,6 +14,15 @@ const (
 	CategoryCustom    Category = "Custom"
 )
 
+type CollisionPolicy string
+
+const (
+	CollisionSkip       CollisionPolicy = "skip"
+	CollisionAutoNumber CollisionPolicy = "auto-number"
+	CollisionOverwrite  CollisionPolicy = "overwrite"
+	CollisionStop       CollisionPolicy = "stop"
+)
+
 type SortMode string
 
 const (
@@ -130,6 +139,7 @@ type Config struct {
 	SortBy              SortMode
 	SortDescending      bool
 	SortPerFolder       bool
+	CollisionPolicy     CollisionPolicy
 	SkipImageDimensions bool
 
 	// Methods is the preferred API. If it is empty, the legacy single-method

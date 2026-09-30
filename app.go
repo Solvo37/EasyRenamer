@@ -68,6 +68,14 @@ type PathClassification struct {
 	Folders []string `json:"folders"`
 }
 
+type HistoryEntry struct {
+	ID        string `json:"id"`
+	CreatedAt string `json:"createdAt"`
+	Count     int    `json:"count"`
+	Folder    string `json:"folder"`
+	Undone    bool   `json:"undone"`
+}
+
 
 type methodStackFile struct {
 	Version int                   `json:"version"`
@@ -351,6 +359,45 @@ func (a *App) Undo() (OperationResult, error) {
 		return OperationResult{}, err
 	}
 	if err := history.Clear(); err != nil {
+		return OperationResult{Count: len(rec.Pairs), Pairs: rec.Pairs}, err
+	}
+	return OperationResult{Count: len(rec.Pairs), Pairs: rec.Pairs}, nil
+}
+
+func (a *App) History() ([]HistoryEntry, error) {
+	records, err := history.List()
+	if err != nil {
+		return nil, err
+	}
+	entries := make([]HistoryEntry, 0, len(records))
+	for _, rec := range records {
+		folder := ""
+		if len(rec.Pairs) > 0 {
+			folder = filepath.Dir(rec.Pairs[0].From)
+		}
+		entries = append(entries, HistoryEntry{
+			ID:        rec.ID,
+			CreatedAt: rec.CreatedAt.Format("02.01.2006 15:04"),
+			Count:     len(rec.Pairs),
+			Folder:    folder,
+			Undone:    rec.Undone,
+		})
+	}
+	return entries, nil
+}
+
+func (a *App) UndoHistory(id string) (OperationResult, error) {
+	rec, err := history.Get(strings.TrimSpace(id))
+	if err != nil {
+		return OperationResult{}, err
+	}
+	if rec.Undone {
+		return OperationResult{}, errors.New("operation was already undone")
+	}
+	if err := engine.Undo(rec.Pairs); err != nil {
+		return OperationResult{}, err
+	}
+	if err := history.MarkUndone(rec.ID); err != nil {
 		return OperationResult{Count: len(rec.Pairs), Pairs: rec.Pairs}, err
 	}
 	return OperationResult{Count: len(rec.Pairs), Pairs: rec.Pairs}, nil

@@ -15,9 +15,11 @@ Prioridades:
 - Timestamp real del sistema de archivos;
 - condiciones por método;
 - Apply To para nombre / extensión / ambos;
+- etiquetas en todos los campos compatibles de los métodos;
 - Renumber avanzado sobre números existentes;
 - Remove y Change Case más completos;
-- import/export de listas;
+- import/export de listas y override manual del nombre;
+- marcar/desmarcar/quitar por condición;
 - importación CSV y etiquetas CSV;
 - renombrado de carpetas;
 - modos Copy / Move seguros;
@@ -28,7 +30,8 @@ Prioridades:
 
 ## v1.2 — funciones avanzadas
 
-- panel de detalles y descubrimiento de etiquetas;
+- panel de detalles, descubrimiento y favoritos de etiquetas;
+- vista thumbnail grid;
 - más lectores nativos de metadatos;
 - integración opcional con ExifTool;
 - Script más potente;

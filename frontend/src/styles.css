@@ -2004,3 +2004,21 @@ table.configurable td:last-child {
   background: #d8a53d;
   box-shadow: 0 0 0 3px rgba(216, 165, 61, 0.12);
 }
+
+
+tbody tr.manual-drag {
+  cursor: grab;
+}
+
+tbody tr.manual-drag:active {
+  cursor: grabbing;
+}
+
+tbody tr.manual-drag.dragging {
+  opacity: 0.45;
+}
+
+tbody tr.manual-drag:hover td {
+  border-top-color: rgba(74, 139, 255, 0.4);
+  border-bottom-color: rgba(74, 139, 255, 0.4);
+}

@@ -8,7 +8,7 @@ func init() {
 		"menu.help": "Справка",
 		"menu.language": "Язык",
 		"menu.add_files": "Добавить файлы...",
-		"menu.add_folder": "Добавить папку...",
+		"menu.add_folder": "Добавить папки...",
 		"menu.preview": "Предпросмотр",
 		"menu.start_batch": "Запустить",
 		"menu.undo": "Отменить последний пакет",
@@ -263,5 +263,9 @@ func init() {
 		"item.error.trailing_dot_space": "имя не может заканчиваться точкой или пробелом",
 		"item.error.control_chars": "имя содержит управляющие символы",
 		"item.error.reserved_name": "имя зарезервировано Windows",
+		"tag.category": "Категория:",
+		"tag.hint_browse": "Выберите категорию и просматривайте встроенные теги.",
+		"button.save_short": "Сохранить",
+		"button.load_short": "Загрузить",
 	}
 }

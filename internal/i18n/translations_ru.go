@@ -27,7 +27,6 @@ func init() {
 		"method.timestamp": "Время",
 		"menu.save_methods": "Сохранить набор методов...",
 		"menu.load_methods": "Загрузить набор методов...",
-		"button.select_valid": "Выбрать все корректные",
 		"sources.count": "Источников: %d", "filter.label": "Фильтр:", "filter.subfolders": "Включая подпапки",
 		"filter.extensions": "Расширения:",
 		"collision.label": "Коллизии:", "column.filename": "Имя файла",

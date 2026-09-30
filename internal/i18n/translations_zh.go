@@ -12,7 +12,7 @@ func init() {
 		"collision.label": "名称冲突：",
 		"group.methods": "重命名方法", "group.settings": "方法设置", "column.filename": "文件名",
 		"column.new_filename": "新文件名", "column.path": "路径", "column.size": "大小", "column.status": "错误 / 状态",
-		"status.errors": "状态：批处理前请检查错误",
+		"status.errors": "错误",
 		"method.new_name": "新名称", "method.list": "列表", "method.list_replace": "列表替换",
 		"method.change_case": "大小写", "method.move": "移动", "method.remove": "删除字符",
 		"method.remove_pattern": "删除模式", "method.renumber": "重新编号", "method.replace": "替换",
@@ -136,7 +136,7 @@ func init() {
 		"label.suffix_position": "后缀",
 		"help.title": "EasyRenamer 帮助",
 		"help.tags": "标签",
-		"help.guide_body": "快速开始\n\n1. 添加文件或文件夹。\n2. 在左侧建立重命名方法链。\n3. 选择一个方法并调整设置。\n4. 在右侧检查实时预览。\n5. 取消勾选不想修改的文件。\n6. 点击开始。\n\n方法链\n方法按从上到下的顺序执行。可以启用/禁用、排序、复制，并保存/加载方法集。\n\n实时预览\n修改会自动重新计算。耗时扫描可以取消。\n\n拖放\n将文件或文件夹拖入应用。文件夹可以选择是否包含子文件夹。\n\n安全性\nEasyRenamer 在重命名前会检查 Windows 非法名称和冲突。成功操作可以撤销。\n\n主题和语言\n无需重启程序即可切换。",
+		"help.guide_body": "快速开始\n\n1. 添加文件或文件夹。\n2. 选择分组方式和处理顺序。\n3. 在左侧建立重命名方法链。\n4. 检查实时预览并修复关键错误。\n5. 取消勾选不需要重命名的文件。\n6. 点击开始。如需回滚，可使用 Ctrl+Z 或历史记录。\n\n排序与分组\n自然排序采用 1、2、10 的顺序。可以在每个文件夹内单独排序，这对 <Inc NrDir:01> 等按文件夹计数器非常重要。手动排序支持拖放。\n\n方法链\n方法从上到下执行。可以启用、禁用、排序、复制、保存和加载方法集。\n\n安全性\n执行前 EasyRenamer 会检查 Windows 文件名和目标路径冲突。重命名使用唯一临时名称，因此交换名称和仅修改大小写的操作也能安全完成。破坏性覆盖保持禁用。\n\n大型批处理\n文件表使用虚拟化。重命名进度不会阻塞界面，并且可以取消操作。\n\n快捷键\nCtrl+O 文件 · Ctrl+Shift+O 文件夹 · Ctrl+A 选择行 · Ctrl+Z 撤销 · Delete 从任务中移除 · Ctrl+Enter 开始 · F5 检查 · Esc 取消。",
 		"case.lower": "小写",
 		"case.upper": "大写",
 		"case.title": "单词首字母大写",
@@ -248,6 +248,7 @@ func init() {
 		"script.var.dir_name": "父文件夹",
 		"script.var.unix": "批处理 Unix 时间戳",
 		"script.var.modified_unix": "文件修改 Unix 时间戳",
+		"status.selected": "已选择",
 		"status.of": "共",
 	}
 }

@@ -627,14 +627,15 @@ function App() {
     event.preventDefault()
     const startY = event.clientY
     const startHeight = methodsHeight
+    let latestHeight = startHeight
     const move = (moveEvent: PointerEvent) => {
-      const next = Math.max(118, Math.min(460, startHeight + moveEvent.clientY - startY))
-      setMethodsHeight(next)
+      latestHeight = Math.max(118, Math.min(460, startHeight + moveEvent.clientY - startY))
+      setMethodsHeight(latestHeight)
     }
     const stop = () => {
       window.removeEventListener('pointermove', move)
       window.removeEventListener('pointerup', stop)
-      localStorage.setItem('easyrenamer-methods-height', String(Math.round(methodsHeight)))
+      localStorage.setItem('easyrenamer-methods-height', String(Math.round(latestHeight)))
     }
     window.addEventListener('pointermove', move)
     window.addEventListener('pointerup', stop)

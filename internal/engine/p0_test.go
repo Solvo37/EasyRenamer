@@ -92,3 +92,37 @@ func TestExecuteContextCancellationRollsBackTemps(t *testing.T) {
 		}
 	}
 }
+
+
+func TestPreviewAutoNumbersExistingTarget(t *testing.T) {
+	dir := t.TempDir()
+	source := filepath.Join(dir, "source.txt")
+	if err := os.WriteFile(source, []byte("source"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "fixed.txt"), []byte("existing"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	items, err := Preview(Config{
+		Sources:         []string{source},
+		Category:        CategoryAll,
+		CollisionPolicy: CollisionAutoNumber,
+		Methods: []RenameMethod{{
+			Type:     MethodTemplate,
+			Template: "fixed.txt",
+		}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(items) != 1 {
+		t.Fatalf("got %d items, want 1", len(items))
+	}
+	if items[0].Status != StatusOK {
+		t.Fatalf("status = %q, want %q; error=%q", items[0].Status, StatusOK, items[0].Error)
+	}
+	if items[0].NewName != "fixed (1).txt" {
+		t.Fatalf("new name = %q, want %q", items[0].NewName, "fixed (1).txt")
+	}
+}

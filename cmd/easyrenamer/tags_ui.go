@@ -41,6 +41,11 @@ func (m *tagListModel) Value(row, col int) interface{} {
 	}
 }
 
+func (m *tagListModel) SetItems(items []tagItem) {
+	m.items = items
+	m.PublishRowsReset()
+}
+
 func (m *tagListModel) tokenAt(row int) string {
 	if row < 0 || row >= len(m.items) {
 		return ""
@@ -173,35 +178,96 @@ var tagCatalog = []tagCategory{
 }
 
 
-func buildTagPages(dark bool, insert func(string)) []declarative.TabPage {
-	pages := make([]declarative.TabPage, 0, len(tagCatalog))
-	for _, category := range tagCatalog {
-		pages = append(pages, buildTagPage(category, dark, insert))
+func buildTagBrowser(dark bool, insert func(string), owner func() walk.Form) declarative.Composite {
+	categoryNames := make([]string, len(tagCatalog))
+	for i, category := range tagCatalog {
+		categoryNames[i] = i18n.T(category.TitleKey)
 	}
-	return pages
-}
 
-func buildTagPage(category tagCategory, dark bool, insert func(string)) declarative.TabPage {
-	model := &tagListModel{items: category.Items}
+	initialItems := []tagItem(nil)
+	if len(tagCatalog) > 0 {
+		initialItems = tagCatalog[0].Items
+	}
+
+	model := &tagListModel{items: initialItems}
+	var categoryCB *walk.ComboBox
 	var table *walk.TableView
 
-	return declarative.TabPage{
-		Title:      i18n.T(category.TitleKey),
-		Background: uiPanelBrush(dark),
-		Layout:     declarative.VBox{Margins: declarative.Margins{Left: 4, Top: 4, Right: 4, Bottom: 4}, Spacing: 4},
+	hint := i18n.T("tag.hint")
+	if insert == nil {
+		hint = i18n.T("tag.hint_browse")
+	}
+
+	return declarative.Composite{
+		Background:  uiPanelBrush(dark),
+		ColumnSpan:  5,
+		MinSize:     declarative.Size{0, 220},
+		Layout:      declarative.VBox{Margins: declarative.Margins{Left: 4, Top: 4, Right: 4, Bottom: 4}, Spacing: 6},
 		Children: []declarative.Widget{
+			declarative.Composite{
+				Background: uiPanelBrush(dark),
+				Layout:     declarative.HBox{Spacing: 6},
+				Children: []declarative.Widget{
+					declarative.Label{
+						Text:       i18n.T("tag.category"),
+						TextColor:  uiMutedTextColor(dark),
+						Background: uiPanelBrush(dark),
+					},
+					declarative.ComboBox{
+						AssignTo:     &categoryCB,
+						Model:        categoryNames,
+						CurrentIndex: 0,
+						Background:   uiFieldBrush(dark),
+						StretchFactor: 1,
+						OnMouseDown: func(x, y int, button walk.MouseButton) {
+							if owner != nil {
+								if form := owner(); form != nil {
+									scheduleFloatingTheme(form, dark)
+								}
+							}
+						},
+						OnCurrentIndexChanged: func() {
+							if categoryCB == nil {
+								return
+							}
+							idx := categoryCB.CurrentIndex()
+							if idx >= 0 && idx < len(tagCatalog) {
+								model.SetItems(tagCatalog[idx].Items)
+							}
+						},
+					},
+				},
+			},
+			declarative.Composite{
+				Background: uiPanelBrush(dark),
+				Layout:     declarative.HBox{Spacing: 8},
+				Children: []declarative.Widget{
+					declarative.Label{
+						Text:       i18n.T("tag.column_token"),
+						MinSize:    declarative.Size{145, 0},
+						TextColor:  uiMutedTextColor(dark),
+						Background: uiPanelBrush(dark),
+					},
+					declarative.Label{
+						Text:       i18n.T("tag.column_meaning"),
+						TextColor:  uiMutedTextColor(dark),
+						Background: uiPanelBrush(dark),
+					},
+				},
+			},
 			declarative.TableView{
 				AssignTo:                    &table,
 				Model:                       model,
 				Background:                  uiFieldBrush(dark),
 				AlternatingRowBG:             true,
+				HeaderHidden:                 true,
 				MultiSelection:               false,
 				SelectionHiddenWithoutFocus: false,
 				NotSortableByHeaderClick:     true,
-				ColumnsSizable:               true,
+				ColumnsSizable:               false,
 				LastColumnStretched:          true,
-				CustomRowHeight:              25,
-				MinSize:                      declarative.Size{0, 155},
+				CustomRowHeight:              27,
+				MinSize:                      declarative.Size{0, 150},
 				Columns: []declarative.TableViewColumn{
 					{Title: i18n.T("tag.column_token"), Width: 145},
 					{Title: i18n.T("tag.column_meaning"), Width: 285},
@@ -220,7 +286,7 @@ func buildTagPage(category tagCategory, dark bool, insert func(string)) declarat
 				},
 			},
 			declarative.Label{
-				Text:       i18n.T("tag.hint"),
+				Text:       hint,
 				TextColor:  uiMutedTextColor(dark),
 				Background: uiPanelBrush(dark),
 			},

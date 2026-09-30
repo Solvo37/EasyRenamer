@@ -455,7 +455,7 @@ func runMainWindow(state *uiState) uiRunResult {
 	var customExtLE, templateLE, findLE, replaceLE, prefixLE, suffixLE *walk.LineEdit
 	var removePatternLE, renumberSeparatorLE, timestampFormatLE, timestampSeparatorLE, swapSeparatorLE *walk.LineEdit
 	var listTE, listReplaceTE, scriptTE *walk.TextEdit
-	var recursiveCB, regexCB, autoPreviewCB *walk.CheckBox
+	var recursiveCB, regexCB *walk.CheckBox
 	var removePatternRegexCB, renumberPerDirCB, trimNormalizeCB *walk.CheckBox
 	var listIncludeExtCB, listReplaceRegexCB, listReplaceCaseCB *walk.CheckBox
 	var categoryCB, presetCB, caseCB, addMethodCB, languageCB, themeCB *walk.ComboBox
@@ -568,9 +568,7 @@ func runMainWindow(state *uiState) uiRunResult {
 		if recursiveCB != nil {
 			state.Recursive = recursiveCB.Checked()
 		}
-		if autoPreviewCB != nil {
-			state.AutoPreview = autoPreviewCB.Checked()
-		}
+		state.AutoPreview = true
 		state.SelectedMethod = editingMethodIndex
 	}
 
@@ -894,7 +892,7 @@ func runMainWindow(state *uiState) uiRunResult {
 	}
 
 	maybePreview = func() {
-		if updatingMethodUI || autoPreviewCB == nil || !autoPreviewCB.Checked() || len(sources) == 0 || preview == nil || mw == nil {
+		if updatingMethodUI || len(sources) == 0 || preview == nil || mw == nil {
 			return
 		}
 
@@ -1166,19 +1164,13 @@ func runMainWindow(state *uiState) uiRunResult {
 	}
 
 	addFolder := func() {
-		dlg := new(walk.FileDialog)
-		dlg.Title = i18n.T("menu.add_folder")
-		if len(sources) > 0 {
-			if st, err := os.Stat(sources[0]); err == nil && st.IsDir() {
-				dlg.InitialDirPath = sources[0]
-			} else {
-				dlg.InitialDirPath = filepath.Dir(sources[0])
-			}
-		}
-		if ok, err := dlg.ShowBrowseFolder(mw); err != nil {
+		paths, err := pickFoldersMulti(uintptr(mw.Handle()), i18n.T("menu.add_folder"))
+		if err != nil {
 			showAppError(mw, darkTheme, i18n.T("dialog.folder_error"), err.Error())
-		} else if ok {
-			addSources([]string{dlg.FilePath})
+			return
+		}
+		if len(paths) > 0 {
+			addSources(paths)
 		}
 	}
 
@@ -1345,14 +1337,14 @@ func runMainWindow(state *uiState) uiRunResult {
 		openInExplorerAsync(model.items[index].SourcePath, true)
 	}
 
-	tagPages := buildTagPages(darkTheme, func(token string) {
+	tagBrowser := buildTagBrowser(darkTheme, func(token string) {
 		if templateLE == nil || token == "" {
 			return
 		}
 		insertIntoLineEdit(templateLE, token)
 		saveMethodEditor()
 		maybePreview()
-	})
+	}, func() walk.Form { return mw })
 
 	languageValues := []i18n.Language{i18n.English, i18n.Russian, i18n.Spanish, i18n.Chinese}
 	languageNames := make([]string, len(languageValues))
@@ -1478,7 +1470,6 @@ func runMainWindow(state *uiState) uiRunResult {
 						}
 						maybePreview()
 					}, OnEditingFinished: maybePreview},
-					CheckBox{Background: uiPanelBrush(darkTheme),AssignTo: &autoPreviewCB, Text: i18n.T("status.live_preview"), Checked: state.AutoPreview},
 					Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("collision.label")},
 					Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("collision.prevent")},
 					HSpacer{},
@@ -1551,15 +1542,14 @@ func runMainWindow(state *uiState) uiRunResult {
 										},
 									},
 									Composite{Background: uiPanelBrush(darkTheme),
-										Layout: HBox{Spacing: 4},
+										Layout: Grid{Columns: 3, Spacing: 5},
 										Children: []Widget{
-											ToolButton{Background: uiPanelBrush(darkTheme), Text: i18n.T("button.up"), OnClicked: func() { moveMethod(-1) }},
-											ToolButton{Background: uiPanelBrush(darkTheme), Text: i18n.T("button.down"), OnClicked: func() { moveMethod(1) }},
-											ToolButton{Background: uiPanelBrush(darkTheme), Text: i18n.T("button.copy"), OnClicked: duplicateMethod},
-											ToolButton{Background: uiPanelBrush(darkTheme), Text: i18n.T("button.save_methods"), OnClicked: saveMethodStack},
-											ToolButton{Background: uiPanelBrush(darkTheme), Text: i18n.T("button.load_methods"), OnClicked: loadMethodStack},
-											HSpacer{},
-											ToolButton{Background: uiPanelBrush(darkTheme), Text: i18n.T("button.remove"), OnClicked: removeMethod},
+											PushButton{Background: uiPanelBrush(darkTheme), Text: i18n.T("button.up"), MinSize: Size{105, 30}, OnClicked: func() { moveMethod(-1) }},
+											PushButton{Background: uiPanelBrush(darkTheme), Text: i18n.T("button.down"), MinSize: Size{105, 30}, OnClicked: func() { moveMethod(1) }},
+											PushButton{Background: uiPanelBrush(darkTheme), Text: i18n.T("button.copy"), MinSize: Size{105, 30}, OnClicked: duplicateMethod},
+											PushButton{Background: uiPanelBrush(darkTheme), Text: i18n.T("button.save_short"), MinSize: Size{105, 30}, OnClicked: saveMethodStack},
+											PushButton{Background: uiPanelBrush(darkTheme), Text: i18n.T("button.load_short"), MinSize: Size{105, 30}, OnClicked: loadMethodStack},
+											PushButton{Background: uiPanelBrush(darkTheme), Text: i18n.T("button.remove"), MinSize: Size{105, 30}, OnClicked: removeMethod},
 										},
 									},
 								},
@@ -1598,12 +1588,7 @@ Composite{Background: uiPanelBrush(darkTheme),
 													}},
 													Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: i18n.T("label.new_name")},
 													LineEdit{TextColor: uiTextColor(darkTheme), Background: uiFieldBrush(darkTheme),AssignTo: &templateLE, Text: methods[0].Template, ColumnSpan: 4, OnTextChanged: func() { if !updatingMethodUI { saveMethodEditor(); maybePreview() } }, OnEditingFinished: maybePreview},
-													TabWidget{
-														Background: uiPanelBrush(darkTheme),
-														ColumnSpan: 5,
-														MinSize: Size{0, 235},
-														Pages: tagPages,
-													},
+													tagBrowser,
 													PushButton{
 														Background: uiPanelBrush(darkTheme),
 														Text: i18n.T("menu.tags"),

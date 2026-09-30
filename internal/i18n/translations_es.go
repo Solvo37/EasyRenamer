@@ -4,7 +4,7 @@ func init() {
 	translations[Spanish] = map[string]string{
 		"app.subtitle": "Renombrador de archivos por lotes",
 		"menu.file": "Archivo", "menu.batch": "Lote", "menu.help": "Ayuda", "menu.language": "Idioma",
-		"menu.add_files": "Añadir archivos...", "menu.add_folder": "Añadir carpeta...",
+		"menu.add_files": "Añadir archivos...", "menu.add_folder": "Añadir carpetas...",
 		"menu.save_methods": "Guardar conjunto de métodos...", "menu.load_methods": "Cargar conjunto de métodos...",
 		"menu.clear_list": "Limpiar lista", "menu.preview": "Vista previa", "menu.start_batch": "Iniciar lote",
 		"menu.undo": "Deshacer último lote", "menu.tags": "Referencia de etiquetas", "menu.learn": "Guía de usuario", "menu.about": "Acerca de",
@@ -235,5 +235,9 @@ func init() {
 		"item.error.trailing_dot_space": "el nombre no puede terminar en punto o espacio",
 		"item.error.control_chars": "el nombre contiene caracteres de control",
 		"item.error.reserved_name": "el nombre está reservado por Windows",
+		"tag.category": "Categoría:",
+		"tag.hint_browse": "Elige una categoría y consulta las etiquetas integradas.",
+		"button.save_short": "Guardar",
+		"button.load_short": "Cargar",
 	}
 }

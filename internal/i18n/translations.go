@@ -4,7 +4,7 @@ var translations = map[Language]map[string]string{
 	English: {
 		"app.subtitle": "Batch File Renamer",
 		"menu.file": "File", "menu.batch": "Batch", "menu.help": "Help", "menu.language": "Language",
-		"menu.add_files": "Add files...", "menu.add_folder": "Add folder...",
+		"menu.add_files": "Add files...", "menu.add_folder": "Add folders...",
 		"menu.save_methods": "Save method set...", "menu.load_methods": "Load method set...",
 		"menu.clear_list": "Clear list", "menu.preview": "Preview", "menu.start_batch": "Start batch",
 		"menu.undo": "Undo last batch", "menu.tags": "Tag reference", "menu.learn": "Learn / User guide", "menu.about": "About",
@@ -235,5 +235,9 @@ var translations = map[Language]map[string]string{
 		"item.error.trailing_dot_space": "name cannot end with a dot or space",
 		"item.error.control_chars": "name contains control characters",
 		"item.error.reserved_name": "name is reserved by Windows",
+		"tag.category": "Category:",
+		"tag.hint_browse": "Choose a category and browse the built-in tags.",
+		"button.save_short": "Save",
+		"button.load_short": "Load",
 	},
 }

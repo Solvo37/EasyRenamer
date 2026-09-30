@@ -135,3 +135,13 @@ EasyRenamer is intended to grow from a focused batch renamer into a serious open
 - [x] Translation completeness test for Russian / Spanish / Chinese
 - [x] Save/load method-set controls inside the main workspace
 - [x] Keep drag/drop settings accessible without the native menu
+
+## v0.6.1 — UX polish
+
+- [x] Native multi-select folder picker with Ctrl/Shift selection
+- [x] Always-on live preview; remove confusing Live preview checkbox
+- [x] Replace tag-category tab strip with category selector
+- [x] Hide dark-unreadable native tag table header
+- [x] Custom readable tag headings in dark mode
+- [x] Reflow method action buttons into a 2×3 grid
+- [x] Short localized Save / Load labels so controls do not clip

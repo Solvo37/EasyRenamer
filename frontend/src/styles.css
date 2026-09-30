@@ -367,9 +367,31 @@ input[type="radio"] {
 .workspace {
   min-height: 0;
   display: grid;
-  grid-template-columns: 500px minmax(0, 1fr);
-  gap: 12px;
+  grid-template-columns: var(--sidebar-width, 460px) 8px minmax(0, 1fr);
+  gap: 0 4px;
   padding: 10px 14px 8px;
+}
+
+.workspace-splitter {
+  position: relative;
+  min-height: 0;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.workspace-splitter::after {
+  content: "";
+  position: absolute;
+  top: 12%;
+  bottom: 12%;
+  left: 3px;
+  width: 2px;
+  border-radius: 2px;
+  background: transparent;
+}
+
+.workspace-splitter:hover::after {
+  background: var(--accent);
 }
 
 .sidebar {
@@ -1574,10 +1596,6 @@ tbody tr.selected {
 }
 
 @media (max-width: 1300px) {
-  .workspace {
-    grid-template-columns: 420px minmax(0, 1fr);
-  }
-
   .sort-per-folder {
     display: none !important;
   }

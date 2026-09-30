@@ -115,7 +115,18 @@ func PreviewContext(ctx context.Context, cfg Config) ([]*Item, error) {
 			item.Checked = false
 		}
 
-		target := filepath.Join(dir, newName)
+		policy := cfg.CollisionPolicy
+		if policy == "" {
+			policy = CollisionSkip
+		}
+
+		target := filepath.Join(dir, item.NewName)
+		if item.Status == StatusOK && policy == CollisionAutoNumber && targetConflicts(target, path, targets) {
+			resolved, resolvedTarget := nextAvailableName(dir, item.NewName, path, targets)
+			item.NewName = resolved
+			target = resolvedTarget
+		}
+
 		if len([]rune(target)) > 32767 {
 			item.Status = StatusInvalid
 			item.Error = "destination path is too long"
@@ -135,8 +146,13 @@ func PreviewContext(ctx context.Context, cfg Config) ([]*Item, error) {
 		}
 		if item.Status == StatusOK {
 			if _, err := os.Stat(target); err == nil && !strings.EqualFold(target, path) {
+				// Overwrite stays blocked until it can preserve and restore the replaced file.
 				item.Status = StatusConflict
-				item.Error = "target already exists"
+				if policy == CollisionOverwrite {
+					item.Error = "safe overwrite is not available"
+				} else {
+					item.Error = "target already exists"
+				}
 				item.Checked = false
 			}
 		}
@@ -145,6 +161,28 @@ func PreviewContext(ctx context.Context, cfg Config) ([]*Item, error) {
 	return items, nil
 }
 
+
+func targetConflicts(target, source string, targets map[string]*Item) bool {
+	if _, ok := targets[strings.ToLower(target)]; ok {
+		return true
+	}
+	if _, err := os.Stat(target); err == nil && !strings.EqualFold(target, source) {
+		return true
+	}
+	return false
+}
+
+func nextAvailableName(dir, name, source string, targets map[string]*Item) (string, string) {
+	base, ext := BaseAndExt(name)
+	for n := 1; n < 1000000; n++ {
+		candidate := fmt.Sprintf("%s (%d)%s", base, n, ext)
+		target := filepath.Join(dir, candidate)
+		if !targetConflicts(target, source, targets) {
+			return candidate, target
+		}
+	}
+	return name, filepath.Join(dir, name)
+}
 
 type previewSortInfo struct {
 	Path     string

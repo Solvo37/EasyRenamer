@@ -32,6 +32,8 @@ import {
   Undo2,
   X,
   Maximize2,
+  Grid2X2,
+  Sparkles,
 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties, PointerEvent as ReactPointerEvent, RefObject } from 'react'
@@ -84,14 +86,14 @@ const functionEntries = [
 ]
 
 const variableEntries = [
-  ['Name', 'File name without extension'],
-  ['Ext', 'Extension with dot'],
-  ['FullName', 'Full file name'],
-  ['Index', 'Global index'],
-  ['DirIndex', 'Per-folder index'],
-  ['DirName', 'Parent directory'],
-  ['UnixTimestamp', 'Batch Unix timestamp'],
-  ['ModifiedUnix', 'Modified time Unix timestamp'],
+  ['Name', 'script.var.name'],
+  ['Ext', 'script.var.ext'],
+  ['FullName', 'script.var.full_name'],
+  ['Index', 'script.var.index'],
+  ['DirIndex', 'script.var.dir_index'],
+  ['DirName', 'script.var.dir_name'],
+  ['UnixTimestamp', 'script.var.unix'],
+  ['ModifiedUnix', 'script.var.modified_unix'],
 ]
 
 const autocompleteTags = tagCatalog.flatMap((category) => category.items)
@@ -304,35 +306,64 @@ function App() {
   const previewTimer = useRef<number | null>(null)
 
   const t = useCallback((key: string, fallback?: string) => strings[key] || fallback || key, [strings])
-  const ux = useMemo(() => language === 'ru' ? {
-    order: 'Порядок', name: 'Имя', created: 'Дата создания', modified: 'Дата изменения',
-    size: 'Размер', extension: 'Расширение', path: 'Путь', added: 'Порядок добавления', manual: 'Ручной порядок',
-    perFolder: 'Сортировать отдельно внутри каждой папки', groupFolders: 'Группировка: по папкам',
-    noGrouping: 'Группировка: нет', search: 'Имя или путь...', check: 'Проверить',
-    errorsOnly: 'Только ошибки', allFiles: 'Все файлы', addMethod: '+ Метод', folders: 'Папок',
-    cancelOperation: 'Отмена', preparing: 'Подготовка', renaming: 'Переименование файлов',
-    cancelled: 'Операция отменена, исходные имена восстановлены',
-    history: 'История', rollback: 'Откатить', rolledBack: 'Откат выполнен', undone: 'Откат выполнен',
-    noHistory: 'История операций пока пуста', filesRenamed: 'Переименовано',
-    open: 'Открыть', showExplorer: 'Показать в Проводнике', copyName: 'Скопировать имя',
-    copyPath: 'Скопировать полный путь', exclude: 'Исключить из операции', removeList: 'Удалить из списка',
-    selectFolder: 'Выбрать все файлы папки', deselectFolder: 'Снять выбор', removeFolder: 'Удалить папку из списка',
-    columns: 'Колонки', showColumn: 'Показывать'
-  } : {
-    order: 'Order', name: 'Name', created: 'Created', modified: 'Modified',
-    size: 'Size', extension: 'Extension', path: 'Path', added: 'Added order', manual: 'Manual order',
-    perFolder: 'Sort separately inside each folder', groupFolders: 'Grouping: folders',
-    noGrouping: 'Grouping: none', search: 'Name or path...', check: 'Check',
-    errorsOnly: 'Errors only', allFiles: 'All files', addMethod: '+ Method', folders: 'Folders',
-    cancelOperation: 'Cancel', preparing: 'Preparing', renaming: 'Renaming files',
-    cancelled: 'Operation cancelled; original names restored',
-    history: 'History', rollback: 'Rollback', rolledBack: 'Rollback complete', undone: 'Undone',
-    noHistory: 'Operation history is empty', filesRenamed: 'Renamed',
-    open: 'Open', showExplorer: 'Show in Explorer', copyName: 'Copy name',
-    copyPath: 'Copy full path', exclude: 'Exclude from operation', removeList: 'Remove from list',
-    selectFolder: 'Select all files in folder', deselectFolder: 'Clear selection', removeFolder: 'Remove folder from list',
-    columns: 'Columns', showColumn: 'Show'
-  }, [language])
+  const ux = useMemo(() => ({
+    order: t('ui.order'),
+    name: t('sort.name'),
+    created: t('sort.created'),
+    modified: t('sort.modified'),
+    size: t('sort.size'),
+    extension: t('sort.extension'),
+    path: t('sort.path'),
+    added: t('sort.added'),
+    manual: t('sort.manual'),
+    perFolder: t('sort.per_folder'),
+    groupFolders: t('grouping.folders'),
+    noGrouping: t('grouping.none'),
+    search: t('search.files'),
+    check: t('button.check'),
+    errorsOnly: t('filter.errors_only'),
+    allFiles: t('label.all_files'),
+    addMethod: t('button.add_method'),
+    folders: t('status.folders'),
+    cancelOperation: t('button.cancel'),
+    preparing: t('operation.preparing'),
+    renaming: t('operation.renaming'),
+    cancelled: t('operation.cancelled'),
+    history: t('history.title'),
+    rollback: t('history.rollback'),
+    rolledBack: t('history.rolled_back'),
+    undone: t('history.undone'),
+    noHistory: t('history.empty'),
+    filesRenamed: t('history.files_renamed'),
+    open: t('context.open'),
+    showExplorer: t('context.show_explorer'),
+    copyName: t('context.copy_name'),
+    copyPath: t('context.copy_path'),
+    exclude: t('context.exclude'),
+    removeList: t('context.remove_list'),
+    selectFolder: t('context.select_folder'),
+    deselectFolder: t('context.deselect_folder'),
+    removeFolder: t('context.remove_folder'),
+    columns: t('columns.title'),
+    showColumn: t('columns.show'),
+  }), [t])
+
+  const localizeItemError = useCallback((error?: string) => {
+    if (!error) return ''
+    switch (error) {
+      case 'duplicate target name': return t('item.error.duplicate_target')
+      case 'target already exists': return t('item.error.target_exists')
+      case 'empty file name': return t('item.error.empty_name')
+      case 'name contains Windows-forbidden characters': return t('item.error.forbidden_chars')
+      case 'name cannot end with a dot or space': return t('item.error.trailing_dot_space')
+      case 'name contains control characters': return t('item.error.control_chars')
+      case 'name is reserved by Windows': return t('item.error.reserved_name')
+      case 'file not found': return t('item.error.file_not_found')
+      case 'destination path is too long': return t('item.error.path_too_long')
+      case 'safe overwrite is not available': return t('item.error.safe_overwrite')
+      default: return error
+    }
+  }, [t])
 
   const effectiveTheme = theme === 'system' ? (systemDark ? 'dark' : 'light') : theme
 
@@ -1017,7 +1048,7 @@ function App() {
         return <td key={column.key}>{item.type || 'FILE'}</td>
       case 'status':
         return (
-          <td key={column.key} title={item.error || ''}>
+          <td key={column.key} title={localizeItemError(item.error)}>
             <span className={`status-pill status-${item.status.toLowerCase()}`}>
               <i />{t(statusKey(item.status), item.status)}
             </span>
@@ -1073,7 +1104,7 @@ function App() {
         }
         setContextMenu({ kind: 'file', x: e.clientX, y: e.clientY, item })
       }}
-      title={item.error || item.sourcePath}
+      title={item.error ? localizeItemError(item.error) : item.sourcePath}
     >
       <td className="checkcol" onClick={(e) => e.stopPropagation()}>
         <input
@@ -1136,15 +1167,15 @@ function App() {
     <div className="app-shell">
       <header className="titlebar" style={{ '--wails-draggable': 'drag' } as CSSProperties}>
         <div className="brand">
-          <div className="brand-mark">ER</div>
+          <div className="brand-mark"><img src="/easyrenamer.svg" alt="" /></div>
           <strong>EasyRenamer <span>{bootstrap?.version || 'dev'}</span></strong>
           <span className="brand-subtitle">{t('app.subtitle', 'Batch file renaming')}</span>
         </div>
         <div className="tagline">{t('app.tagline', 'Order in names — more order in work')}</div>
         <div className="window-controls" style={{ '--wails-draggable': 'no-drag' } as CSSProperties}>
-          <button onClick={() => runtimeApi().WindowMinimise()}><Minus size={17} /></button>
-          <button onClick={() => runtimeApi().WindowToggleMaximise()}><Maximize2 size={15} /></button>
-          <button className="close" onClick={() => runtimeApi().Quit()}><X size={18} /></button>
+          <button title={t('window.minimize')} aria-label={t('window.minimize')} onClick={() => runtimeApi().WindowMinimise()}><Minus size={17} /></button>
+          <button title={t('window.maximize')} aria-label={t('window.maximize')} onClick={() => runtimeApi().WindowToggleMaximise()}><Maximize2 size={15} /></button>
+          <button className="close" title={t('window.close')} aria-label={t('window.close')} onClick={() => runtimeApi().Quit()}><X size={18} /></button>
         </div>
       </header>
 
@@ -1170,7 +1201,7 @@ function App() {
           <select value={language} onChange={(e) => handleLanguage(e.target.value)}>
             {Object.entries(languageNames).map(([code, name]) => <option key={code} value={code}>{name}</option>)}
           </select>
-          <button className="icon-btn" title={theme} onClick={cycleTheme}>
+          <button className="icon-btn" title={theme === 'system' ? t('theme.system') : theme === 'dark' ? t('theme.dark') : t('theme.light')} aria-label={theme === 'system' ? t('theme.system') : theme === 'dark' ? t('theme.dark') : t('theme.light')} onClick={cycleTheme}>
             {effectiveTheme === 'dark' ? <Sun /> : <Moon />}
           </button>
           <button className="action help-btn" onClick={() => setHelpOpen(true)}><CircleHelp />{t('button.help')}</button>
@@ -1198,10 +1229,10 @@ function App() {
         />
         <label>{t('collision.label')}</label>
         <select className="collision" value={collisionPolicy} onChange={(e) => setCollisionPolicy(e.target.value as CollisionPolicy)}>
-          <option value="skip">{language === 'ru' ? 'Не переименовывать конфликтующие' : 'Skip conflicting files'}</option>
-          <option value="auto-number">{language === 'ru' ? 'Добавлять номер автоматически' : 'Add number automatically'}</option>
-          <option value="overwrite" disabled>{language === 'ru' ? 'Перезаписывать — требует безопасного backup' : 'Overwrite — safe backup required'}</option>
-          <option value="stop">{language === 'ru' ? 'Остановить операцию при конфликте' : 'Stop operation on conflict'}</option>
+          <option value="skip">{t('collision.skip')}</option>
+          <option value="auto-number">{t('collision.auto_number')}</option>
+          <option value="overwrite" disabled>{t('collision.overwrite_disabled')}</option>
+          <option value="stop">{t('collision.stop')}</option>
         </select>
         <button className="mini-more" onClick={openHistory} title={ux.history}><MoreHorizontal /></button>
       </section>
@@ -1210,7 +1241,7 @@ function App() {
         <aside className="sidebar" style={{ '--methods-height': `${methodsHeight}px` } as CSSProperties}>
           <section className="panel methods-panel">
             <div className="panel-title method-panel-title">
-              <span className="panel-title-copy"><b>✦</b>{t('group.methods')}</span>
+              <span className="panel-title-copy"><Sparkles size={15} />{t('group.methods')}</span>
               <select
                 className="method-add-select"
                 value=""
@@ -1246,16 +1277,16 @@ function App() {
               })}
             </div>
             <div className="method-toolbar">
-              <button title={t('toolbar.move_up', 'Переместить выше')} onClick={() => moveMethod(-1)} disabled={selectedMethod === 0}><ArrowUp /></button>
-              <button title={t('toolbar.move_down', 'Переместить ниже')} onClick={() => moveMethod(1)} disabled={selectedMethod >= methods.length - 1}><ArrowDown /></button>
-              <button title={t('toolbar.duplicate', 'Дублировать метод')} onClick={duplicateMethod}><Copy /></button>
+              <button title={t('toolbar.move_up')} onClick={() => moveMethod(-1)} disabled={selectedMethod === 0}><ArrowUp /></button>
+              <button title={t('toolbar.move_down')} onClick={() => moveMethod(1)} disabled={selectedMethod >= methods.length - 1}><ArrowDown /></button>
+              <button title={t('toolbar.duplicate')} onClick={duplicateMethod}><Copy /></button>
               <button title={t('menu.save_methods')} onClick={saveMethods}><Save /></button>
               <button title={t('menu.load_methods')} onClick={loadMethods}><RefreshCcw /></button>
-              <button title={t('toolbar.delete', 'Удалить метод')} onClick={removeMethod} disabled={methods.length === 1}><Trash2 /></button>
+              <button title={t('toolbar.delete')} onClick={removeMethod} disabled={methods.length === 1}><Trash2 /></button>
             </div>
           </section>
 
-          <div className="sidebar-splitter" onPointerDown={startSidebarResize} title="Drag to resize" />
+          <div className="sidebar-splitter" onPointerDown={startSidebarResize} title={t('splitter.vertical')} />
 
           <section className="panel settings-panel">
             <h2>{t('group.settings')}: {selectedMethodValue ? t(methodCatalog.find((x) => x.type === selectedMethodValue.type)?.titleKey || '') : ''}</h2>
@@ -1273,7 +1304,6 @@ function App() {
                 setTagSearch={setTagSearch}
                 filteredTags={filteredTags}
                 insertTag={insertTag}
-                language={language}
                 userPresets={userPresets}
                 setUserPresets={setUserPresets}
               />
@@ -1281,7 +1311,7 @@ function App() {
           </section>
         </aside>
 
-        <div className="workspace-splitter" onPointerDown={startWorkspaceResize} title="Drag to resize sidebar" />
+        <div className="workspace-splitter" onPointerDown={startWorkspaceResize} title={t('splitter.sidebar')} />
 
         <section className="files-panel">
           <div className="files-head">
@@ -1311,7 +1341,7 @@ function App() {
                   <option value="manual">{ux.manual}</option>
                 </select>
               </label>
-              <button className="sort-direction" onClick={() => setSortDescending((value) => !value)} title={sortDescending ? 'Descending' : 'Ascending'}>
+              <button className="sort-direction" onClick={() => setSortDescending((value) => !value)} title={sortDescending ? t('sort.descending') : t('sort.ascending')}>
                 {sortDescending ? <ArrowDown /> : <ArrowUp />}
               </button>
               <label className="checkline sort-per-folder">
@@ -1351,8 +1381,8 @@ function App() {
                 )}
               </div>
               <div className="view-toggle">
-                <button title="Comfortable rows" className={!compactView ? 'active' : ''} onClick={() => setCompactView(false)}><List /></button>
-                <button title="Compact rows" className={compactView ? 'active' : ''} onClick={() => setCompactView(true)}>▦</button>
+                <button title={t('view.comfortable')} className={!compactView ? 'active' : ''} onClick={() => setCompactView(false)}><List /></button>
+                <button title={t('view.compact')} className={compactView ? 'active' : ''} onClick={() => setCompactView(true)}><Grid2X2 /></button>
               </div>
             </div>
           </div>
@@ -1449,10 +1479,10 @@ function App() {
 
       <footer className="statusbar">
         <span className={`state ${executing ? 'busy' : criticalErrorCount ? 'error' : conflictCount ? 'warning' : ''}`}>
-          <i />{executing ? ux.renaming : criticalErrorCount ? t('status.errors') : conflictCount ? (language === 'ru' ? 'Есть предупреждения' : 'Warnings') : t('status.ready')}
+          <i />{executing ? ux.renaming : criticalErrorCount ? t('status.errors') : conflictCount ? t('status.warnings') : t('status.ready')}
         </span>
         <div>
-          <span>{t('button.select_valid')}: {checked.size} {t('status.of')} {validItems.length}</span>
+          <span>{t('status.selected')}: {checked.size} {t('status.of')} {validItems.length}</span>
           <span>{t('group.files')}: {items.length}</span>
           <span>{ux.folders}: {folderCount}</span>
           <span>{t('status.errors')}: {errorCount}</span>
@@ -1622,7 +1652,6 @@ interface MethodEditorProps {
   setTagSearch: (value: string) => void
   filteredTags: { token: string; labelKey: string }[]
   insertTag: (token: string) => void
-  language: string
   userPresets: UserPreset[]
   setUserPresets: (presets: UserPreset[]) => void
 }
@@ -1677,10 +1706,14 @@ function MethodEditor(props: MethodEditorProps) {
     })
   }
 
-  const presetCopy = props.language === 'ru' ? 'копия' : 'copy'
-  const presetLabels = props.language === 'ru'
-    ? { name: 'Имя пресета', save: 'Сохранить', rename: 'Переименовать', duplicate: 'Дублировать', remove: 'Удалить' }
-    : { name: 'Preset name', save: 'Save', rename: 'Rename', duplicate: 'Duplicate', remove: 'Delete' }
+  const presetCopy = t('preset.copy_suffix')
+  const presetLabels = {
+    name: t('preset.name_placeholder'),
+    save: t('preset.save'),
+    rename: t('preset.rename'),
+    duplicate: t('preset.duplicate'),
+    remove: t('preset.remove'),
+  }
 
   const saveUserPreset = () => {
     const name = presetName.trim() || `Preset ${props.userPresets.length + 1}`
@@ -1751,7 +1784,7 @@ function MethodEditor(props: MethodEditorProps) {
           >
             <option value="">{t('preset.sequence_original')}</option>
             {presetOptions.map((preset) => <option key={preset.value} value={preset.value}>{t(preset.labelKey)}</option>)}
-            {props.userPresets.length > 0 && <optgroup label={props.language === 'ru' ? 'Мои пресеты' : 'My presets'}>
+            {props.userPresets.length > 0 && <optgroup label={t('preset.mine')}>
               {props.userPresets.map((preset) => <option key={preset.id} value={`user:${preset.id}`}>{preset.name}</option>)}
             </optgroup>}
           </select>
@@ -1817,8 +1850,8 @@ function MethodEditor(props: MethodEditorProps) {
         </div>
         <div className="tag-tabs">
           <button className={props.tagTab === 'tags' ? 'active' : ''} onClick={() => props.setTagTab('tags')}>{t('help.tags')}</button>
-          <button className={props.tagTab === 'functions' ? 'active' : ''} onClick={() => props.setTagTab('functions')}>{t('label.functions_help').split(':')[0]}</button>
-          <button className={props.tagTab === 'variables' ? 'active' : ''} onClick={() => props.setTagTab('variables')}>{t('label.variables_help').split(':')[0]}</button>
+          <button className={props.tagTab === 'functions' ? 'active' : ''} onClick={() => props.setTagTab('functions')}>{t('tab.functions')}</button>
+          <button className={props.tagTab === 'variables' ? 'active' : ''} onClick={() => props.setTagTab('variables')}>{t('tab.variables')}</button>
         </div>
         <div className="tag-search"><Search /><input value={props.tagSearch} onChange={(e) => props.setTagSearch(e.target.value)} placeholder={t('tag.search')} /></div>
         <div className="tag-grid">
@@ -1840,9 +1873,9 @@ function MethodEditor(props: MethodEditorProps) {
             </button>
           ))}
           {props.tagTab === 'functions' && functionEntries.map(([name, example]) => <button key={name} onClick={() => props.insertTag(example)}><code>{name}</code><span>{example}</span></button>)}
-          {props.tagTab === 'variables' && variableEntries.map(([name, description]) => <button key={name} onClick={() => props.insertTag(name)}><code>{name}</code><span>{description}</span></button>)}
+          {props.tagTab === 'variables' && variableEntries.map(([name, descriptionKey]) => <button key={name} onClick={() => props.insertTag(name)}><code>{name}</code><span>{t(descriptionKey)}</span></button>)}
         </div>
-        <div className="editor-hint">ⓘ {t('tag.hint')}</div>
+        <div className="editor-hint"><CircleHelp size={14} />{t('tag.hint')}</div>
       </div>
     )
   }

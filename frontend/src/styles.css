@@ -128,15 +128,15 @@ textarea:focus-visible {
   height: 34px;
   display: grid;
   place-items: center;
-  border: 1px solid rgba(130, 175, 255, 0.43);
-  border-radius: 7px;
-  background: linear-gradient(145deg, #3c7cf7, #2455bb);
-  color: white;
-  font-size: 14px;
-  font-weight: 800;
-  box-shadow:
-    0 0 18px rgba(45, 112, 245, 0.37),
-    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+  box-shadow: 0 0 18px rgba(45, 112, 245, 0.32);
+  overflow: hidden;
+}
+
+.brand-mark img {
+  width: 34px;
+  height: 34px;
+  display: block;
 }
 
 .brand strong {
@@ -724,26 +724,13 @@ input[type="radio"] {
   background: rgba(46, 105, 214, 0.09);
   color: #9eb8df;
   font-size: 10px;
-}
-
-.add-method {
-  margin-top: 14px;
-  padding-top: 10px;
-  border-top: 1px solid var(--border);
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  gap: 8px;
+  display: flex;
   align-items: center;
+  gap: 6px;
 }
 
-.add-method button {
-  height: 34px;
-  border: 1px solid rgba(61, 124, 239, 0.55);
-  border-radius: 7px;
-  padding: 0 12px;
-  background: var(--accent-soft);
-  color: #dce9ff;
-  cursor: pointer;
+.editor-hint svg {
+  flex: 0 0 auto;
 }
 
 .files-panel {
@@ -1329,8 +1316,9 @@ tbody tr.selected {
   gap: 8px;
 }
 
-.panel-title-copy b {
+.panel-title-copy svg {
   color: #64a4ff;
+  flex: 0 0 auto;
 }
 
 .method-add-select {

@@ -32,6 +32,7 @@ import {
   Maximize2,
 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type { CSSProperties, RefObject } from 'react'
 import { appApi, runtimeApi } from './api'
 import { methodCatalog, tagCatalog } from './catalog'
 import type {
@@ -512,14 +513,14 @@ function App() {
 
   return (
     <div className="app-shell">
-      <header className="titlebar" style={{ '--wails-draggable': 'drag' } as React.CSSProperties}>
+      <header className="titlebar" style={{ '--wails-draggable': 'drag' } as CSSProperties}>
         <div className="brand">
           <div className="brand-mark">ER</div>
           <strong>EasyRenamer <span>{bootstrap?.version || 'dev'}</span></strong>
           <span className="brand-subtitle">{t('app.subtitle', 'Batch file renaming')}</span>
         </div>
         <div className="tagline">{t('app.tagline', 'Order in names — more order in work')}</div>
-        <div className="window-controls" style={{ '--wails-draggable': 'no-drag' } as React.CSSProperties}>
+        <div className="window-controls" style={{ '--wails-draggable': 'no-drag' } as CSSProperties}>
           <button onClick={() => runtimeApi().WindowMinimise()}><Minus size={17} /></button>
           <button onClick={() => runtimeApi().WindowToggleMaximise()}><Maximize2 size={15} /></button>
           <button className="close" onClick={() => runtimeApi().Quit()}><X size={18} /></button>
@@ -651,7 +652,7 @@ function App() {
             </div>
           </div>
 
-          <div className="table-wrap" style={{ '--wails-drop-target': 'drop' } as React.CSSProperties}>
+          <div className="table-wrap" style={{ '--wails-drop-target': 'drop' } as CSSProperties}>
             <table className={compactView ? 'compact' : ''}>
               <thead>
                 <tr>
@@ -804,7 +805,7 @@ interface MethodEditorProps {
   method: RenameMethod
   update: (patch: Partial<RenameMethod>) => void
   t: (key: string, fallback?: string) => string
-  templateInputRef: React.RefObject<HTMLInputElement>
+  templateInputRef: RefObject<HTMLInputElement>
   tagTab: 'tags' | 'functions' | 'variables'
   setTagTab: (tab: 'tags' | 'functions' | 'variables') => void
   tagCategory: number

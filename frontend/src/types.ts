@@ -86,6 +86,14 @@ export interface PathClassification {
   folders: string[]
 }
 
+export interface HistoryEntry {
+  id: string
+  createdAt: string
+  count: number
+  folder: string
+  undone: boolean
+}
+
 export interface BackendApp {
   Bootstrap(): Promise<BootstrapData>
   SetLanguage(lang: string): Promise<Record<string, string>>
@@ -107,6 +115,8 @@ export interface BackendApp {
   Execute(selectedPaths: string[]): Promise<OperationResult>
   CancelExecute(): Promise<void>
   Undo(): Promise<OperationResult>
+  History(): Promise<HistoryEntry[]>
+  UndoHistory(id: string): Promise<OperationResult>
   Reveal(path: string): Promise<void>
   Thumbnail(path: string): Promise<string>
   SaveMethodSet(methods: RenameMethod[]): Promise<void>

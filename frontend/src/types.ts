@@ -57,6 +57,13 @@ export interface PreviewResult {
   items: PreviewItem[]
 }
 
+export interface FileDetails {
+  size: number
+  width: number
+  height: number
+  type: string
+}
+
 export interface BootstrapData {
   version: string
   language: string
@@ -118,6 +125,7 @@ export interface BackendApp {
   History(): Promise<HistoryEntry[]>
   UndoHistory(id: string): Promise<OperationResult>
   Reveal(path: string): Promise<void>
+  FileDetails(path: string): Promise<FileDetails>
   Thumbnail(path: string): Promise<string>
   SaveMethodSet(methods: RenameMethod[]): Promise<void>
   LoadMethodSet(): Promise<RenameMethod[]>

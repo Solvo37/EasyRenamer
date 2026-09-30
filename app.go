@@ -57,6 +57,13 @@ type PreviewResult struct {
 	Items []PreviewItem `json:"items"`
 }
 
+type FileDetails struct {
+	Size   int64  `json:"size"`
+	Width  int    `json:"width"`
+	Height int    `json:"height"`
+	Type   string `json:"type"`
+}
+
 type OperationResult struct {
 	Count     int                 `json:"count"`
 	Pairs     []engine.RenamePair `json:"pairs,omitempty"`
@@ -409,6 +416,19 @@ func (a *App) Reveal(path string) error {
 		return nil
 	}
 	return exec.Command("explorer.exe", "/select,"+path).Start()
+}
+
+func (a *App) FileDetails(path string) (FileDetails, error) {
+	path = filepath.Clean(strings.TrimSpace(path))
+	st, err := os.Stat(path)
+	if err != nil {
+		return FileDetails{}, err
+	}
+	width, height, _ := engine.ImageDimensions(path)
+	return FileDetails{
+		Size: st.Size(), Width: width, Height: height,
+		Type: strings.TrimPrefix(strings.ToUpper(filepath.Ext(path)), "."),
+	}, nil
 }
 
 func (a *App) Thumbnail(path string) (string, error) {

@@ -193,18 +193,29 @@ type previewSortInfo struct {
 	Created  time.Time
 	Modified time.Time
 	Added    int
+	Manual   int
 	StatErr  error
 }
 
 func prepareSortInfo(files []string, cfg Config) []previewSortInfo {
+	manualRank := make(map[string]int, len(cfg.ManualOrder))
+	for index, path := range cfg.ManualOrder {
+		manualRank[strings.ToLower(filepath.Clean(path))] = index
+	}
+
 	infos := make([]previewSortInfo, 0, len(files))
 	for index, path := range files {
+		manual := len(manualRank) + index
+		if rank, ok := manualRank[strings.ToLower(filepath.Clean(path))]; ok {
+			manual = rank
+		}
 		info := previewSortInfo{
-			Path:  path,
-			Dir:   filepath.Dir(path),
-			Name:  filepath.Base(path),
-			Ext:   strings.ToLower(filepath.Ext(path)),
-			Added: index,
+			Path:   path,
+			Dir:    filepath.Dir(path),
+			Name:   filepath.Base(path),
+			Ext:    strings.ToLower(filepath.Ext(path)),
+			Added:  index,
+			Manual: manual,
 		}
 		st, err := os.Stat(path)
 		if err != nil {
@@ -270,7 +281,15 @@ func comparePreviewSort(a, b previewSortInfo, mode SortMode) int {
 		return naturalCompare(a.Name, b.Name)
 	case SortPath:
 		return naturalCompare(a.Path, b.Path)
-	case SortAdded, SortManual:
+	case SortManual:
+		if a.Manual < b.Manual {
+			return -1
+		}
+		if a.Manual > b.Manual {
+			return 1
+		}
+		return 0
+	case SortAdded:
 		if a.Added < b.Added {
 			return -1
 		}

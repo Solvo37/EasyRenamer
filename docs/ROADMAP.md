@@ -161,3 +161,22 @@ EasyRenamer is intended to grow from a focused batch renamer into a serious open
 - [x] Full-width bottom status bar
 - [x] File count in the Files heading
 - [x] Search inside the built-in tag browser
+
+## v0.8.0 — New UI layer
+
+- [x] Replace release UI technology: Walk → Wails v2 + React + TypeScript
+- [x] Keep the existing Go rename engine instead of rewriting core logic
+- [x] Frameless custom Windows title bar
+- [x] Mockup-driven command bar / filter bar / sidebar / file workspace
+- [x] CSS-based dark/light/system themes
+- [x] Live language switching using existing Go translation tables
+- [x] React method stack with all existing rename method editors
+- [x] Modern built-in tag browser with search
+- [x] Native file drop integration through Wails
+- [x] Multi-file and multi-folder pickers
+- [x] Selected-file thumbnail/metadata preview
+- [x] Original → new filename comparison
+- [x] Custom modal confirmations / drop workflow / help
+- [x] Ctrl+Z Undo
+- [x] Production Wails build + Windows startup smoke test
+- [ ] Remove legacy Walk frontend after the new shell has been field-tested

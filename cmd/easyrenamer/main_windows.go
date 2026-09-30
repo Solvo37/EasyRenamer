@@ -50,16 +50,8 @@ func (m *previewModel) Value(row, col int) interface{} {
 	case 4:
 		return formatBytes(it.Size)
 	case 5:
-		if it.Width > 0 {
-			return it.Width
-		}
-		return ""
+		return fileTypeLabel(it.OldName)
 	case 6:
-		if it.Height > 0 {
-			return it.Height
-		}
-		return ""
-	case 7:
 		status := localizedItemStatus(it.Status)
 		if it.Error != "" {
 			return status + ": " + localizedItemError(it.Error)
@@ -111,7 +103,16 @@ func (m *methodModel) Value(row, col int) interface{} {
 		return ""
 	}
 	method := (*m.methods)[row]
-	return fmt.Sprintf("%d. %s", row+1, methodTitle(method.Type))
+	switch col {
+	case 0:
+		return fmt.Sprintf("%d. %s", row+1, methodTitle(method.Type))
+	case 1:
+		return methodDescription(method.Type)
+	case 2:
+		return "›"
+	default:
+		return ""
+	}
 }
 
 func (m *methodModel) Checked(row int) bool {
@@ -196,6 +197,49 @@ func methodTitle(method engine.Method) string {
 	default:
 		return i18n.T("column.method")
 	}
+}
+
+func methodDescription(method engine.Method) string {
+	switch method {
+	case engine.MethodTemplate:
+		return i18n.T("method.desc.template")
+	case engine.MethodList:
+		return i18n.T("method.desc.list")
+	case engine.MethodListReplace:
+		return i18n.T("method.desc.list_replace")
+	case engine.MethodCase:
+		return i18n.T("method.desc.case")
+	case engine.MethodMove:
+		return i18n.T("method.desc.move")
+	case engine.MethodRemove:
+		return i18n.T("method.desc.remove")
+	case engine.MethodRemovePattern:
+		return i18n.T("method.desc.remove_pattern")
+	case engine.MethodRenumber:
+		return i18n.T("method.desc.renumber")
+	case engine.MethodReplace:
+		return i18n.T("method.desc.replace")
+	case engine.MethodPrefixSuffix:
+		return i18n.T("method.desc.add_text")
+	case engine.MethodScript:
+		return i18n.T("method.desc.script")
+	case engine.MethodSwap:
+		return i18n.T("method.desc.swap")
+	case engine.MethodTrim:
+		return i18n.T("method.desc.trim")
+	case engine.MethodTimestamp:
+		return i18n.T("method.desc.timestamp")
+	default:
+		return ""
+	}
+}
+
+func fileTypeLabel(name string) string {
+	ext := strings.TrimPrefix(strings.ToUpper(filepath.Ext(name)), ".")
+	if ext == "" {
+		return "FILE"
+	}
+	return ext
 }
 
 func categoryTitle(category engine.Category) string {

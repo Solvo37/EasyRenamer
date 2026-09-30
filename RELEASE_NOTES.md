@@ -1,48 +1,36 @@
-# EasyRenamer v0.6.0
+# EasyRenamer v0.6.1
 
-Major desktop-shell modernization.
+UX polish based on screenshots from v0.6.0.
 
-## Main window
+## Method controls
 
-- Removed the native Win32 menu bar, eliminating the white menu strip in dark mode.
-- Replaced it with a dark in-app command bar.
-- Language and theme selectors live directly in the app toolbar and still apply without restarting.
-- Save/load method-set controls remain inside the working UI.
-- Drag/drop preferences remain accessible without the old menu.
+- Reflowed selected-method actions into a 2×3 grid.
+- Buttons now have enough room for Russian, Spanish, English, and Chinese labels.
+- Save / Load use shorter localized labels so they do not get clipped in the left pane.
 
-## Built-in help
+## Tags
 
-- Added an internal Help window with:
-  - Guide;
-  - localized Tag reference;
-  - About.
-- The tag reference no longer opens GitHub.
-- Help content is available directly from the EXE.
+- Replaced the tag-category tab strip with a category selector.
+- Removed the native tag-table header that could render dark text on a dark surface.
+- Added explicit readable Tag / Meaning headings using the app palette.
+- The same browser is used in New Name and in the built-in Help window.
 
-## Dialogs
+## Live preview
 
-- Replaced normal user-facing Win32 message boxes with themed EasyRenamer dialogs.
-- Rename confirmation, Undo, preview errors, file/method-set errors and normal information messages now follow the selected theme.
-- The native white Undo popup shown in earlier versions is removed from normal operation.
+- Removed the separate **Live preview** checkbox.
+- Live preview is now the default behavior and does not require a separate mode.
+- Manual Preview / Cancel preview remains available for explicit rescans and heavy folders.
 
-## Localization
+## Multiple folders
 
-- Removed the remaining hard-coded English labels from the main workflow.
-- Localized method options, help text, confirmation dialogs, file filters and error titles.
-- Russian, English, Spanish and Chinese are covered.
-- Added an automated translation-completeness test so a new English UI key cannot silently be missing from another supported language.
-
-## Existing stability work retained
-
-- Cancellable preview scanning.
-- Automatic cancellation of stale live-preview scans.
-- Async Explorer actions.
-- DPI/work-area-aware window sizing.
-- Scrollable method/settings workspace.
-- Neutral graphite dark palette.
+- Replaced the old single-folder tree dialog.
+- **Folders** now opens the modern Windows IFileOpenDialog in folder mode with multi-select enabled.
+- Ctrl / Shift selection can be used to add several folders in one operation.
+- All selected folders are added to the current source list.
 
 ## Quality
 
+- Translation completeness tests remain enabled.
 - Core tests must pass.
 - Windows build must pass.
 - Startup smoke test must pass.
@@ -50,5 +38,5 @@ Major desktop-shell modernization.
 ## Downloads
 
 - **EasyRenamer.exe** — portable Windows x64 executable.
-- **EasyRenamer-v0.6.0-windows-x64.zip** — EXE + README + license + documentation.
+- **EasyRenamer-v0.6.1-windows-x64.zip** — EXE + README + license + documentation.
 - **SHA256SUMS.txt** — checksums.

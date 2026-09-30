@@ -1752,3 +1752,23 @@ tbody tr.selected {
   outline: 1px solid var(--accent);
   background: var(--accent-soft);
 }
+
+
+.virtual-spacer,
+.virtual-spacer:hover,
+.virtual-spacer:nth-child(even) {
+  background: transparent !important;
+}
+
+.virtual-spacer td {
+  padding: 0;
+  border: 0;
+}
+
+.folder-group-row td {
+  height: 36px;
+}
+
+table.compact .folder-group-row td {
+  height: 30px;
+}

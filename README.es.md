@@ -14,9 +14,9 @@
 
 <p align="center">
   <a href="https://github.com/Solvo37/easyrenamer/releases/latest/download/EasyRenamer.exe"><strong>Descargar EasyRenamer.exe</strong></a>
-  · <a href="docs/LEARN.md">Guía</a>
-  · <a href="docs/TAGS.md">Referencia de etiquetas</a>
-  · <a href="docs/ROADMAP.md">Roadmap</a>
+  · <a href="docs/LEARN.es.md">Guía</a>
+  · <a href="docs/TAGS.es.md">Referencia de etiquetas</a>
+  · <a href="docs/ROADMAP.es.md">Roadmap</a>
 </p>
 
 ---
@@ -72,7 +72,7 @@ EasyRenamer permite encadenar métodos:
 - <strong>List / List Replace</strong> — nombres y reglas línea por línea;
 - <strong>Script</strong> — expresiones seguras sin acceso directo a red o sistema de archivos.
 
-Guía detallada: [docs/LEARN.md](docs/LEARN.md).
+Guía detallada: [docs/LEARN.es.md](docs/LEARN.es.md).
 
 ## Etiquetas y metadatos
 
@@ -92,7 +92,7 @@ Las plantillas admiten contadores, carpetas, fechas, tamaños, valores aleatorio
 &lt;MD5&gt;
 </pre>
 
-Las etiquetas soportan fallback y modificadores. Referencia completa: [docs/TAGS.md](docs/TAGS.md).
+Las etiquetas soportan fallback y modificadores. Referencia completa: [docs/TAGS.es.md](docs/TAGS.es.md).
 
 ## Seguridad
 
@@ -147,7 +147,7 @@ Versiones actuales: [GitHub Releases](https://github.com/Solvo37/easyrenamer/rel
 
 ## Contribuir
 
-Se aceptan bugs, ideas y pull requests. Consulta [CONTRIBUTING.md](CONTRIBUTING.md).
+Se aceptan bugs, ideas y pull requests. Consulta [CONTRIBUTING.es.md](CONTRIBUTING.es.md).
 
 ## Licencia
 

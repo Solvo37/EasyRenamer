@@ -2082,33 +2082,76 @@ Composite{Background: uiPanelBrush(darkTheme),
 								},
 							},
 							Composite{Background: uiPanelBrush(darkTheme),
+								MinSize: Size{0, 112},
+								Layout: HBox{Spacing: 12, Margins: Margins{Left: 10, Top: 10, Right: 10, Bottom: 10}},
+								Children: []Widget{
+									Label{
+										AssignTo:      &selectedTypeLbl,
+										Text:          "—",
+										Font:          Font{PointSize: 14, Bold: true},
+										MinSize:       Size{72, 64},
+										TextColor:     walk.RGB(255, 255, 255),
+										Background:    uiAccentBrush(darkTheme),
+										TextAlignment: AlignCenter,
+									},
+									Composite{Background: uiPanelBrush(darkTheme),
+										MinSize: Size{260, 0},
+										Layout: VBox{Spacing: 4},
+										Children: []Widget{
+											Label{AssignTo: &selectedFileNameLbl, Text: i18n.T("preview.no_selection"), Font: Font{PointSize: 10, Bold: true}, TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme)},
+											Label{AssignTo: &selectedMetaLbl, Text: "", TextColor: uiMutedTextColor(darkTheme), Background: uiPanelBrush(darkTheme)},
+											Label{AssignTo: &selectedPathLbl, Text: "", TextColor: uiMutedTextColor(darkTheme), Background: uiPanelBrush(darkTheme)},
+										},
+									},
+									HSpacer{},
+									Composite{Background: uiFieldBrush(darkTheme),
+										MinSize: Size{430, 82},
+										Layout: Grid{Columns: 3, Spacing: 10, Margins: Margins{Left: 12, Top: 10, Right: 12, Bottom: 10}},
+										Children: []Widget{
+											Label{Text: i18n.T("preview.original"), TextColor: uiMutedTextColor(darkTheme), Background: uiFieldBrush(darkTheme)},
+											Label{Text: "", Background: uiFieldBrush(darkTheme)},
+											Label{Text: i18n.T("preview.new"), TextColor: uiMutedTextColor(darkTheme), Background: uiFieldBrush(darkTheme)},
+											Label{AssignTo: &selectedOldNameLbl, Text: "—", TextColor: uiTextColor(darkTheme), Background: uiFieldBrush(darkTheme)},
+											Label{Text: "→", Font: Font{PointSize: 12, Bold: true}, TextColor: uiMutedTextColor(darkTheme), Background: uiFieldBrush(darkTheme), TextAlignment: AlignCenter},
+											Label{AssignTo: &selectedNewNameLbl, Text: "—", Font: Font{Bold: true}, TextColor: uiTextColor(darkTheme), Background: uiFieldBrush(darkTheme)},
+										},
+									},
+								},
+							},
+							Composite{Background: uiCardBrush(darkTheme),
 								Layout: HBox{Spacing: 6},
 								Children: []Widget{
-									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("button.select_valid"), OnClicked: func() {
+									ToolButton{Background: uiPanelBrush(darkTheme), Text: i18n.T("button.select_valid"), OnClicked: func() {
 										for _, it := range model.items {
 											it.Checked = it.Status == engine.StatusOK
 										}
 										model.PublishRowsReset()
 										updateStatus()
 									}},
-									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("button.clear_selection"), OnClicked: func() {
+									ToolButton{Background: uiPanelBrush(darkTheme), Text: i18n.T("button.clear_selection"), OnClicked: func() {
 										for _, it := range model.items {
 											it.Checked = false
 										}
 										model.PublishRowsReset()
 										updateStatus()
 									}},
-									PushButton{Background: uiPanelBrush(darkTheme),Text: i18n.T("button.open_selected"), OnClicked: openSelectedFile},
+									ToolButton{Background: uiPanelBrush(darkTheme), Text: i18n.T("button.open_selected"), OnClicked: openSelectedFile},
 									HSpacer{},
-									Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),AssignTo: &collisionLbl, Text: i18n.T("status.waiting")},
-									Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),Text: "   "},
-									Label{TextColor: uiTextColor(darkTheme), Background: uiPanelBrush(darkTheme),AssignTo: &statusLbl, Text: fmt.Sprintf(i18n.T("status.summary"), 0, 0, 0, 0)},
 								},
 							},
 						},
 					},
 				},
-			},
+			},,
+			Composite{Background: uiWindowBrush(darkTheme),
+				Layout: HBox{Spacing: 12, Margins: Margins{Left: 8, Top: 5, Right: 8, Bottom: 3}},
+				Children: []Widget{
+					Label{AssignTo: &readyLbl, Text: "●  " + i18n.T("status.ready"), TextColor: uiSuccessTextColor(darkTheme), Background: uiWindowBrush(darkTheme)},
+					HSpacer{},
+					Label{AssignTo: &collisionLbl, Text: i18n.T("status.waiting"), TextColor: uiMutedTextColor(darkTheme), Background: uiWindowBrush(darkTheme)},
+					Label{AssignTo: &statusLbl, Text: fmt.Sprintf(i18n.T("status.summary"), 0, 0, 0, 0), TextColor: uiMutedTextColor(darkTheme), Background: uiWindowBrush(darkTheme)},
+				},
+			}
 		},
 	}
 

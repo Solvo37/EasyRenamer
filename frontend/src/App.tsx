@@ -165,6 +165,10 @@ interface UserPreset {
   template: string
 }
 
+type ContextMenuState =
+  | { kind: 'file'; x: number; y: number; item: PreviewItem }
+  | { kind: 'folder'; x: number; y: number; folder: string; group: PreviewItem[] }
+
 function App() {
   const [bootstrap, setBootstrap] = useState<BootstrapData | null>(null)
   const [strings, setStrings] = useState<Record<string, string>>({})
@@ -173,6 +177,7 @@ function App() {
   const [systemDark, setSystemDark] = useState(window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? true)
 
   const [sources, setSources] = useState<string[]>([])
+  const [excludedPaths, setExcludedPaths] = useState<Set<string>>(new Set())
   const [recursive, setRecursive] = useState(true)
   const [category, setCategory] = useState('All files')
   const [extensions, setExtensions] = useState('')
@@ -206,6 +211,7 @@ function App() {
   const [historyOpen, setHistoryOpen] = useState(false)
   const [historyItems, setHistoryItems] = useState<HistoryEntry[]>([])
   const [historyBusy, setHistoryBusy] = useState(false)
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
   const [userPresets, setUserPresets] = useState<UserPreset[]>(() => {
     try {
       return JSON.parse(localStorage.getItem('easyrenamer-user-presets') || '[]')
@@ -233,7 +239,10 @@ function App() {
     cancelOperation: 'Отмена', preparing: 'Подготовка', renaming: 'Переименование файлов',
     cancelled: 'Операция отменена, исходные имена восстановлены',
     history: 'История', rollback: 'Откатить', rolledBack: 'Откат выполнен', undone: 'Откат выполнен',
-    noHistory: 'История операций пока пуста', filesRenamed: 'Переименовано'
+    noHistory: 'История операций пока пуста', filesRenamed: 'Переименовано',
+    open: 'Открыть', showExplorer: 'Показать в Проводнике', copyName: 'Скопировать имя',
+    copyPath: 'Скопировать полный путь', exclude: 'Исключить из операции', removeList: 'Удалить из списка',
+    selectFolder: 'Выбрать все файлы папки', deselectFolder: 'Снять выбор', removeFolder: 'Удалить папку из списка'
   } : {
     order: 'Order', name: 'Name', created: 'Created', modified: 'Modified',
     size: 'Size', extension: 'Extension', path: 'Path', added: 'Added order', manual: 'Manual order',
@@ -243,7 +252,10 @@ function App() {
     cancelOperation: 'Cancel', preparing: 'Preparing', renaming: 'Renaming files',
     cancelled: 'Operation cancelled; original names restored',
     history: 'History', rollback: 'Rollback', rolledBack: 'Rollback complete', undone: 'Undone',
-    noHistory: 'Operation history is empty', filesRenamed: 'Renamed'
+    noHistory: 'Operation history is empty', filesRenamed: 'Renamed',
+    open: 'Open', showExplorer: 'Show in Explorer', copyName: 'Copy name',
+    copyPath: 'Copy full path', exclude: 'Exclude from operation', removeList: 'Remove from list',
+    selectFolder: 'Select all files in folder', deselectFolder: 'Clear selection', removeFolder: 'Remove folder from list'
   }, [language])
 
   const effectiveTheme = theme === 'system' ? (systemDark ? 'dark' : 'light') : theme
@@ -299,6 +311,11 @@ function App() {
       paths.forEach((path) => map.set(path.toLowerCase(), path))
       return [...map.values()]
     })
+    setExcludedPaths((prev) => {
+      const next = new Set(prev)
+      paths.forEach((path) => next.delete(path.toLowerCase()))
+      return next
+    })
     setSelectionTouched(false)
   }, [])
 
@@ -334,6 +351,16 @@ function App() {
     return () => off?.()
   }, [])
 
+  useEffect(() => {
+    const close = () => setContextMenu(null)
+    window.addEventListener('click', close)
+    window.addEventListener('blur', close)
+    return () => {
+      window.removeEventListener('click', close)
+      window.removeEventListener('blur', close)
+    }
+  }, [])
+
   const requestPreview = useCallback(async () => {
     if (!sources.length || !methods.length) {
       setItems([])
@@ -342,7 +369,7 @@ function App() {
     }
     setPreviewBusy(true)
     try {
-      const result = await appApi().Preview(sources, recursive, category, extensions, methods, sortBy, sortDescending, sortPerFolder)
+      const result = await appApi().Preview(sources, [...excludedPaths], recursive, category, extensions, methods, sortBy, sortDescending, sortPerFolder)
       const nextItems = result.items || []
       setItems(nextItems)
       setChecked((prev) => {
@@ -365,7 +392,7 @@ function App() {
     } finally {
       setPreviewBusy(false)
     }
-  }, [sources, recursive, category, extensions, methods, selectionTouched, sortBy, sortDescending, sortPerFolder])
+  }, [sources, excludedPaths, recursive, category, extensions, methods, selectionTouched, sortBy, sortDescending, sortPerFolder])
 
   useEffect(() => {
     if (previewTimer.current) window.clearTimeout(previewTimer.current)
@@ -421,6 +448,9 @@ function App() {
       } else if (event.key === 'F5') {
         event.preventDefault()
         requestPreview()
+      } else if (event.key === 'Delete' && selectedPath && !executing) {
+        event.preventDefault()
+        setExcludedPaths((prev) => new Set(prev).add(selectedPath.toLowerCase()))
       } else if (event.key === 'Escape' && executing) {
         event.preventDefault()
         cancelExecution()
@@ -462,6 +492,7 @@ function App() {
 
   const clearAll = () => {
     setSources([])
+    setExcludedPaths(new Set())
     setItems([])
     setChecked(new Set())
     setSelectedPath('')
@@ -756,7 +787,12 @@ function App() {
       key={item.sourcePath}
       className={selectedItem?.sourcePath === item.sourcePath ? 'selected' : ''}
       onClick={() => setSelectedPath(item.sourcePath)}
-      onDoubleClick={() => appApi().Reveal(item.sourcePath)}
+      onDoubleClick={() => appApi().Open(item.sourcePath)}
+      onContextMenu={(e) => {
+        e.preventDefault()
+        setSelectedPath(item.sourcePath)
+        setContextMenu({ kind: 'file', x: e.clientX, y: e.clientY, item })
+      }}
       title={item.error || item.sourcePath}
     >
       <td className="checkcol" onClick={(e) => e.stopPropagation()}>
@@ -786,7 +822,15 @@ function App() {
     const folderChecked = folderValid.length > 0 && folderValid.every((item) => checked.has(item.sourcePath))
     const collapsed = collapsedFolders.has(folder)
     return (
-      <tr className="folder-group-row" key={`folder:${folder}`} onClick={() => toggleFolder(folder)}>
+      <tr
+        className="folder-group-row"
+        key={`folder:${folder}`}
+        onClick={() => toggleFolder(folder)}
+        onContextMenu={(e) => {
+          e.preventDefault()
+          setContextMenu({ kind: 'folder', x: e.clientX, y: e.clientY, folder, group })
+        }}
+      >
         <td className="checkcol" onClick={(e) => e.stopPropagation()}>
           <input
             type="checkbox"
@@ -1108,6 +1152,71 @@ function App() {
           <progress max={Math.max(1, executeProgress?.total || checked.size)} value={executeProgress?.completed || 0} />
           <small title={executeProgress?.current || ''}>{executeProgress?.current || '...'}</small>
           <button onClick={cancelExecution}>{ux.cancelOperation}</button>
+        </div>
+      )}
+
+      {contextMenu && (
+        <div
+          className="context-menu"
+          style={{ left: Math.min(contextMenu.x, window.innerWidth - 270), top: Math.min(contextMenu.y, window.innerHeight - 290) }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {contextMenu.kind === 'file' ? (
+            <>
+              <button onClick={() => { appApi().Open(contextMenu.item.sourcePath); setContextMenu(null) }}>{ux.open}</button>
+              <button onClick={() => { appApi().Reveal(contextMenu.item.sourcePath); setContextMenu(null) }}>{ux.showExplorer}</button>
+              <span className="context-separator" />
+              <button onClick={() => { navigator.clipboard.writeText(contextMenu.item.oldName); setContextMenu(null) }}>{ux.copyName}</button>
+              <button onClick={() => { navigator.clipboard.writeText(contextMenu.item.sourcePath); setContextMenu(null) }}>{ux.copyPath}</button>
+              <span className="context-separator" />
+              <button onClick={() => {
+                setSelectionTouched(true)
+                setChecked((prev) => {
+                  const next = new Set(prev)
+                  next.delete(contextMenu.item.sourcePath)
+                  return next
+                })
+                setContextMenu(null)
+              }}>{ux.exclude}</button>
+              <button className="danger" onClick={() => {
+                setExcludedPaths((prev) => new Set(prev).add(contextMenu.item.sourcePath.toLowerCase()))
+                setContextMenu(null)
+              }}>{ux.removeList}</button>
+            </>
+          ) : (
+            <>
+              <button onClick={() => {
+                setSelectionTouched(true)
+                setChecked((prev) => {
+                  const next = new Set(prev)
+                  contextMenu.group.filter((item) => item.status === 'OK').forEach((item) => next.add(item.sourcePath))
+                  return next
+                })
+                setContextMenu(null)
+              }}>{ux.selectFolder}</button>
+              <button onClick={() => {
+                setSelectionTouched(true)
+                setChecked((prev) => {
+                  const next = new Set(prev)
+                  contextMenu.group.forEach((item) => next.delete(item.sourcePath))
+                  return next
+                })
+                setContextMenu(null)
+              }}>{ux.deselectFolder}</button>
+              <span className="context-separator" />
+              <button onClick={() => { appApi().OpenFolder(contextMenu.folder); setContextMenu(null) }}>{ux.open}</button>
+              <button onClick={() => { navigator.clipboard.writeText(contextMenu.folder); setContextMenu(null) }}>{ux.copyPath}</button>
+              <span className="context-separator" />
+              <button className="danger" onClick={() => {
+                setExcludedPaths((prev) => {
+                  const next = new Set(prev)
+                  contextMenu.group.forEach((item) => next.add(item.sourcePath.toLowerCase()))
+                  return next
+                })
+                setContextMenu(null)
+              }}>{ux.removeFolder}</button>
+            </>
+          )}
         </div>
       )}
 

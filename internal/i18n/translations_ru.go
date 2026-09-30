@@ -290,5 +290,6 @@ func init() {
 		"method.desc.trim": "Убрать лишние пробелы",
 		"method.desc.timestamp": "Добавить дату или время файла",
 		"tag.search": "Поиск по тегам...",
+		"status.of": "из",
 	}
 }

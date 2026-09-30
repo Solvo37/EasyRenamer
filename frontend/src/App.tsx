@@ -154,6 +154,10 @@ interface DropState extends PathClassification {
   open: boolean
 }
 
+type FileTableRow =
+  | { kind: 'folder'; folder: string; group: PreviewItem[] }
+  | { kind: 'file'; item: PreviewItem }
+
 function App() {
   const [bootstrap, setBootstrap] = useState<BootstrapData | null>(null)
   const [strings, setStrings] = useState<Record<string, string>>({})
@@ -194,6 +198,8 @@ function App() {
   const [historyOpen, setHistoryOpen] = useState(false)
   const [historyItems, setHistoryItems] = useState<HistoryEntry[]>([])
   const [historyBusy, setHistoryBusy] = useState(false)
+  const [tableScrollTop, setTableScrollTop] = useState(0)
+  const [tableViewportHeight, setTableViewportHeight] = useState(640)
 
   const [tagTab, setTagTab] = useState<'tags' | 'functions' | 'variables'>('tags')
   const [tagCategory, setTagCategory] = useState(0)
@@ -545,6 +551,31 @@ function App() {
     return groups
   }, [visibleItems])
 
+  const tableRows = useMemo<FileTableRow[]>(() => {
+    if (!groupByFolder) return visibleItems.map((item) => ({ kind: 'file', item }))
+    const rows: FileTableRow[] = []
+    for (const [folder, group] of groupedItems.entries()) {
+      rows.push({ kind: 'folder', folder, group })
+      if (!collapsedFolders.has(folder)) {
+        for (const item of group) rows.push({ kind: 'file', item })
+      }
+    }
+    return rows
+  }, [visibleItems, groupedItems, groupByFolder, collapsedFolders])
+
+  const virtualRowHeight = compactView ? 30 : 36
+  const virtualOverscan = 14
+  const virtualStart = Math.max(0, Math.floor(tableScrollTop / virtualRowHeight) - virtualOverscan)
+  const virtualCount = Math.ceil(tableViewportHeight / virtualRowHeight) + virtualOverscan * 2
+  const virtualEnd = Math.min(tableRows.length, virtualStart + virtualCount)
+  const virtualRows = tableRows.slice(virtualStart, virtualEnd)
+  const virtualTop = virtualStart * virtualRowHeight
+  const virtualBottom = Math.max(0, (tableRows.length - virtualEnd) * virtualRowHeight)
+
+  useEffect(() => {
+    setTableScrollTop(0)
+  }, [fileSearch, showErrorsOnly, groupByFolder, compactView])
+
   const execute = async () => {
     setExecuteConfirm(false)
     setExecuting(true)
@@ -725,6 +756,42 @@ function App() {
       </td>
     </tr>
   )
+
+  const renderFolderRow = (folder: string, group: PreviewItem[]) => {
+    const folderValid = group.filter((item) => item.status === 'OK')
+    const folderChecked = folderValid.length > 0 && folderValid.every((item) => checked.has(item.sourcePath))
+    const collapsed = collapsedFolders.has(folder)
+    return (
+      <tr className="folder-group-row" key={`folder:${folder}`} onClick={() => toggleFolder(folder)}>
+        <td className="checkcol" onClick={(e) => e.stopPropagation()}>
+          <input
+            type="checkbox"
+            disabled={!folderValid.length || executing}
+            checked={folderChecked}
+            onChange={(e) => {
+              setSelectionTouched(true)
+              setChecked((prev) => {
+                const next = new Set(prev)
+                for (const item of folderValid) {
+                  if (e.target.checked) next.add(item.sourcePath)
+                  else next.delete(item.sourcePath)
+                }
+                return next
+              })
+            }}
+          />
+        </td>
+        <td colSpan={7}>
+          <span className="folder-group-copy" title={folder}>
+            <ChevronDown className={collapsed ? 'collapsed' : ''} />
+            <Folder />
+            <strong>{folder}</strong>
+            <em>{group.length}</em>
+          </span>
+        </td>
+      </tr>
+    )
+  }
 
   return (
     <div className="app-shell">
@@ -914,7 +981,14 @@ function App() {
             </div>
           </div>
 
-          <div className="table-wrap" style={{ '--wails-drop-target': 'drop' } as CSSProperties}>
+          <div
+            className="table-wrap"
+            style={{ '--wails-drop-target': 'drop' } as CSSProperties}
+            onScroll={(e) => {
+              setTableScrollTop(e.currentTarget.scrollTop)
+              setTableViewportHeight(e.currentTarget.clientHeight)
+            }}
+          >
             <table className={compactView ? 'compact' : ''}>
               <thead>
                 <tr>
@@ -938,45 +1012,17 @@ function App() {
                 </tr>
               </thead>
               <tbody>
-                {groupByFolder
-                  ? Array.from(groupedItems.entries()).flatMap(([folder, group]) => {
-                      const folderValid = group.filter((item) => item.status === 'OK')
-                      const folderChecked = folderValid.length > 0 && folderValid.every((item) => checked.has(item.sourcePath))
-                      const collapsed = collapsedFolders.has(folder)
-                      const rows = [
-                        <tr className="folder-group-row" key={`folder:${folder}`} onClick={() => toggleFolder(folder)}>
-                          <td className="checkcol" onClick={(e) => e.stopPropagation()}>
-                            <input
-                              type="checkbox"
-                              disabled={!folderValid.length || executing}
-                              checked={folderChecked}
-                              onChange={(e) => {
-                                setSelectionTouched(true)
-                                setChecked((prev) => {
-                                  const next = new Set(prev)
-                                  for (const item of folderValid) {
-                                    if (e.target.checked) next.add(item.sourcePath)
-                                    else next.delete(item.sourcePath)
-                                  }
-                                  return next
-                                })
-                              }}
-                            />
-                          </td>
-                          <td colSpan={7}>
-                            <span className="folder-group-copy" title={folder}>
-                              <ChevronDown className={collapsed ? 'collapsed' : ''} />
-                              <Folder />
-                              <strong>{folder}</strong>
-                              <em>{group.length}</em>
-                            </span>
-                          </td>
-                        </tr>
-                      ]
-                      if (!collapsed) rows.push(...group.map(renderFileRow))
-                      return rows
-                    })
-                  : visibleItems.map(renderFileRow)}
+                {virtualTop > 0 && (
+                  <tr className="virtual-spacer"><td colSpan={8} style={{ height: virtualTop }} /></tr>
+                )}
+                {virtualRows.map((row) =>
+                  row.kind === 'folder'
+                    ? renderFolderRow(row.folder, row.group)
+                    : renderFileRow(row.item)
+                )}
+                {virtualBottom > 0 && (
+                  <tr className="virtual-spacer"><td colSpan={8} style={{ height: virtualBottom }} /></tr>
+                )}
                 {!visibleItems.length && (
                   <tr className="empty-row">
                     <td colSpan={8}>

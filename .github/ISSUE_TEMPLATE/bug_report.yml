@@ -1,0 +1,57 @@
+name: Bug report
+description: Report a reproducible problem in EasyRenamer
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve EasyRenamer. Please reproduce the issue on disposable test files when the problem involves rename behavior.
+  - type: input
+    id: version
+    attributes:
+      label: EasyRenamer version
+      placeholder: v1.0.0
+    validations:
+      required: true
+  - type: input
+    id: windows
+    attributes:
+      label: Windows version
+      placeholder: Windows 11 24H2 x64
+    validations:
+      required: true
+  - type: textarea
+    id: scenario
+    attributes:
+      label: What were you trying to do?
+      description: Include the rename template/method chain and sorting/grouping settings when relevant.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Add ...
+        2. Set ...
+        3. Click ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected result
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual result
+    validations:
+      required: true
+  - type: textarea
+    id: extra
+    attributes:
+      label: Logs / screenshots / sample filenames
+      description: Do not upload private or sensitive files.

@@ -139,6 +139,7 @@ type Config struct {
 	SortBy              SortMode
 	SortDescending      bool
 	SortPerFolder       bool
+	ManualOrder         []string
 	CollisionPolicy     CollisionPolicy
 	SkipImageDimensions bool
 

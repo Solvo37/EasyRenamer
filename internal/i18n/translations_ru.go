@@ -289,5 +289,6 @@ func init() {
 		"method.desc.swap": "Поменять две части имени местами",
 		"method.desc.trim": "Убрать лишние пробелы",
 		"method.desc.timestamp": "Добавить дату или время файла",
+		"tag.search": "Поиск по тегам...",
 	}
 }

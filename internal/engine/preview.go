@@ -178,13 +178,15 @@ func prepareSortInfo(files []string, cfg Config) []previewSortInfo {
 	}
 
 	mode := cfg.SortBy
+	legacyPerFolder := mode == ""
 	if mode == "" {
 		mode = SortName
 	}
+	perFolder := cfg.SortPerFolder || legacyPerFolder
 
 	sort.SliceStable(infos, func(i, j int) bool {
 		a, b := infos[i], infos[j]
-		if cfg.SortPerFolder && !strings.EqualFold(a.Dir, b.Dir) {
+		if perFolder && !strings.EqualFold(a.Dir, b.Dir) {
 			return NaturalLess(a.Dir, b.Dir)
 		}
 		if a.StatErr != nil || b.StatErr != nil {

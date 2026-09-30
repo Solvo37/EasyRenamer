@@ -14,6 +14,28 @@ const (
 	CategoryCustom    Category = "Custom"
 )
 
+type CollisionPolicy string
+
+const (
+	CollisionSkip       CollisionPolicy = "skip"
+	CollisionAutoNumber CollisionPolicy = "auto-number"
+	CollisionOverwrite  CollisionPolicy = "overwrite"
+	CollisionStop       CollisionPolicy = "stop"
+)
+
+type SortMode string
+
+const (
+	SortName      SortMode = "name"
+	SortCreated   SortMode = "created"
+	SortModified  SortMode = "modified"
+	SortSize      SortMode = "size"
+	SortExtension SortMode = "extension"
+	SortPath      SortMode = "path"
+	SortAdded     SortMode = "added"
+	SortManual    SortMode = "manual"
+)
+
 type Method string
 
 const (
@@ -106,12 +128,20 @@ type RenameMethod struct {
 type Config struct {
 	// Sources may contain any mix of files and directories.
 	// Root is kept for compatibility with older callers and is used when Sources is empty.
-	Sources []string
-	Root    string
+	Sources       []string
+	Root          string
+	ExcludedPaths []string
 
 	Recursive        bool
 	Category         Category
 	CustomExtensions string
+
+	SortBy              SortMode
+	SortDescending      bool
+	SortPerFolder       bool
+	ManualOrder         []string
+	CollisionPolicy     CollisionPolicy
+	SkipImageDimensions bool
 
 	// Methods is the preferred API. If it is empty, the legacy single-method
 	// fields below are used so older integrations keep working.
@@ -142,6 +172,7 @@ type Item struct {
 	Size     int64
 	Width    int
 	Height   int
+	Created  time.Time
 	Modified time.Time
 }
 

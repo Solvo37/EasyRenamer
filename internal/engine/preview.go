@@ -42,27 +42,28 @@ func PreviewContext(ctx context.Context, cfg Config) ([]*Item, error) {
 		return nil, err
 	}
 
-	sort.SliceStable(files, func(i, j int) bool {
-		di, dj := filepath.Dir(files[i]), filepath.Dir(files[j])
-		if !strings.EqualFold(di, dj) {
-			return NaturalLess(di, dj)
-		}
-		return NaturalLess(filepath.Base(files[i]), filepath.Base(files[j]))
-	})
+	infos := prepareSortInfo(files, cfg)
 
 	rng := rand.New(rand.NewSource(cfg.BatchTime.UnixNano()))
-	items := make([]*Item, 0, len(files))
+	items := make([]*Item, 0, len(infos))
 	perDir := map[string]int{}
 	targets := map[string]*Item{}
 
-	for i, path := range files {
+	for i, info := range infos {
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
-		dir := filepath.Dir(path)
+		path := info.Path
+		dir := info.Dir
 		perDir[dir]++
-		oldName := filepath.Base(path)
-		newName, err := buildName(cfg, path, i+1, perDir[dir], len(files), rng)
+		oldName := info.Name
+
+		newName := oldName
+		var buildErr error
+		if info.StatErr == nil {
+			newName, buildErr = buildName(cfg, path, i+1, perDir[dir], len(infos), rng)
+		}
+
 		item := &Item{
 			SourcePath:  path,
 			Folder:      filepath.Base(dir),
@@ -72,23 +73,36 @@ func PreviewContext(ctx context.Context, cfg Config) ([]*Item, error) {
 			GlobalIndex: i + 1,
 			Checked:     true,
 			Status:      StatusOK,
+			Size:        info.Size,
+			Created:     info.Created,
+			Modified:    info.Modified,
 		}
 
-		if st, statErr := os.Stat(path); statErr == nil {
-			item.Size = st.Size()
-			item.Modified = st.ModTime()
-		}
-		if width, height, ok := readImageDimensions(path); ok {
-			item.Width = width
-			item.Height = height
-		}
-
-		if err != nil {
+		if info.StatErr != nil {
 			item.Status = StatusInvalid
-			item.Error = err.Error()
+			if os.IsNotExist(info.StatErr) {
+				item.Error = "file not found"
+			} else {
+				item.Error = info.StatErr.Error()
+			}
 			item.Checked = false
 			items = append(items, item)
 			continue
+		}
+
+		if buildErr != nil {
+			item.Status = StatusInvalid
+			item.Error = buildErr.Error()
+			item.Checked = false
+			items = append(items, item)
+			continue
+		}
+
+		if !cfg.SkipImageDimensions {
+			if width, height, ok := readImageDimensions(path); ok {
+				item.Width = width
+				item.Height = height
+			}
 		}
 
 		if strings.EqualFold(oldName, newName) {
@@ -101,7 +115,24 @@ func PreviewContext(ctx context.Context, cfg Config) ([]*Item, error) {
 			item.Checked = false
 		}
 
-		target := filepath.Join(dir, newName)
+		policy := cfg.CollisionPolicy
+		if policy == "" {
+			policy = CollisionSkip
+		}
+
+		target := filepath.Join(dir, item.NewName)
+		if item.Status == StatusOK && policy == CollisionAutoNumber && targetConflicts(target, path, targets) {
+			resolved, resolvedTarget := nextAvailableName(dir, item.NewName, path, targets)
+			item.NewName = resolved
+			target = resolvedTarget
+		}
+
+		if len([]rune(target)) > 32767 {
+			item.Status = StatusInvalid
+			item.Error = "destination path is too long"
+			item.Checked = false
+		}
+
 		key := strings.ToLower(target)
 		if prev, ok := targets[key]; ok {
 			item.Status = StatusConflict
@@ -115,14 +146,188 @@ func PreviewContext(ctx context.Context, cfg Config) ([]*Item, error) {
 		}
 		if item.Status == StatusOK {
 			if _, err := os.Stat(target); err == nil && !strings.EqualFold(target, path) {
+				// Overwrite stays blocked until it can preserve and restore the replaced file.
 				item.Status = StatusConflict
-				item.Error = "target already exists"
+				if policy == CollisionOverwrite {
+					item.Error = "safe overwrite is not available"
+				} else {
+					item.Error = "target already exists"
+				}
 				item.Checked = false
 			}
 		}
 		items = append(items, item)
 	}
 	return items, nil
+}
+
+
+func targetConflicts(target, source string, targets map[string]*Item) bool {
+	if _, ok := targets[strings.ToLower(target)]; ok {
+		return true
+	}
+	if _, err := os.Stat(target); err == nil && !strings.EqualFold(target, source) {
+		return true
+	}
+	return false
+}
+
+func nextAvailableName(dir, name, source string, targets map[string]*Item) (string, string) {
+	base, ext := BaseAndExt(name)
+	for n := 1; n < 1000000; n++ {
+		candidate := fmt.Sprintf("%s (%d)%s", base, n, ext)
+		target := filepath.Join(dir, candidate)
+		if !targetConflicts(target, source, targets) {
+			return candidate, target
+		}
+	}
+	return name, filepath.Join(dir, name)
+}
+
+type previewSortInfo struct {
+	Path     string
+	Dir      string
+	Name     string
+	Ext      string
+	Size     int64
+	Created  time.Time
+	Modified time.Time
+	Added    int
+	Manual   int
+	StatErr  error
+}
+
+func prepareSortInfo(files []string, cfg Config) []previewSortInfo {
+	manualRank := make(map[string]int, len(cfg.ManualOrder))
+	for index, path := range cfg.ManualOrder {
+		manualRank[strings.ToLower(filepath.Clean(path))] = index
+	}
+
+	infos := make([]previewSortInfo, 0, len(files))
+	for index, path := range files {
+		manual := len(manualRank) + index
+		if rank, ok := manualRank[strings.ToLower(filepath.Clean(path))]; ok {
+			manual = rank
+		}
+		info := previewSortInfo{
+			Path:   path,
+			Dir:    filepath.Dir(path),
+			Name:   filepath.Base(path),
+			Ext:    strings.ToLower(filepath.Ext(path)),
+			Added:  index,
+			Manual: manual,
+		}
+		st, err := os.Stat(path)
+		if err != nil {
+			info.StatErr = err
+		} else {
+			info.Size = st.Size()
+			info.Created = createdTime(path, st)
+			info.Modified = st.ModTime()
+		}
+		infos = append(infos, info)
+	}
+
+	mode := cfg.SortBy
+	legacyPerFolder := mode == ""
+	if mode == "" {
+		mode = SortName
+	}
+	perFolder := cfg.SortPerFolder || legacyPerFolder
+
+	sort.SliceStable(infos, func(i, j int) bool {
+		a, b := infos[i], infos[j]
+		if perFolder && !strings.EqualFold(a.Dir, b.Dir) {
+			return NaturalLess(a.Dir, b.Dir)
+		}
+		if a.StatErr != nil || b.StatErr != nil {
+			if a.StatErr != nil && b.StatErr == nil {
+				return false
+			}
+			if a.StatErr == nil && b.StatErr != nil {
+				return true
+			}
+		}
+		cmp := comparePreviewSort(a, b, mode)
+		if cmp == 0 {
+			cmp = naturalCompare(a.Path, b.Path)
+		}
+		if cfg.SortDescending {
+			return cmp > 0
+		}
+		return cmp < 0
+	})
+	return infos
+}
+
+func comparePreviewSort(a, b previewSortInfo, mode SortMode) int {
+	switch mode {
+	case SortCreated:
+		return timeCompare(a.Created, b.Created)
+	case SortModified:
+		return timeCompare(a.Modified, b.Modified)
+	case SortSize:
+		if a.Size < b.Size {
+			return -1
+		}
+		if a.Size > b.Size {
+			return 1
+		}
+		return naturalCompare(a.Name, b.Name)
+	case SortExtension:
+		if cmp := naturalCompare(a.Ext, b.Ext); cmp != 0 {
+			return cmp
+		}
+		return naturalCompare(a.Name, b.Name)
+	case SortPath:
+		return naturalCompare(a.Path, b.Path)
+	case SortManual:
+		if a.Manual < b.Manual {
+			return -1
+		}
+		if a.Manual > b.Manual {
+			return 1
+		}
+		return 0
+	case SortAdded:
+		if a.Added < b.Added {
+			return -1
+		}
+		if a.Added > b.Added {
+			return 1
+		}
+		return 0
+	case SortName:
+		fallthrough
+	default:
+		return naturalCompare(a.Name, b.Name)
+	}
+}
+
+func naturalCompare(a, b string) int {
+	if strings.EqualFold(a, b) {
+		return 0
+	}
+	if NaturalLess(a, b) {
+		return -1
+	}
+	return 1
+}
+
+func timeCompare(a, b time.Time) int {
+	if a.Equal(b) {
+		return 0
+	}
+	if a.Before(b) {
+		return -1
+	}
+	return 1
+}
+
+// ImageDimensions reads only the selected image header and is intentionally
+// not called during bulk preview generation.
+func ImageDimensions(path string) (int, int, bool) {
+	return readImageDimensions(path)
 }
 
 func readImageDimensions(path string) (int, int, bool) {
@@ -157,6 +362,13 @@ func scanFilesContext(ctx context.Context, cfg Config) ([]string, error) {
 	}
 
 	seen := make(map[string]struct{})
+	excluded := make(map[string]struct{}, len(cfg.ExcludedPaths))
+	for _, path := range cfg.ExcludedPaths {
+		if abs, err := filepath.Abs(path); err == nil {
+			path = abs
+		}
+		excluded[strings.ToLower(filepath.Clean(path))] = struct{}{}
+	}
 	out := make([]string, 0)
 	add := func(path string) {
 		abs, err := filepath.Abs(path)
@@ -165,6 +377,9 @@ func scanFilesContext(ctx context.Context, cfg Config) ([]string, error) {
 		}
 		path = filepath.Clean(path)
 		key := strings.ToLower(path)
+		if _, ok := excluded[key]; ok {
+			return
+		}
 		if _, ok := seen[key]; ok {
 			return
 		}
@@ -182,6 +397,10 @@ func scanFilesContext(ctx context.Context, cfg Config) ([]string, error) {
 		}
 		st, err := os.Stat(source)
 		if err != nil {
+			if os.IsNotExist(err) && MatchesCategory(cfg.Category, cfg.CustomExtensions, filepath.Ext(source)) {
+				add(source)
+				continue
+			}
 			return nil, fmt.Errorf("%s: %w", source, err)
 		}
 
@@ -687,7 +906,7 @@ func titleCase(s string) string {
 }
 
 func validateWindowsName(name string) error {
-	if name == "" {
+	if strings.TrimSpace(name) == "" {
 		return errors.New("empty file name")
 	}
 	if invalidChars.MatchString(name) {
@@ -701,7 +920,7 @@ func validateWindowsName(name string) error {
 			return errors.New("name contains control characters")
 		}
 	}
-	base := strings.ToUpper(strings.TrimSuffix(name, filepath.Ext(name)))
+	base := strings.ToUpper(strings.SplitN(name, ".", 2)[0])
 	reserved := map[string]struct{}{
 		"CON": {}, "PRN": {}, "AUX": {}, "NUL": {},
 		"COM1": {}, "COM2": {}, "COM3": {}, "COM4": {}, "COM5": {}, "COM6": {}, "COM7": {}, "COM8": {}, "COM9": {},

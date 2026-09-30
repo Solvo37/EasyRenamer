@@ -28,6 +28,9 @@ type App struct {
 	previewCancel context.CancelFunc
 	previewSeq    uint64
 	lastItems     []*engine.Item
+
+	executeMu     sync.Mutex
+	executeCancel context.CancelFunc
 }
 
 type BootstrapData struct {
@@ -54,14 +57,30 @@ type PreviewResult struct {
 	Items []PreviewItem `json:"items"`
 }
 
+type FileDetails struct {
+	Size   int64  `json:"size"`
+	Width  int    `json:"width"`
+	Height int    `json:"height"`
+	Type   string `json:"type"`
+}
+
 type OperationResult struct {
-	Count int                 `json:"count"`
-	Pairs []engine.RenamePair `json:"pairs,omitempty"`
+	Count     int                 `json:"count"`
+	Pairs     []engine.RenamePair `json:"pairs,omitempty"`
+	Cancelled bool                `json:"cancelled,omitempty"`
 }
 
 type PathClassification struct {
 	Files   []string `json:"files"`
 	Folders []string `json:"folders"`
+}
+
+type HistoryEntry struct {
+	ID        string `json:"id"`
+	CreatedAt string `json:"createdAt"`
+	Count     int    `json:"count"`
+	Folder    string `json:"folder"`
+	Undone    bool   `json:"undone"`
 }
 
 
@@ -85,6 +104,13 @@ func (a *App) shutdown(ctx context.Context) {
 		a.previewCancel = nil
 	}
 	a.previewMu.Unlock()
+
+	a.executeMu.Lock()
+	if a.executeCancel != nil {
+		a.executeCancel()
+		a.executeCancel = nil
+	}
+	a.executeMu.Unlock()
 }
 
 func (a *App) Bootstrap() BootstrapData {
@@ -186,7 +212,7 @@ func (a *App) PickFolders() ([]string, error) {
 	return pickFoldersMulti(0, i18n.T("menu.add_folder"))
 }
 
-func (a *App) Preview(sources []string, recursive bool, category string, customExtensions string, methods []engine.RenameMethod) (PreviewResult, error) {
+func (a *App) Preview(sources []string, excludedPaths []string, recursive bool, category string, customExtensions string, methods []engine.RenameMethod, sortBy string, sortDescending bool, sortPerFolder bool, manualOrder []string, collisionPolicy string) (PreviewResult, error) {
 	if len(sources) == 0 {
 		return PreviewResult{}, nil
 	}
@@ -210,11 +236,18 @@ func (a *App) Preview(sources []string, recursive bool, category string, customE
 
 	cfg := engine.Config{
 		Sources:          append([]string(nil), sources...),
+		ExcludedPaths:    append([]string(nil), excludedPaths...),
 		Recursive:        recursive,
 		Category:         engine.Category(category),
 		CustomExtensions: customExtensions,
 		Methods:          methods,
-		BatchTime:        time.Now(),
+		SortBy:              engine.SortMode(sortBy),
+		SortDescending:      sortDescending,
+		SortPerFolder:       sortPerFolder,
+		ManualOrder:         append([]string(nil), manualOrder...),
+		CollisionPolicy:     engine.CollisionPolicy(collisionPolicy),
+		SkipImageDimensions: true,
+		BatchTime:           time.Now(),
 	}
 
 	items, err := engine.PreviewContext(ctx, cfg)
@@ -278,14 +311,51 @@ func (a *App) Execute(selectedPaths []string) (OperationResult, error) {
 	if len(items) == 0 {
 		return OperationResult{}, errors.New("preview is empty")
 	}
-	pairs, err := engine.Execute(items)
+
+	a.executeMu.Lock()
+	if a.executeCancel != nil {
+		a.executeMu.Unlock()
+		return OperationResult{}, errors.New("rename operation is already running")
+	}
+	baseCtx := a.ctx
+	if baseCtx == nil {
+		baseCtx = context.Background()
+	}
+	ctx, cancel := context.WithCancel(baseCtx)
+	a.executeCancel = cancel
+	a.executeMu.Unlock()
+
+	defer func() {
+		a.executeMu.Lock()
+		a.executeCancel = nil
+		a.executeMu.Unlock()
+		cancel()
+	}()
+
+	pairs, err := engine.ExecuteContext(ctx, items, func(progress engine.ExecuteProgress) {
+		if a.ctx != nil {
+			wailsruntime.EventsEmit(a.ctx, "rename:progress", progress)
+		}
+	})
 	if err != nil {
+		if errors.Is(err, context.Canceled) {
+			return OperationResult{Cancelled: true}, nil
+		}
 		return OperationResult{}, err
 	}
 	if err := history.Save(pairs); err != nil {
 		return OperationResult{Count: len(pairs), Pairs: pairs}, fmt.Errorf("renamed %d files but could not save undo history: %w", len(pairs), err)
 	}
 	return OperationResult{Count: len(pairs), Pairs: pairs}, nil
+}
+
+func (a *App) CancelExecute() {
+	a.executeMu.Lock()
+	cancel := a.executeCancel
+	a.executeMu.Unlock()
+	if cancel != nil {
+		cancel()
+	}
 }
 
 func (a *App) Undo() (OperationResult, error) {
@@ -305,12 +375,80 @@ func (a *App) Undo() (OperationResult, error) {
 	return OperationResult{Count: len(rec.Pairs), Pairs: rec.Pairs}, nil
 }
 
+func (a *App) History() ([]HistoryEntry, error) {
+	records, err := history.List()
+	if err != nil {
+		return nil, err
+	}
+	entries := make([]HistoryEntry, 0, len(records))
+	for _, rec := range records {
+		folder := ""
+		if len(rec.Pairs) > 0 {
+			folder = filepath.Dir(rec.Pairs[0].From)
+		}
+		entries = append(entries, HistoryEntry{
+			ID:        rec.ID,
+			CreatedAt: rec.CreatedAt.Format("02.01.2006 15:04"),
+			Count:     len(rec.Pairs),
+			Folder:    folder,
+			Undone:    rec.Undone,
+		})
+	}
+	return entries, nil
+}
+
+func (a *App) UndoHistory(id string) (OperationResult, error) {
+	rec, err := history.Get(strings.TrimSpace(id))
+	if err != nil {
+		return OperationResult{}, err
+	}
+	if rec.Undone {
+		return OperationResult{}, errors.New("operation was already undone")
+	}
+	if err := engine.Undo(rec.Pairs); err != nil {
+		return OperationResult{}, err
+	}
+	if err := history.MarkUndone(rec.ID); err != nil {
+		return OperationResult{Count: len(rec.Pairs), Pairs: rec.Pairs}, err
+	}
+	return OperationResult{Count: len(rec.Pairs), Pairs: rec.Pairs}, nil
+}
+
 func (a *App) Reveal(path string) error {
 	path = filepath.Clean(strings.TrimSpace(path))
 	if path == "" {
 		return nil
 	}
 	return exec.Command("explorer.exe", "/select,"+path).Start()
+}
+
+func (a *App) Open(path string) error {
+	path = filepath.Clean(strings.TrimSpace(path))
+	if path == "" {
+		return nil
+	}
+	return exec.Command("rundll32.exe", "url.dll,FileProtocolHandler", path).Start()
+}
+
+func (a *App) OpenFolder(path string) error {
+	path = filepath.Clean(strings.TrimSpace(path))
+	if path == "" {
+		return nil
+	}
+	return exec.Command("explorer.exe", path).Start()
+}
+
+func (a *App) FileDetails(path string) (FileDetails, error) {
+	path = filepath.Clean(strings.TrimSpace(path))
+	st, err := os.Stat(path)
+	if err != nil {
+		return FileDetails{}, err
+	}
+	width, height, _ := engine.ImageDimensions(path)
+	return FileDetails{
+		Size: st.Size(), Width: width, Height: height,
+		Type: strings.TrimPrefix(strings.ToUpper(filepath.Ext(path)), "."),
+	}, nil
 }
 
 func (a *App) Thumbnail(path string) (string, error) {

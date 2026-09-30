@@ -4,12 +4,14 @@ import {
   ArrowUp,
   CaseUpper,
   Check,
+  ChevronDown,
   ChevronRight,
   CircleHelp,
   Copy,
   Eraser,
   Eye,
   File,
+  Folder,
   FileImage,
   FilePlus2,
   Film,
@@ -32,14 +34,19 @@ import {
   Maximize2,
 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { CSSProperties, RefObject } from 'react'
+import type { CSSProperties, PointerEvent as ReactPointerEvent, RefObject } from 'react'
 import { appApi, runtimeApi } from './api'
 import { methodCatalog, tagCatalog } from './catalog'
 import type {
   BootstrapData,
+  CollisionPolicy,
+  ExecuteProgress,
+  FileDetails,
+  HistoryEntry,
   PathClassification,
   PreviewItem,
   RenameMethod,
+  SortMode,
   ThemeMode,
 } from './types'
 
@@ -86,6 +93,8 @@ const variableEntries = [
   ['UnixTimestamp', 'Batch Unix timestamp'],
   ['ModifiedUnix', 'Modified time Unix timestamp'],
 ]
+
+const autocompleteTags = tagCatalog.flatMap((category) => category.items)
 
 function methodIcon(kind: string) {
   const cls = 'method-icon-svg'
@@ -143,9 +152,75 @@ function cloneMethod(method: RenameMethod): RenameMethod {
   return JSON.parse(JSON.stringify(method))
 }
 
+function splitNameDiff(oldName: string, newName: string) {
+  let prefix = 0
+  while (prefix < oldName.length && prefix < newName.length && oldName[prefix] === newName[prefix]) prefix++
+
+  let suffix = 0
+  while (
+    suffix < oldName.length - prefix
+    && suffix < newName.length - prefix
+    && oldName[oldName.length - 1 - suffix] === newName[newName.length - 1 - suffix]
+  ) suffix++
+
+  return {
+    commonPrefix: newName.slice(0, prefix),
+    oldChanged: oldName.slice(prefix, oldName.length - suffix),
+    newChanged: newName.slice(prefix, newName.length - suffix),
+    commonSuffix: suffix ? newName.slice(newName.length - suffix) : '',
+  }
+}
+
+function NameDiff({ oldName, newName, side }: { oldName: string; newName: string; side: 'old' | 'new' }) {
+  const diff = splitNameDiff(oldName, newName)
+  const changed = side === 'old' ? diff.oldChanged : diff.newChanged
+  const full = side === 'old' ? oldName : newName
+  if (oldName === newName) return <>{full}</>
+  return (
+    <>
+      <span>{diff.commonPrefix}</span>
+      {changed
+        ? <mark className={side === 'old' ? 'diff-removed' : 'diff-added'}>{changed}</mark>
+        : <mark className={side === 'old' ? 'diff-removed diff-empty' : 'diff-added diff-empty'}>∅</mark>}
+      <span>{diff.commonSuffix}</span>
+    </>
+  )
+}
+
 interface DropState extends PathClassification {
   open: boolean
 }
+
+type FileTableRow =
+  | { kind: 'folder'; folder: string; group: PreviewItem[] }
+  | { kind: 'file'; item: PreviewItem }
+
+interface UserPreset {
+  id: string
+  name: string
+  template: string
+}
+
+type ContextMenuState =
+  | { kind: 'file'; x: number; y: number; item: PreviewItem }
+  | { kind: 'folder'; x: number; y: number; folder: string; group: PreviewItem[] }
+
+type ColumnKey = 'filename' | 'new_filename' | 'path' | 'size' | 'type' | 'status'
+
+interface ColumnConfig {
+  key: ColumnKey
+  visible: boolean
+  width: number
+}
+
+const defaultColumns: ColumnConfig[] = [
+  { key: 'filename', visible: true, width: 230 },
+  { key: 'new_filename', visible: true, width: 250 },
+  { key: 'path', visible: true, width: 300 },
+  { key: 'size', visible: true, width: 90 },
+  { key: 'type', visible: true, width: 72 },
+  { key: 'status', visible: true, width: 135 },
+]
 
 function App() {
   const [bootstrap, setBootstrap] = useState<BootstrapData | null>(null)
@@ -155,9 +230,14 @@ function App() {
   const [systemDark, setSystemDark] = useState(window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? true)
 
   const [sources, setSources] = useState<string[]>([])
+  const [excludedPaths, setExcludedPaths] = useState<Set<string>>(new Set())
   const [recursive, setRecursive] = useState(true)
   const [category, setCategory] = useState('All files')
   const [extensions, setExtensions] = useState('')
+  const [collisionPolicy, setCollisionPolicy] = useState<CollisionPolicy>(() => {
+    const saved = localStorage.getItem('easyrenamer-collision-policy')
+    return saved === 'auto-number' || saved === 'stop' ? saved : 'skip'
+  })
   const [methods, setMethods] = useState<RenameMethod[]>([])
   const [selectedMethod, setSelectedMethod] = useState(0)
 
@@ -165,7 +245,10 @@ function App() {
   const [checked, setChecked] = useState<Set<string>>(new Set())
   const [selectionTouched, setSelectionTouched] = useState(false)
   const [selectedPath, setSelectedPath] = useState('')
+  const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set())
+  const [selectionAnchor, setSelectionAnchor] = useState('')
   const [thumbnail, setThumbnail] = useState('')
+  const [selectedDetails, setSelectedDetails] = useState<FileDetails | null>(null)
   const [previewBusy, setPreviewBusy] = useState(false)
   const [toast, setToast] = useState('')
   const [helpOpen, setHelpOpen] = useState(false)
@@ -173,6 +256,45 @@ function App() {
   const [dropState, setDropState] = useState<DropState>({ open: false, files: [], folders: [] })
   const [dropMode, setDropMode] = useState<'both' | 'files' | 'folders'>('both')
   const [compactView, setCompactView] = useState(false)
+
+  const [sortBy, setSortBy] = useState<SortMode>(() => (localStorage.getItem('easyrenamer-sort') as SortMode) || 'name')
+  const [sortDescending, setSortDescending] = useState(() => localStorage.getItem('easyrenamer-sort-desc') === '1')
+  const [sortPerFolder, setSortPerFolder] = useState(() => localStorage.getItem('easyrenamer-sort-per-folder') !== '0')
+  const [manualOrder, setManualOrder] = useState<string[]>([])
+  const [draggedPath, setDraggedPath] = useState('')
+  const [groupByFolder, setGroupByFolder] = useState(() => localStorage.getItem('easyrenamer-group-folders') !== '0')
+  const [fileSearch, setFileSearch] = useState('')
+  const [showErrorsOnly, setShowErrorsOnly] = useState(false)
+  const [collapsedFolders, setCollapsedFolders] = useState<Set<string>>(new Set())
+  const [methodsHeight, setMethodsHeight] = useState(() => Number(localStorage.getItem('easyrenamer-methods-height')) || 260)
+  const [sidebarWidth, setSidebarWidth] = useState(() => Number(localStorage.getItem('easyrenamer-sidebar-width')) || 460)
+  const [executing, setExecuting] = useState(false)
+  const [executeProgress, setExecuteProgress] = useState<ExecuteProgress | null>(null)
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const [historyItems, setHistoryItems] = useState<HistoryEntry[]>([])
+  const [historyBusy, setHistoryBusy] = useState(false)
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
+  const [columnsOpen, setColumnsOpen] = useState(false)
+  const [columns, setColumns] = useState<ColumnConfig[]>(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('easyrenamer-columns') || 'null') as ColumnConfig[] | null
+      if (!Array.isArray(saved)) return defaultColumns
+      const valid = saved.filter((column) => defaultColumns.some((entry) => entry.key === column.key))
+      const missing = defaultColumns.filter((entry) => !valid.some((column) => column.key === entry.key))
+      return [...valid, ...missing]
+    } catch {
+      return defaultColumns
+    }
+  })
+  const [userPresets, setUserPresets] = useState<UserPreset[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('easyrenamer-user-presets') || '[]')
+    } catch {
+      return []
+    }
+  })
+  const [tableScrollTop, setTableScrollTop] = useState(0)
+  const [tableViewportHeight, setTableViewportHeight] = useState(640)
 
   const [tagTab, setTagTab] = useState<'tags' | 'functions' | 'variables'>('tags')
   const [tagCategory, setTagCategory] = useState(0)
@@ -182,6 +304,35 @@ function App() {
   const previewTimer = useRef<number | null>(null)
 
   const t = useCallback((key: string, fallback?: string) => strings[key] || fallback || key, [strings])
+  const ux = useMemo(() => language === 'ru' ? {
+    order: 'Порядок', name: 'Имя', created: 'Дата создания', modified: 'Дата изменения',
+    size: 'Размер', extension: 'Расширение', path: 'Путь', added: 'Порядок добавления', manual: 'Ручной порядок',
+    perFolder: 'Сортировать отдельно внутри каждой папки', groupFolders: 'Группировка: по папкам',
+    noGrouping: 'Группировка: нет', search: 'Имя или путь...', check: 'Проверить',
+    errorsOnly: 'Только ошибки', allFiles: 'Все файлы', addMethod: '+ Метод', folders: 'Папок',
+    cancelOperation: 'Отмена', preparing: 'Подготовка', renaming: 'Переименование файлов',
+    cancelled: 'Операция отменена, исходные имена восстановлены',
+    history: 'История', rollback: 'Откатить', rolledBack: 'Откат выполнен', undone: 'Откат выполнен',
+    noHistory: 'История операций пока пуста', filesRenamed: 'Переименовано',
+    open: 'Открыть', showExplorer: 'Показать в Проводнике', copyName: 'Скопировать имя',
+    copyPath: 'Скопировать полный путь', exclude: 'Исключить из операции', removeList: 'Удалить из списка',
+    selectFolder: 'Выбрать все файлы папки', deselectFolder: 'Снять выбор', removeFolder: 'Удалить папку из списка',
+    columns: 'Колонки', showColumn: 'Показывать'
+  } : {
+    order: 'Order', name: 'Name', created: 'Created', modified: 'Modified',
+    size: 'Size', extension: 'Extension', path: 'Path', added: 'Added order', manual: 'Manual order',
+    perFolder: 'Sort separately inside each folder', groupFolders: 'Grouping: folders',
+    noGrouping: 'Grouping: none', search: 'Name or path...', check: 'Check',
+    errorsOnly: 'Errors only', allFiles: 'All files', addMethod: '+ Method', folders: 'Folders',
+    cancelOperation: 'Cancel', preparing: 'Preparing', renaming: 'Renaming files',
+    cancelled: 'Operation cancelled; original names restored',
+    history: 'History', rollback: 'Rollback', rolledBack: 'Rollback complete', undone: 'Undone',
+    noHistory: 'Operation history is empty', filesRenamed: 'Renamed',
+    open: 'Open', showExplorer: 'Show in Explorer', copyName: 'Copy name',
+    copyPath: 'Copy full path', exclude: 'Exclude from operation', removeList: 'Remove from list',
+    selectFolder: 'Select all files in folder', deselectFolder: 'Clear selection', removeFolder: 'Remove folder from list',
+    columns: 'Columns', showColumn: 'Show'
+  }, [language])
 
   const effectiveTheme = theme === 'system' ? (systemDark ? 'dark' : 'light') : theme
 
@@ -189,6 +340,25 @@ function App() {
     document.documentElement.dataset.theme = effectiveTheme
     localStorage.setItem('easyrenamer-theme', theme)
   }, [effectiveTheme, theme])
+
+  useEffect(() => {
+    localStorage.setItem('easyrenamer-user-presets', JSON.stringify(userPresets))
+  }, [userPresets])
+
+  useEffect(() => {
+    localStorage.setItem('easyrenamer-columns', JSON.stringify(columns))
+  }, [columns])
+
+  useEffect(() => {
+    localStorage.setItem('easyrenamer-collision-policy', collisionPolicy)
+  }, [collisionPolicy])
+
+  useEffect(() => {
+    localStorage.setItem('easyrenamer-sort', sortBy)
+    localStorage.setItem('easyrenamer-sort-desc', sortDescending ? '1' : '0')
+    localStorage.setItem('easyrenamer-sort-per-folder', sortPerFolder ? '1' : '0')
+    localStorage.setItem('easyrenamer-group-folders', groupByFolder ? '1' : '0')
+  }, [sortBy, sortDescending, sortPerFolder, groupByFolder])
 
   useEffect(() => {
     const media = window.matchMedia?.('(prefers-color-scheme: dark)')
@@ -225,6 +395,11 @@ function App() {
       paths.forEach((path) => map.set(path.toLowerCase(), path))
       return [...map.values()]
     })
+    setExcludedPaths((prev) => {
+      const next = new Set(prev)
+      paths.forEach((path) => next.delete(path.toLowerCase()))
+      return next
+    })
     setSelectionTouched(false)
   }, [])
 
@@ -249,6 +424,27 @@ function App() {
     }
   }, [addSources])
 
+  useEffect(() => {
+    let off: (() => void) | undefined
+    try {
+      const runtime = runtimeApi()
+      off = runtime.EventsOn?.('rename:progress', (progress: ExecuteProgress) => setExecuteProgress(progress))
+    } catch {
+      // Runtime is unavailable only during plain browser development.
+    }
+    return () => off?.()
+  }, [])
+
+  useEffect(() => {
+    const close = () => setContextMenu(null)
+    window.addEventListener('click', close)
+    window.addEventListener('blur', close)
+    return () => {
+      window.removeEventListener('click', close)
+      window.removeEventListener('blur', close)
+    }
+  }, [])
+
   const requestPreview = useCallback(async () => {
     if (!sources.length || !methods.length) {
       setItems([])
@@ -257,7 +453,7 @@ function App() {
     }
     setPreviewBusy(true)
     try {
-      const result = await appApi().Preview(sources, recursive, category, extensions, methods)
+      const result = await appApi().Preview(sources, [...excludedPaths], recursive, category, extensions, methods, sortBy, sortDescending, sortPerFolder, manualOrder, collisionPolicy)
       const nextItems = result.items || []
       setItems(nextItems)
       setChecked((prev) => {
@@ -280,7 +476,7 @@ function App() {
     } finally {
       setPreviewBusy(false)
     }
-  }, [sources, recursive, category, extensions, methods, selectionTouched])
+  }, [sources, excludedPaths, recursive, category, extensions, methods, selectionTouched, sortBy, sortDescending, sortPerFolder, manualOrder, collisionPolicy])
 
   useEffect(() => {
     if (previewTimer.current) window.clearTimeout(previewTimer.current)
@@ -296,13 +492,38 @@ function App() {
   )
 
   useEffect(() => {
+    const available = new Set(items.map((item) => item.sourcePath))
+    setSelectedRows((prev) => new Set([...prev].filter((path) => available.has(path))))
+  }, [items])
+
+  useEffect(() => {
+    if (sortBy !== 'manual') return
+    const current = items.map((item) => item.sourcePath)
+    const available = new Set(current)
+    setManualOrder((prev) => {
+      const next = prev.filter((path) => available.has(path))
+      const present = new Set(next)
+      current.forEach((path) => {
+        if (!present.has(path)) next.push(path)
+      })
+      if (next.length === prev.length && next.every((path, index) => path === prev[index])) return prev
+      return next
+    })
+  }, [items, sortBy])
+
+  useEffect(() => {
     let alive = true
     setThumbnail('')
+    setSelectedDetails(null)
     if (!selectedItem) return
-    appApi()
-      .Thumbnail(selectedItem.sourcePath)
-      .then((data) => alive && setThumbnail(data || ''))
-      .catch(() => {})
+    Promise.all([
+      appApi().Thumbnail(selectedItem.sourcePath).catch(() => ''),
+      appApi().FileDetails(selectedItem.sourcePath).catch(() => null),
+    ]).then(([image, details]) => {
+      if (!alive) return
+      setThumbnail(image || '')
+      setSelectedDetails(details)
+    })
     return () => {
       alive = false
     }
@@ -310,9 +531,42 @@ function App() {
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') {
+      const ctrl = event.ctrlKey || event.metaKey
+      const key = event.key.toLowerCase()
+      if (ctrl && key === 'z') {
         event.preventDefault()
         handleUndo()
+      } else if (ctrl && !event.shiftKey && key === 'o') {
+        event.preventDefault()
+        addFiles()
+      } else if (ctrl && event.shiftKey && key === 'o') {
+        event.preventDefault()
+        addFolders()
+      } else if (ctrl && key === 'a' && items.length) {
+        event.preventDefault()
+        setSelectedRows(new Set(visibleFileOrder))
+        if (visibleFileOrder.length) {
+          setSelectedPath(visibleFileOrder[0])
+          setSelectionAnchor(visibleFileOrder[0])
+        }
+      } else if (ctrl && event.key === 'Enter' && checked.size && !criticalErrorCount && !executing) {
+        event.preventDefault()
+        setExecuteConfirm(true)
+      } else if (event.key === 'F5') {
+        event.preventDefault()
+        requestPreview()
+      } else if (event.key === 'Delete' && (selectedRows.size || selectedPath) && !executing) {
+        event.preventDefault()
+        setExcludedPaths((prev) => {
+          const next = new Set(prev)
+          if (selectedRows.size) selectedRows.forEach((path) => next.add(path.toLowerCase()))
+          else if (selectedPath) next.add(selectedPath.toLowerCase())
+          return next
+        })
+        setSelectedRows(new Set())
+      } else if (event.key === 'Escape' && executing) {
+        event.preventDefault()
+        cancelExecution()
       }
     }
     window.addEventListener('keydown', onKey)
@@ -351,9 +605,12 @@ function App() {
 
   const clearAll = () => {
     setSources([])
+    setExcludedPaths(new Set())
     setItems([])
     setChecked(new Set())
     setSelectedPath('')
+    setSelectedRows(new Set())
+    setSelectionAnchor('')
     setSelectionTouched(false)
   }
 
@@ -428,6 +685,41 @@ function App() {
     }
   }
 
+  const handleRowSelection = (item: PreviewItem, event: React.MouseEvent<HTMLTableRowElement>) => {
+    const path = item.sourcePath
+    setSelectedPath(path)
+
+    if (event.shiftKey && selectionAnchor) {
+      const anchorIndex = visibleFileOrder.indexOf(selectionAnchor)
+      const currentIndex = visibleFileOrder.indexOf(path)
+      if (anchorIndex >= 0 && currentIndex >= 0) {
+        const [from, to] = anchorIndex < currentIndex ? [anchorIndex, currentIndex] : [currentIndex, anchorIndex]
+        const range = visibleFileOrder.slice(from, to + 1)
+        setSelectedRows((prev) => {
+          if (!(event.ctrlKey || event.metaKey)) return new Set(range)
+          const next = new Set(prev)
+          range.forEach((entry) => next.add(entry))
+          return next
+        })
+        return
+      }
+    }
+
+    if (event.ctrlKey || event.metaKey) {
+      setSelectedRows((prev) => {
+        const next = new Set(prev)
+        if (next.has(path)) next.delete(path)
+        else next.add(path)
+        return next
+      })
+      setSelectionAnchor(path)
+      return
+    }
+
+    setSelectedRows(new Set([path]))
+    setSelectionAnchor(path)
+  }
+
   const toggleChecked = (path: string) => {
     setSelectionTouched(true)
     setChecked((prev) => {
@@ -438,13 +730,80 @@ function App() {
     })
   }
 
-  const validItems = items.filter((item) => item.status === 'OK')
-  const errorCount = items.filter((item) => item.status === 'Conflict' || item.status === 'Invalid').length
+  const validItems = useMemo(() => items.filter((item) => item.status === 'OK'), [items])
+  const invalidCount = useMemo(() => items.filter((item) => item.status === 'Invalid').length, [items])
+  const conflictCount = useMemo(() => items.filter((item) => item.status === 'Conflict').length, [items])
+  const errorCount = invalidCount + conflictCount
+  const criticalErrorCount = invalidCount + ((collisionPolicy === 'stop' || collisionPolicy === 'overwrite') ? conflictCount : 0)
+  const folderCount = useMemo(() => new Set(items.map((item) => item.path.toLowerCase())).size, [items])
+  const visibleItems = useMemo(() => {
+    const query = fileSearch.trim().toLowerCase()
+    return items.filter((item) => {
+      if (showErrorsOnly && item.status !== 'Conflict' && item.status !== 'Invalid') return false
+      if (!query) return true
+      return item.oldName.toLowerCase().includes(query)
+        || item.newName.toLowerCase().includes(query)
+        || item.sourcePath.toLowerCase().includes(query)
+    })
+  }, [items, fileSearch, showErrorsOnly])
+  const groupedItems = useMemo(() => {
+    const groups = new Map<string, PreviewItem[]>()
+    for (const item of visibleItems) {
+      const group = groups.get(item.path) || []
+      group.push(item)
+      groups.set(item.path, group)
+    }
+    return groups
+  }, [visibleItems])
+
+  const visibleColumns = useMemo(
+    () => columns.filter((column) => column.visible && !(groupByFolder && column.key === 'path')),
+    [columns, groupByFolder]
+  )
+  const tableColumnCount = 2 + visibleColumns.length
+  const tableMinWidth = 88 + visibleColumns.reduce((sum, column) => sum + column.width, 0)
+
+  const tableRows = useMemo<FileTableRow[]>(() => {
+    if (!groupByFolder) return visibleItems.map((item) => ({ kind: 'file', item }))
+    const rows: FileTableRow[] = []
+    for (const [folder, group] of groupedItems.entries()) {
+      rows.push({ kind: 'folder', folder, group })
+      if (!collapsedFolders.has(folder)) {
+        for (const item of group) rows.push({ kind: 'file', item })
+      }
+    }
+    return rows
+  }, [visibleItems, groupedItems, groupByFolder, collapsedFolders])
+
+  const visibleFileOrder = useMemo(
+    () => tableRows.filter((row): row is Extract<FileTableRow, { kind: 'file' }> => row.kind === 'file').map((row) => row.item.sourcePath),
+    [tableRows]
+  )
+
+  const virtualRowHeight = compactView ? 30 : 36
+  const virtualOverscan = 14
+  const virtualStart = Math.max(0, Math.floor(tableScrollTop / virtualRowHeight) - virtualOverscan)
+  const virtualCount = Math.ceil(tableViewportHeight / virtualRowHeight) + virtualOverscan * 2
+  const virtualEnd = Math.min(tableRows.length, virtualStart + virtualCount)
+  const virtualRows = tableRows.slice(virtualStart, virtualEnd)
+  const virtualTop = virtualStart * virtualRowHeight
+  const virtualBottom = Math.max(0, (tableRows.length - virtualEnd) * virtualRowHeight)
+
+  useEffect(() => {
+    setTableScrollTop(0)
+  }, [fileSearch, showErrorsOnly, groupByFolder, compactView])
 
   const execute = async () => {
     setExecuteConfirm(false)
+    setExecuting(true)
+    setExecuteProgress({ phase: 'staging', completed: 0, total: checked.size, current: '' })
     try {
       const result = await appApi().Execute([...checked])
+      if (result.cancelled) {
+        setToast(ux.cancelled)
+        await requestPreview()
+        return
+      }
       if (result.pairs?.length) {
         setSources((prev) =>
           prev.map((source) => result.pairs!.find((pair) => pair.from.toLowerCase() === source.toLowerCase())?.to || source)
@@ -453,6 +812,17 @@ function App() {
       setToast(t('dialog.renamed').replace('%d', String(result.count)))
       setSelectionTouched(false)
       await requestPreview()
+    } catch (err) {
+      setToast(String(err))
+    } finally {
+      setExecuting(false)
+      setExecuteProgress(null)
+    }
+  }
+
+  const cancelExecution = async () => {
+    try {
+      await appApi().CancelExecute()
     } catch (err) {
       setToast(String(err))
     }
@@ -471,6 +841,42 @@ function App() {
       await requestPreview()
     } catch (err) {
       setToast(String(err))
+    }
+  }
+
+  const loadHistory = async () => {
+    setHistoryBusy(true)
+    try {
+      setHistoryItems(await appApi().History())
+    } catch (err) {
+      setToast(String(err))
+    } finally {
+      setHistoryBusy(false)
+    }
+  }
+
+  const openHistory = async () => {
+    setHistoryOpen(true)
+    await loadHistory()
+  }
+
+  const rollbackHistory = async (id: string) => {
+    setHistoryBusy(true)
+    try {
+      const result = await appApi().UndoHistory(id)
+      if (result.pairs?.length) {
+        setSources((prev) =>
+          prev.map((source) => result.pairs!.find((pair) => pair.to.toLowerCase() === source.toLowerCase())?.from || source)
+        )
+      }
+      setToast(ux.rolledBack)
+      setSelectionTouched(false)
+      await requestPreview()
+      setHistoryItems(await appApi().History())
+    } catch (err) {
+      setToast(String(err))
+    } finally {
+      setHistoryBusy(false)
     }
   }
 
@@ -511,6 +917,221 @@ function App() {
     setDropState({ open: false, files: [], folders: [] })
   }
 
+  const startSidebarResize = (event: ReactPointerEvent<HTMLDivElement>) => {
+    event.preventDefault()
+    const startY = event.clientY
+    const startHeight = methodsHeight
+    let latestHeight = startHeight
+    const move = (moveEvent: PointerEvent) => {
+      latestHeight = Math.max(118, Math.min(460, startHeight + moveEvent.clientY - startY))
+      setMethodsHeight(latestHeight)
+    }
+    const stop = () => {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', stop)
+      localStorage.setItem('easyrenamer-methods-height', String(Math.round(latestHeight)))
+    }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', stop)
+  }
+
+  const startWorkspaceResize = (event: ReactPointerEvent<HTMLDivElement>) => {
+    event.preventDefault()
+    const startX = event.clientX
+    const startWidth = sidebarWidth
+    let latestWidth = startWidth
+    const move = (moveEvent: PointerEvent) => {
+      latestWidth = Math.max(340, Math.min(720, startWidth + moveEvent.clientX - startX))
+      setSidebarWidth(latestWidth)
+    }
+    const stop = () => {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', stop)
+      localStorage.setItem('easyrenamer-sidebar-width', String(Math.round(latestWidth)))
+    }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', stop)
+  }
+
+  const toggleFolder = (folder: string) => {
+    setCollapsedFolders((prev) => {
+      const next = new Set(prev)
+      if (next.has(folder)) next.delete(folder)
+      else next.add(folder)
+      return next
+    })
+  }
+
+  const columnLabel = (key: ColumnKey) => {
+    switch (key) {
+      case 'filename': return t('column.filename')
+      case 'new_filename': return t('column.new_filename')
+      case 'path': return t('column.path')
+      case 'size': return t('column.size')
+      case 'type': return t('column.type')
+      case 'status': return t('column.status')
+    }
+  }
+
+  const moveColumn = (key: ColumnKey, direction: -1 | 1) => {
+    setColumns((prev) => {
+      const index = prev.findIndex((column) => column.key === key)
+      const target = index + direction
+      if (index < 0 || target < 0 || target >= prev.length) return prev
+      const next = [...prev]
+      ;[next[index], next[target]] = [next[target], next[index]]
+      return next
+    })
+  }
+
+  const startColumnResize = (key: ColumnKey, event: ReactPointerEvent<HTMLDivElement>) => {
+    event.preventDefault()
+    event.stopPropagation()
+    const column = columns.find((entry) => entry.key === key)
+    if (!column) return
+    const startX = event.clientX
+    const startWidth = column.width
+    const move = (moveEvent: PointerEvent) => {
+      const width = Math.max(64, Math.min(720, startWidth + moveEvent.clientX - startX))
+      setColumns((prev) => prev.map((entry) => entry.key === key ? { ...entry, width } : entry))
+    }
+    const stop = () => {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', stop)
+    }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', stop)
+  }
+
+  const renderColumnCell = (column: ColumnConfig, item: PreviewItem) => {
+    switch (column.key) {
+      case 'filename':
+        return <td key={column.key}><span className="file-name">{fileIcon(item.type)}{item.oldName}</span></td>
+      case 'new_filename':
+        return <td key={column.key} className="new-name">{item.newName}</td>
+      case 'path':
+        return <td key={column.key} className="path-cell" title={item.path}>{item.path}</td>
+      case 'size':
+        return <td key={column.key}>{formatBytes(item.size)}</td>
+      case 'type':
+        return <td key={column.key}>{item.type || 'FILE'}</td>
+      case 'status':
+        return (
+          <td key={column.key} title={item.error || ''}>
+            <span className={`status-pill status-${item.status.toLowerCase()}`}>
+              <i />{t(statusKey(item.status), item.status)}
+            </span>
+          </td>
+        )
+    }
+  }
+
+  const reorderManual = (from: string, to: string) => {
+    if (!from || !to || from === to) return
+    setManualOrder((prev) => {
+      const base = prev.length ? [...prev] : items.map((item) => item.sourcePath)
+      const fromIndex = base.indexOf(from)
+      const toIndex = base.indexOf(to)
+      if (fromIndex < 0 || toIndex < 0) return prev
+      const [moved] = base.splice(fromIndex, 1)
+      const nextTarget = base.indexOf(to)
+      base.splice(nextTarget < 0 ? base.length : nextTarget, 0, moved)
+      return base
+    })
+  }
+
+  const renderFileRow = (item: PreviewItem) => (
+    <tr
+      key={item.sourcePath}
+      className={`${selectedRows.has(item.sourcePath) ? 'selected' : ''} ${sortBy === 'manual' ? 'manual-drag' : ''} ${draggedPath === item.sourcePath ? 'dragging' : ''}`}
+      draggable={sortBy === 'manual'}
+      onDragStart={(e) => {
+        if (sortBy !== 'manual') return
+        setDraggedPath(item.sourcePath)
+        e.dataTransfer.effectAllowed = 'move'
+        e.dataTransfer.setData('text/plain', item.sourcePath)
+      }}
+      onDragEnd={() => setDraggedPath('')}
+      onDragOver={(e) => {
+        if (sortBy === 'manual') e.preventDefault()
+      }}
+      onDrop={(e) => {
+        if (sortBy !== 'manual') return
+        e.preventDefault()
+        const from = draggedPath || e.dataTransfer.getData('text/plain')
+        reorderManual(from, item.sourcePath)
+        setDraggedPath('')
+      }}
+      onClick={(e) => handleRowSelection(item, e)}
+      onDoubleClick={() => appApi().Open(item.sourcePath)}
+      onContextMenu={(e) => {
+        e.preventDefault()
+        setSelectedPath(item.sourcePath)
+        if (!selectedRows.has(item.sourcePath)) {
+          setSelectedRows(new Set([item.sourcePath]))
+          setSelectionAnchor(item.sourcePath)
+        }
+        setContextMenu({ kind: 'file', x: e.clientX, y: e.clientY, item })
+      }}
+      title={item.error || item.sourcePath}
+    >
+      <td className="checkcol" onClick={(e) => e.stopPropagation()}>
+        <input
+          type="checkbox"
+          disabled={item.status !== 'OK' || executing}
+          checked={checked.has(item.sourcePath)}
+          onChange={() => toggleChecked(item.sourcePath)}
+        />
+      </td>
+      <td>{item.globalIndex}</td>
+      {visibleColumns.map((column) => renderColumnCell(column, item))}
+    </tr>
+  )
+
+  const renderFolderRow = (folder: string, group: PreviewItem[]) => {
+    const folderValid = group.filter((item) => item.status === 'OK')
+    const folderChecked = folderValid.length > 0 && folderValid.every((item) => checked.has(item.sourcePath))
+    const collapsed = collapsedFolders.has(folder)
+    return (
+      <tr
+        className="folder-group-row"
+        key={`folder:${folder}`}
+        onClick={() => toggleFolder(folder)}
+        onContextMenu={(e) => {
+          e.preventDefault()
+          setContextMenu({ kind: 'folder', x: e.clientX, y: e.clientY, folder, group })
+        }}
+      >
+        <td className="checkcol" onClick={(e) => e.stopPropagation()}>
+          <input
+            type="checkbox"
+            disabled={!folderValid.length || executing}
+            checked={folderChecked}
+            onChange={(e) => {
+              setSelectionTouched(true)
+              setChecked((prev) => {
+                const next = new Set(prev)
+                for (const item of folderValid) {
+                  if (e.target.checked) next.add(item.sourcePath)
+                  else next.delete(item.sourcePath)
+                }
+                return next
+              })
+            }}
+          />
+        </td>
+        <td colSpan={1 + visibleColumns.length}>
+          <span className="folder-group-copy" title={folder}>
+            <ChevronDown className={collapsed ? 'collapsed' : ''} />
+            <Folder />
+            <strong>{folder}</strong>
+            <em>{group.length}</em>
+          </span>
+        </td>
+      </tr>
+    )
+  }
+
   return (
     <div className="app-shell">
       <header className="titlebar" style={{ '--wails-draggable': 'drag' } as CSSProperties}>
@@ -529,15 +1150,20 @@ function App() {
 
       <section className="commandbar">
         <div className="command-left">
-          <button className="action primary" onClick={addFiles}><FilePlus2 />{t('button.files')}</button>
-          <button className="action" onClick={addFolders}><FolderPlus />{t('button.folders')}</button>
-          <button className="action danger-soft" onClick={clearAll}><Trash2 />{t('button.clear')}</button>
-          <button className="action" onClick={() => previewBusy ? appApi().CancelPreview() : requestPreview()}>
-            <Eye />{previewBusy ? t('button.cancel_preview') : t('button.preview')}
+          <button className={`action ${items.length ? '' : 'primary'}`} disabled={executing} onClick={addFiles} title="Ctrl+O"><FilePlus2 />{t('button.files')}</button>
+          <button className="action" disabled={executing} onClick={addFolders} title="Ctrl+Shift+O"><FolderPlus />{t('button.folders')}</button>
+          <button className="action danger-soft" disabled={executing} onClick={clearAll}><Trash2 />{t('button.clear')}</button>
+          <button className="action" disabled={executing || previewBusy || !sources.length} onClick={requestPreview} title="F5">
+            <Eye />{ux.check}
           </button>
         </div>
         <div className="command-right">
-          <button className="start-btn" disabled={!checked.size || previewBusy} onClick={() => setExecuteConfirm(true)}>
+          <button
+            className={`start-btn ${items.length && !criticalErrorCount && checked.size ? 'primary' : ''}`}
+            disabled={!checked.size || previewBusy || executing || criticalErrorCount > 0}
+            onClick={() => setExecuteConfirm(true)}
+            title="Ctrl+Enter"
+          >
             <Play fill="currentColor" />{t('button.start')}
           </button>
           <span className="source-count">{t('sources.count').replace('%d', String(sources.length))}</span>
@@ -571,14 +1197,32 @@ function App() {
           placeholder={t('filter.extensions_hint')}
         />
         <label>{t('collision.label')}</label>
-        <select className="collision" value="prevent" disabled><option value="prevent">{t('collision.prevent')}</option></select>
-        <button className="mini-more"><MoreHorizontal /></button>
+        <select className="collision" value={collisionPolicy} onChange={(e) => setCollisionPolicy(e.target.value as CollisionPolicy)}>
+          <option value="skip">{language === 'ru' ? 'Не переименовывать конфликтующие' : 'Skip conflicting files'}</option>
+          <option value="auto-number">{language === 'ru' ? 'Добавлять номер автоматически' : 'Add number automatically'}</option>
+          <option value="overwrite" disabled>{language === 'ru' ? 'Перезаписывать — требует безопасного backup' : 'Overwrite — safe backup required'}</option>
+          <option value="stop">{language === 'ru' ? 'Остановить операцию при конфликте' : 'Stop operation on conflict'}</option>
+        </select>
+        <button className="mini-more" onClick={openHistory} title={ux.history}><MoreHorizontal /></button>
       </section>
 
-      <main className="workspace">
-        <aside className="sidebar">
+      <main className="workspace" style={{ '--sidebar-width': `${sidebarWidth}px` } as CSSProperties}>
+        <aside className="sidebar" style={{ '--methods-height': `${methodsHeight}px` } as CSSProperties}>
           <section className="panel methods-panel">
-            <div className="panel-title"><span>✦</span>{t('group.methods')}</div>
+            <div className="panel-title method-panel-title">
+              <span className="panel-title-copy"><b>✦</b>{t('group.methods')}</span>
+              <select
+                className="method-add-select"
+                value=""
+                onChange={(e) => {
+                  if (e.target.value) addMethod(e.target.value)
+                }}
+                title={ux.addMethod}
+              >
+                <option value="">{ux.addMethod}</option>
+                {methodCatalog.map((entry) => <option key={entry.type} value={entry.type}>{t(entry.titleKey)}</option>)}
+              </select>
+            </div>
             <div className="method-list">
               {methods.map((method, index) => {
                 const def = methodCatalog.find((entry) => entry.type === method.type)
@@ -602,14 +1246,16 @@ function App() {
               })}
             </div>
             <div className="method-toolbar">
-              <button onClick={() => moveMethod(-1)} disabled={selectedMethod === 0}><ArrowUp /></button>
-              <button onClick={() => moveMethod(1)} disabled={selectedMethod >= methods.length - 1}><ArrowDown /></button>
-              <button onClick={duplicateMethod}><Copy /></button>
-              <button onClick={saveMethods}><Save /></button>
-              <button onClick={loadMethods}><RefreshCcw /></button>
-              <button onClick={removeMethod} disabled={methods.length === 1}><Trash2 /></button>
+              <button title={t('toolbar.move_up', 'Переместить выше')} onClick={() => moveMethod(-1)} disabled={selectedMethod === 0}><ArrowUp /></button>
+              <button title={t('toolbar.move_down', 'Переместить ниже')} onClick={() => moveMethod(1)} disabled={selectedMethod >= methods.length - 1}><ArrowDown /></button>
+              <button title={t('toolbar.duplicate', 'Дублировать метод')} onClick={duplicateMethod}><Copy /></button>
+              <button title={t('menu.save_methods')} onClick={saveMethods}><Save /></button>
+              <button title={t('menu.load_methods')} onClick={loadMethods}><RefreshCcw /></button>
+              <button title={t('toolbar.delete', 'Удалить метод')} onClick={removeMethod} disabled={methods.length === 1}><Trash2 /></button>
             </div>
           </section>
+
+          <div className="sidebar-splitter" onPointerDown={startSidebarResize} title="Drag to resize" />
 
           <section className="panel settings-panel">
             <h2>{t('group.settings')}: {selectedMethodValue ? t(methodCatalog.find((x) => x.type === selectedMethodValue.type)?.titleKey || '') : ''}</h2>
@@ -627,33 +1273,104 @@ function App() {
                 setTagSearch={setTagSearch}
                 filteredTags={filteredTags}
                 insertTag={insertTag}
+                language={language}
+                userPresets={userPresets}
+                setUserPresets={setUserPresets}
               />
             )}
-            <div className="add-method">
-              <span>{t('group.add_method')}</span>
-              <select id="add-method-select" defaultValue="replace">
-                {methodCatalog.map((entry) => <option key={entry.type} value={entry.type}>{t(entry.titleKey)}</option>)}
-              </select>
-              <button onClick={() => {
-                const select = document.getElementById('add-method-select') as HTMLSelectElement
-                addMethod(select.value)
-              }}>＋ {t('button.add')}</button>
-            </div>
           </section>
         </aside>
 
+        <div className="workspace-splitter" onPointerDown={startWorkspaceResize} title="Drag to resize sidebar" />
+
         <section className="files-panel">
           <div className="files-head">
-            <h1>{t('files.title_count').replace('%d', String(items.length))}</h1>
-            <div className="drop-hint"><FolderPlus size={18} />{t('drop.hint')} · {t('drop.subhint')}</div>
-            <div className="view-toggle">
-              <button className={!compactView ? 'active' : ''} onClick={() => setCompactView(false)}><List /></button>
-              <button className={compactView ? 'active' : ''} onClick={() => setCompactView(true)}>▦</button>
+            <div className="files-title-line">
+              <h1>{t('files.title_count').replace('%d', String(items.length))}</h1>
+              <div className="drop-hint"><FolderPlus size={18} />{t('drop.hint')} · {t('drop.subhint')}</div>
+            </div>
+            <div className="file-tools">
+              <label className="table-search" title={ux.search}>
+                <Search size={16} />
+                <input value={fileSearch} onChange={(e) => setFileSearch(e.target.value)} placeholder={ux.search} />
+              </label>
+              <label className="sort-control">
+                <span>{ux.order}:</span>
+                <select value={sortBy} onChange={(e) => {
+                  const value = e.target.value as SortMode
+                  setSortBy(value)
+                  if (value === 'manual') setSortDescending(false)
+                }}>
+                  <option value="name">{ux.name}</option>
+                  <option value="created">{ux.created}</option>
+                  <option value="modified">{ux.modified}</option>
+                  <option value="size">{ux.size}</option>
+                  <option value="extension">{ux.extension}</option>
+                  <option value="path">{ux.path}</option>
+                  <option value="added">{ux.added}</option>
+                  <option value="manual">{ux.manual}</option>
+                </select>
+              </label>
+              <button className="sort-direction" onClick={() => setSortDescending((value) => !value)} title={sortDescending ? 'Descending' : 'Ascending'}>
+                {sortDescending ? <ArrowDown /> : <ArrowUp />}
+              </button>
+              <label className="checkline sort-per-folder">
+                <input type="checkbox" checked={sortPerFolder} onChange={(e) => setSortPerFolder(e.target.checked)} />
+                <span>{ux.perFolder}</span>
+              </label>
+              <select className="group-select" value={groupByFolder ? 'folder' : 'none'} onChange={(e) => setGroupByFolder(e.target.value === 'folder')}>
+                <option value="folder">{ux.groupFolders}</option>
+                <option value="none">{ux.noGrouping}</option>
+              </select>
+              {errorCount > 0 && (
+                <button className={`errors-toggle ${showErrorsOnly ? 'active' : ''}`} onClick={() => setShowErrorsOnly((value) => !value)}>
+                  {ux.errorsOnly} ({errorCount})
+                </button>
+              )}
+              <div className="column-settings-wrap">
+                <button className={`columns-button ${columnsOpen ? 'active' : ''}`} onClick={() => setColumnsOpen((value) => !value)}>
+                  {ux.columns}
+                </button>
+                {columnsOpen && (
+                  <div className="column-settings" onClick={(e) => e.stopPropagation()}>
+                    {columns.map((column, index) => (
+                      <div className="column-setting-row" key={column.key}>
+                        <label>
+                          <input
+                            type="checkbox"
+                            checked={column.visible}
+                            onChange={(e) => setColumns((prev) => prev.map((entry) => entry.key === column.key ? { ...entry, visible: e.target.checked } : entry))}
+                          />
+                          <span>{columnLabel(column.key)}</span>
+                        </label>
+                        <button disabled={index === 0} onClick={() => moveColumn(column.key, -1)}><ArrowUp /></button>
+                        <button disabled={index === columns.length - 1} onClick={() => moveColumn(column.key, 1)}><ArrowDown /></button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className="view-toggle">
+                <button title="Comfortable rows" className={!compactView ? 'active' : ''} onClick={() => setCompactView(false)}><List /></button>
+                <button title="Compact rows" className={compactView ? 'active' : ''} onClick={() => setCompactView(true)}>▦</button>
+              </div>
             </div>
           </div>
 
-          <div className="table-wrap" style={{ '--wails-drop-target': 'drop' } as CSSProperties}>
-            <table className={compactView ? 'compact' : ''}>
+          <div
+            className="table-wrap"
+            style={{ '--wails-drop-target': 'drop' } as CSSProperties}
+            onScroll={(e) => {
+              setTableScrollTop(e.currentTarget.scrollTop)
+              setTableViewportHeight(e.currentTarget.clientHeight)
+            }}
+          >
+            <table className={`configurable ${compactView ? 'compact' : ''}`} style={{ minWidth: tableMinWidth }}>
+              <colgroup>
+                <col style={{ width: 42 }} />
+                <col style={{ width: 46 }} />
+                {visibleColumns.map((column) => <col key={column.key} style={{ width: column.width }} />)}
+              </colgroup>
               <thead>
                 <tr>
                   <th className="checkcol">
@@ -667,50 +1384,33 @@ function App() {
                     />
                   </th>
                   <th>#</th>
-                  <th>{t('column.filename')}</th>
-                  <th>{t('column.new_filename')}</th>
-                  <th>{t('column.path')}</th>
-                  <th>{t('column.size')}</th>
-                  <th>{t('column.type')}</th>
-                  <th>{t('column.status')}</th>
+                  {visibleColumns.map((column) => (
+                    <th className="column-resizable" key={column.key}>
+                      <span>{columnLabel(column.key)}</span>
+                      <div className="column-resize-handle" onPointerDown={(e) => startColumnResize(column.key, e)} />
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
-                {items.map((item) => (
-                  <tr
-                    key={item.sourcePath}
-                    className={selectedItem?.sourcePath === item.sourcePath ? 'selected' : ''}
-                    onClick={() => setSelectedPath(item.sourcePath)}
-                    onDoubleClick={() => appApi().Reveal(item.sourcePath)}
-                  >
-                    <td className="checkcol" onClick={(e) => e.stopPropagation()}>
-                      <input
-                        type="checkbox"
-                        disabled={item.status !== 'OK'}
-                        checked={checked.has(item.sourcePath)}
-                        onChange={() => toggleChecked(item.sourcePath)}
-                      />
-                    </td>
-                    <td>{item.globalIndex}</td>
-                    <td><span className="file-name">{fileIcon(item.type)}{item.oldName}</span></td>
-                    <td className="new-name">{item.newName}</td>
-                    <td className="path-cell">{item.path}</td>
-                    <td>{formatBytes(item.size)}</td>
-                    <td>{item.type || 'FILE'}</td>
-                    <td>
-                      <span className={`status-pill status-${item.status.toLowerCase()}`}>
-                        <i />{t(statusKey(item.status), item.status)}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-                {!items.length && (
+                {virtualTop > 0 && (
+                  <tr className="virtual-spacer"><td colSpan={tableColumnCount} style={{ height: virtualTop }} /></tr>
+                )}
+                {virtualRows.map((row) =>
+                  row.kind === 'folder'
+                    ? renderFolderRow(row.folder, row.group)
+                    : renderFileRow(row.item)
+                )}
+                {virtualBottom > 0 && (
+                  <tr className="virtual-spacer"><td colSpan={tableColumnCount} style={{ height: virtualBottom }} /></tr>
+                )}
+                {!visibleItems.length && (
                   <tr className="empty-row">
-                    <td colSpan={8}>
+                    <td colSpan={tableColumnCount}>
                       <div className="empty-state">
                         <FolderPlus />
-                        <strong>{t('drop.hint')}</strong>
-                        <span>{t('drop.subhint')}</span>
+                        <strong>{items.length ? ux.allFiles : t('drop.hint')}</strong>
+                        <span>{items.length ? ux.search : t('drop.subhint')}</span>
                       </div>
                     </td>
                   </tr>
@@ -727,20 +1427,20 @@ function App() {
               <strong>{selectedItem?.oldName || t('preview.no_selection')}</strong>
               {selectedItem && (
                 <>
-                  <span>{selectedItem.width && selectedItem.height ? `${selectedItem.width} × ${selectedItem.height} · ` : ''}{formatBytes(selectedItem.size)} · {selectedItem.type}</span>
+                  <span>{selectedDetails?.width && selectedDetails?.height ? `${selectedDetails.width} × ${selectedDetails.height} · ` : ''}{formatBytes(selectedDetails?.size ?? selectedItem.size)} · {selectedDetails?.type || selectedItem.type}</span>
                   <span>{selectedItem.path}</span>
                 </>
               )}
             </div>
             <div className="name-compare">
-              <div className="compare-tabs">
-                <span>{t('preview.original')}</span>
-                <span className="active">{t('preview.new')}</span>
-              </div>
               <div className="compare-values">
-                <strong>{selectedItem?.oldName || '—'}</strong>
+                <strong title={selectedItem?.oldName || ''}>
+                  {selectedItem ? <NameDiff oldName={selectedItem.oldName} newName={selectedItem.newName} side="old" /> : '—'}
+                </strong>
                 <ArrowRight />
-                <strong>{selectedItem?.newName || '—'}</strong>
+                <strong title={selectedItem?.newName || ''}>
+                  {selectedItem ? <NameDiff oldName={selectedItem.oldName} newName={selectedItem.newName} side="new" /> : '—'}
+                </strong>
               </div>
             </div>
           </section>
@@ -748,13 +1448,121 @@ function App() {
       </main>
 
       <footer className="statusbar">
-        <span className={errorCount ? 'state error' : 'state'}><i />{errorCount ? t('status.errors') : t('status.ready')}</span>
+        <span className={`state ${executing ? 'busy' : criticalErrorCount ? 'error' : conflictCount ? 'warning' : ''}`}>
+          <i />{executing ? ux.renaming : criticalErrorCount ? t('status.errors') : conflictCount ? (language === 'ru' ? 'Есть предупреждения' : 'Warnings') : t('status.ready')}
+        </span>
         <div>
           <span>{t('button.select_valid')}: {checked.size} {t('status.of')} {validItems.length}</span>
           <span>{t('group.files')}: {items.length}</span>
-          <span>{errorCount} {t('status.errors')}</span>
+          <span>{ux.folders}: {folderCount}</span>
+          <span>{t('status.errors')}: {errorCount}</span>
         </div>
       </footer>
+
+      {executing && (
+        <div className="operation-progress">
+          <div className="operation-progress-head">
+            <strong>{executeProgress?.phase === 'renaming' ? ux.renaming : ux.preparing}</strong>
+            <span>{executeProgress?.completed || 0} / {executeProgress?.total || checked.size}</span>
+          </div>
+          <progress max={Math.max(1, executeProgress?.total || checked.size)} value={executeProgress?.completed || 0} />
+          <small title={executeProgress?.current || ''}>{executeProgress?.current || '...'}</small>
+          <button onClick={cancelExecution}>{ux.cancelOperation}</button>
+        </div>
+      )}
+
+      {contextMenu && (
+        <div
+          className="context-menu"
+          style={{ left: Math.min(contextMenu.x, window.innerWidth - 270), top: Math.min(contextMenu.y, window.innerHeight - 290) }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {contextMenu.kind === 'file' ? (
+            <>
+              <button onClick={() => { appApi().Open(contextMenu.item.sourcePath); setContextMenu(null) }}>{ux.open}</button>
+              <button onClick={() => { appApi().Reveal(contextMenu.item.sourcePath); setContextMenu(null) }}>{ux.showExplorer}</button>
+              <span className="context-separator" />
+              <button onClick={() => { navigator.clipboard.writeText(contextMenu.item.oldName); setContextMenu(null) }}>{ux.copyName}</button>
+              <button onClick={() => { navigator.clipboard.writeText(contextMenu.item.sourcePath); setContextMenu(null) }}>{ux.copyPath}</button>
+              <span className="context-separator" />
+              <button onClick={() => {
+                setSelectionTouched(true)
+                setChecked((prev) => {
+                  const next = new Set(prev)
+                  next.delete(contextMenu.item.sourcePath)
+                  return next
+                })
+                setContextMenu(null)
+              }}>{ux.exclude}</button>
+              <button className="danger" onClick={() => {
+                setExcludedPaths((prev) => new Set(prev).add(contextMenu.item.sourcePath.toLowerCase()))
+                setContextMenu(null)
+              }}>{ux.removeList}</button>
+            </>
+          ) : (
+            <>
+              <button onClick={() => {
+                setSelectionTouched(true)
+                setChecked((prev) => {
+                  const next = new Set(prev)
+                  contextMenu.group.filter((item) => item.status === 'OK').forEach((item) => next.add(item.sourcePath))
+                  return next
+                })
+                setContextMenu(null)
+              }}>{ux.selectFolder}</button>
+              <button onClick={() => {
+                setSelectionTouched(true)
+                setChecked((prev) => {
+                  const next = new Set(prev)
+                  contextMenu.group.forEach((item) => next.delete(item.sourcePath))
+                  return next
+                })
+                setContextMenu(null)
+              }}>{ux.deselectFolder}</button>
+              <span className="context-separator" />
+              <button onClick={() => { appApi().OpenFolder(contextMenu.folder); setContextMenu(null) }}>{ux.open}</button>
+              <button onClick={() => { navigator.clipboard.writeText(contextMenu.folder); setContextMenu(null) }}>{ux.copyPath}</button>
+              <span className="context-separator" />
+              <button className="danger" onClick={() => {
+                setExcludedPaths((prev) => {
+                  const next = new Set(prev)
+                  contextMenu.group.forEach((item) => next.add(item.sourcePath.toLowerCase()))
+                  return next
+                })
+                setContextMenu(null)
+              }}>{ux.removeFolder}</button>
+            </>
+          )}
+        </div>
+      )}
+
+      {historyOpen && (
+        <div className="modal-backdrop" onMouseDown={() => setHistoryOpen(false)}>
+          <div className="modal history-modal" onMouseDown={(e) => e.stopPropagation()}>
+            <button className="modal-close" onClick={() => setHistoryOpen(false)}><X /></button>
+            <h2>{ux.history}</h2>
+            <div className="history-list">
+              {historyBusy && !historyItems.length && <div className="history-empty">...</div>}
+              {!historyBusy && !historyItems.length && <div className="history-empty">{ux.noHistory}</div>}
+              {historyItems.map((entry) => (
+                <div className={`history-entry ${entry.undone ? 'undone' : ''}`} key={entry.id}>
+                  <div className="history-entry-main">
+                    <strong>{entry.createdAt}</strong>
+                    <span>{ux.filesRenamed}: {entry.count}</span>
+                    <small title={entry.folder}>{entry.folder || '—'}</small>
+                  </div>
+                  <button
+                    disabled={entry.undone || historyBusy || executing}
+                    onClick={() => rollbackHistory(entry.id)}
+                  >
+                    <Undo2 />{entry.undone ? ux.undone : ux.rollback}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {helpOpen && (
         <div className="modal-backdrop" onMouseDown={() => setHelpOpen(false)}>
@@ -814,10 +1622,105 @@ interface MethodEditorProps {
   setTagSearch: (value: string) => void
   filteredTags: { token: string; labelKey: string }[]
   insertTag: (token: string) => void
+  language: string
+  userPresets: UserPreset[]
+  setUserPresets: (presets: UserPreset[]) => void
 }
 
 function MethodEditor(props: MethodEditorProps) {
   const { method, update, t } = props
+  const [autocompleteOpen, setAutocompleteOpen] = useState(false)
+  const [autocompleteQuery, setAutocompleteQuery] = useState('')
+  const [autocompleteIndex, setAutocompleteIndex] = useState(0)
+  const [guideSelected, setGuideSelected] = useState('')
+  const [selectedUserPreset, setSelectedUserPreset] = useState('')
+  const [presetName, setPresetName] = useState('')
+
+  const autocompleteMatches = useMemo(() => {
+    const query = autocompleteQuery.toLowerCase()
+    return autocompleteTags
+      .filter((entry) => !query || entry.token.toLowerCase().startsWith('<' + query) || entry.token.toLowerCase().includes(query))
+      .slice(0, 10)
+  }, [autocompleteQuery])
+
+  const updateAutocomplete = (value: string, caret: number | null) => {
+    const position = caret ?? value.length
+    const before = value.slice(0, position)
+    const open = before.lastIndexOf('<')
+    if (open < 0 || before.slice(open).includes('>')) {
+      setAutocompleteOpen(false)
+      return
+    }
+    const query = before.slice(open + 1)
+    setAutocompleteQuery(query)
+    setAutocompleteIndex(0)
+    setAutocompleteOpen(true)
+  }
+
+  const acceptAutocomplete = (token: string) => {
+    const input = props.templateInputRef.current
+    const value = method.template || ''
+    const caret = input?.selectionStart ?? value.length
+    const open = value.slice(0, caret).lastIndexOf('<')
+    if (open < 0) {
+      props.insertTag(token)
+      setAutocompleteOpen(false)
+      return
+    }
+    const next = value.slice(0, open) + token + value.slice(caret)
+    const nextCaret = open + token.length
+    update({ template: next })
+    setAutocompleteOpen(false)
+    requestAnimationFrame(() => {
+      input?.focus()
+      input?.setSelectionRange(nextCaret, nextCaret)
+    })
+  }
+
+  const presetCopy = props.language === 'ru' ? 'копия' : 'copy'
+  const presetLabels = props.language === 'ru'
+    ? { name: 'Имя пресета', save: 'Сохранить', rename: 'Переименовать', duplicate: 'Дублировать', remove: 'Удалить' }
+    : { name: 'Preset name', save: 'Save', rename: 'Rename', duplicate: 'Duplicate', remove: 'Delete' }
+
+  const saveUserPreset = () => {
+    const name = presetName.trim() || `Preset ${props.userPresets.length + 1}`
+    const preset: UserPreset = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      name,
+      template: method.template || '<Name>',
+    }
+    props.setUserPresets([...props.userPresets, preset])
+    setSelectedUserPreset(preset.id)
+    setPresetName(preset.name)
+  }
+
+  const renameUserPreset = () => {
+    if (!selectedUserPreset || !presetName.trim()) return
+    props.setUserPresets(props.userPresets.map((preset) =>
+      preset.id === selectedUserPreset ? { ...preset, name: presetName.trim() } : preset
+    ))
+  }
+
+  const duplicateUserPreset = () => {
+    const source = props.userPresets.find((preset) => preset.id === selectedUserPreset)
+    const preset: UserPreset = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      name: source ? `${source.name} ${presetCopy}` : (presetName.trim() || `Preset ${props.userPresets.length + 1}`),
+      template: source?.template || method.template || '<Name>',
+    }
+    props.setUserPresets([...props.userPresets, preset])
+    setSelectedUserPreset(preset.id)
+    setPresetName(preset.name)
+    update({ template: preset.template })
+  }
+
+  const deleteUserPreset = () => {
+    if (!selectedUserPreset) return
+    props.setUserPresets(props.userPresets.filter((preset) => preset.id !== selectedUserPreset))
+    setSelectedUserPreset('')
+    setPresetName('')
+  }
+
   const number = (key: keyof RenameMethod, value = 1, min?: number) => (
     <input type="number" min={min} value={(method[key] as number | undefined) ?? value} onChange={(e) => update({ [key]: Number(e.target.value) } as Partial<RenameMethod>)} />
   )
@@ -828,16 +1731,83 @@ function MethodEditor(props: MethodEditorProps) {
         <div className="field-row">
           <label>{t('label.preset')}</label>
           <select
-            value={presetOptions.find((p) => p.value === method.template)?.value || ''}
-            onChange={(e) => e.target.value && update({ template: e.target.value })}
+            value={selectedUserPreset ? `user:${selectedUserPreset}` : (presetOptions.find((p) => p.value === method.template)?.value || '')}
+            onChange={(e) => {
+              const value = e.target.value
+              if (value.startsWith('user:')) {
+                const id = value.slice(5)
+                const preset = props.userPresets.find((entry) => entry.id === id)
+                if (preset) {
+                  setSelectedUserPreset(id)
+                  setPresetName(preset.name)
+                  update({ template: preset.template })
+                }
+                return
+              }
+              setSelectedUserPreset('')
+              setPresetName('')
+              if (value) update({ template: value })
+            }}
           >
             <option value="">{t('preset.sequence_original')}</option>
             {presetOptions.map((preset) => <option key={preset.value} value={preset.value}>{t(preset.labelKey)}</option>)}
+            {props.userPresets.length > 0 && <optgroup label={props.language === 'ru' ? 'Мои пресеты' : 'My presets'}>
+              {props.userPresets.map((preset) => <option key={preset.id} value={`user:${preset.id}`}>{preset.name}</option>)}
+            </optgroup>}
           </select>
         </div>
-        <div className="field-row">
+        <div className="preset-manager">
+          <input value={presetName} onChange={(e) => setPresetName(e.target.value)} placeholder={presetLabels.name} />
+          <button type="button" onClick={saveUserPreset} title={presetLabels.save}><Save />{presetLabels.save}</button>
+          <button type="button" onClick={renameUserPreset} disabled={!selectedUserPreset || !presetName.trim()} title={presetLabels.rename}>{presetLabels.rename}</button>
+          <button type="button" onClick={duplicateUserPreset} title={presetLabels.duplicate}><Copy />{presetLabels.duplicate}</button>
+          <button type="button" className="danger" onClick={deleteUserPreset} disabled={!selectedUserPreset} title={presetLabels.remove}><Trash2 /></button>
+        </div>
+        <div className="field-row template-field">
           <label>{t('label.new_name')}</label>
-          <input ref={props.templateInputRef} value={method.template || ''} onChange={(e) => update({ template: e.target.value })} />
+          <div className="template-input-wrap">
+            <input
+              ref={props.templateInputRef}
+              value={method.template || ''}
+              onChange={(e) => {
+                update({ template: e.target.value })
+                updateAutocomplete(e.target.value, e.target.selectionStart)
+              }}
+              onKeyDown={(e) => {
+                if (!autocompleteOpen || !autocompleteMatches.length) return
+                if (e.key === 'ArrowDown') {
+                  e.preventDefault()
+                  setAutocompleteIndex((index) => (index + 1) % autocompleteMatches.length)
+                } else if (e.key === 'ArrowUp') {
+                  e.preventDefault()
+                  setAutocompleteIndex((index) => (index - 1 + autocompleteMatches.length) % autocompleteMatches.length)
+                } else if (e.key === 'Enter') {
+                  e.preventDefault()
+                  acceptAutocomplete(autocompleteMatches[Math.min(autocompleteIndex, autocompleteMatches.length - 1)].token)
+                } else if (e.key === 'Escape') {
+                  e.preventDefault()
+                  setAutocompleteOpen(false)
+                }
+              }}
+              onBlur={() => window.setTimeout(() => setAutocompleteOpen(false), 120)}
+            />
+            {autocompleteOpen && autocompleteMatches.length > 0 && (
+              <div className="tag-autocomplete">
+                {autocompleteMatches.map((entry, index) => (
+                  <button
+                    type="button"
+                    key={entry.token}
+                    className={index === autocompleteIndex ? 'active' : ''}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => acceptAutocomplete(entry.token)}
+                  >
+                    <code>{entry.token}</code>
+                    <span>{t(entry.labelKey)}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
         <div className="field-row">
           <label>{t('tag.category')}</label>
@@ -853,7 +1823,19 @@ function MethodEditor(props: MethodEditorProps) {
         <div className="tag-search"><Search /><input value={props.tagSearch} onChange={(e) => props.setTagSearch(e.target.value)} placeholder={t('tag.search')} /></div>
         <div className="tag-grid">
           {props.tagTab === 'tags' && props.filteredTags.map((tag) => (
-            <button key={tag.token} onDoubleClick={() => props.insertTag(tag.token)} onClick={() => props.insertTag(tag.token)}>
+            <button
+              key={tag.token}
+              className={guideSelected === tag.token ? 'selected' : ''}
+              title={`${tag.token} — ${t(tag.labelKey)}`}
+              onClick={() => setGuideSelected(tag.token)}
+              onDoubleClick={() => props.insertTag(tag.token)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  props.insertTag(tag.token)
+                }
+              }}
+            >
               <code>{tag.token}</code><span>{t(tag.labelKey)}</span>
             </button>
           ))}

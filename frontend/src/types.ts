@@ -1,4 +1,6 @@
 export type ThemeMode = 'system' | 'dark' | 'light'
+export type SortMode = 'name' | 'created' | 'modified' | 'size' | 'extension' | 'path' | 'added' | 'manual'
+export type CollisionPolicy = 'skip' | 'auto-number' | 'overwrite' | 'stop'
 
 export interface RenameMethod {
   type: string
@@ -56,6 +58,13 @@ export interface PreviewResult {
   items: PreviewItem[]
 }
 
+export interface FileDetails {
+  size: number
+  width: number
+  height: number
+  type: string
+}
+
 export interface BootstrapData {
   version: string
   language: string
@@ -70,11 +79,27 @@ export interface OperationPair {
 export interface OperationResult {
   count: number
   pairs?: OperationPair[]
+  cancelled?: boolean
+}
+
+export interface ExecuteProgress {
+  phase: 'staging' | 'renaming'
+  completed: number
+  total: number
+  current: string
 }
 
 export interface PathClassification {
   files: string[]
   folders: string[]
+}
+
+export interface HistoryEntry {
+  id: string
+  createdAt: string
+  count: number
+  folder: string
+  undone: boolean
 }
 
 export interface BackendApp {
@@ -86,15 +111,27 @@ export interface BackendApp {
   ClassifyPaths(paths: string[]): Promise<PathClassification>
   Preview(
     sources: string[],
+    excludedPaths: string[],
     recursive: boolean,
     category: string,
     customExtensions: string,
-    methods: RenameMethod[]
+    methods: RenameMethod[],
+    sortBy: SortMode,
+    sortDescending: boolean,
+    sortPerFolder: boolean,
+    manualOrder: string[],
+    collisionPolicy: CollisionPolicy
   ): Promise<PreviewResult>
   CancelPreview(): Promise<void>
   Execute(selectedPaths: string[]): Promise<OperationResult>
+  CancelExecute(): Promise<void>
   Undo(): Promise<OperationResult>
+  History(): Promise<HistoryEntry[]>
+  UndoHistory(id: string): Promise<OperationResult>
   Reveal(path: string): Promise<void>
+  Open(path: string): Promise<void>
+  OpenFolder(path: string): Promise<void>
+  FileDetails(path: string): Promise<FileDetails>
   Thumbnail(path: string): Promise<string>
   SaveMethodSet(methods: RenameMethod[]): Promise<void>
   LoadMethodSet(): Promise<RenameMethod[]>
@@ -106,6 +143,8 @@ export interface WailsRuntime {
   Quit(): void
   OnFileDrop(callback: (x: number, y: number, paths: string[]) => void, useDropTarget: boolean): void
   OnFileDropOff(): void
+  EventsOn?(eventName: string, callback: (data: any) => void): () => void
+  EventsOff?(eventName: string): void
 }
 
 declare global {

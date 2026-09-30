@@ -61,7 +61,7 @@ func RenderTemplate(tpl string, ctx TemplateContext) (string, error) {
 		return "", renderErr
 	}
 
-	if !templateContainsExtensionTag(tpl) {
+	if !templateContainsExtensionTag(tpl) && filepath.Ext(result) == "" {
 		result += ctx.Extension
 	}
 	return result, nil

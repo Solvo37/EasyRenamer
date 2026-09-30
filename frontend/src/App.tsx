@@ -151,6 +151,41 @@ function cloneMethod(method: RenameMethod): RenameMethod {
   return JSON.parse(JSON.stringify(method))
 }
 
+function splitNameDiff(oldName: string, newName: string) {
+  let prefix = 0
+  while (prefix < oldName.length && prefix < newName.length && oldName[prefix] === newName[prefix]) prefix++
+
+  let suffix = 0
+  while (
+    suffix < oldName.length - prefix
+    && suffix < newName.length - prefix
+    && oldName[oldName.length - 1 - suffix] === newName[newName.length - 1 - suffix]
+  ) suffix++
+
+  return {
+    commonPrefix: newName.slice(0, prefix),
+    oldChanged: oldName.slice(prefix, oldName.length - suffix),
+    newChanged: newName.slice(prefix, newName.length - suffix),
+    commonSuffix: suffix ? newName.slice(newName.length - suffix) : '',
+  }
+}
+
+function NameDiff({ oldName, newName, side }: { oldName: string; newName: string; side: 'old' | 'new' }) {
+  const diff = splitNameDiff(oldName, newName)
+  const changed = side === 'old' ? diff.oldChanged : diff.newChanged
+  const full = side === 'old' ? oldName : newName
+  if (oldName === newName) return <>{full}</>
+  return (
+    <>
+      <span>{diff.commonPrefix}</span>
+      {changed
+        ? <mark className={side === 'old' ? 'diff-removed' : 'diff-added'}>{changed}</mark>
+        : <mark className={side === 'old' ? 'diff-removed diff-empty' : 'diff-added diff-empty'}>∅</mark>}
+      <span>{diff.commonSuffix}</span>
+    </>
+  )
+}
+
 interface DropState extends PathClassification {
   open: boolean
 }
@@ -1124,9 +1159,13 @@ function App() {
             </div>
             <div className="name-compare">
               <div className="compare-values">
-                <strong title={selectedItem?.oldName || ''}>{selectedItem?.oldName || '—'}</strong>
+                <strong title={selectedItem?.oldName || ''}>
+                  {selectedItem ? <NameDiff oldName={selectedItem.oldName} newName={selectedItem.newName} side="old" /> : '—'}
+                </strong>
                 <ArrowRight />
-                <strong title={selectedItem?.newName || ''}>{selectedItem?.newName || '—'}</strong>
+                <strong title={selectedItem?.newName || ''}>
+                  {selectedItem ? <NameDiff oldName={selectedItem.oldName} newName={selectedItem.newName} side="new" /> : '—'}
+                </strong>
               </div>
             </div>
           </section>

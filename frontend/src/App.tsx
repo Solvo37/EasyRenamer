@@ -86,14 +86,14 @@ const functionEntries = [
 ]
 
 const variableEntries = [
-  ['Name', 'File name without extension'],
-  ['Ext', 'Extension with dot'],
-  ['FullName', 'Full file name'],
-  ['Index', 'Global index'],
-  ['DirIndex', 'Per-folder index'],
-  ['DirName', 'Parent directory'],
-  ['UnixTimestamp', 'Batch Unix timestamp'],
-  ['ModifiedUnix', 'Modified time Unix timestamp'],
+  ['Name', 'script.var.name'],
+  ['Ext', 'script.var.ext'],
+  ['FullName', 'script.var.full_name'],
+  ['Index', 'script.var.index'],
+  ['DirIndex', 'script.var.dir_index'],
+  ['DirName', 'script.var.dir_name'],
+  ['UnixTimestamp', 'script.var.unix'],
+  ['ModifiedUnix', 'script.var.modified_unix'],
 ]
 
 const autocompleteTags = tagCatalog.flatMap((category) => category.items)
@@ -1173,9 +1173,9 @@ function App() {
         </div>
         <div className="tagline">{t('app.tagline', 'Order in names — more order in work')}</div>
         <div className="window-controls" style={{ '--wails-draggable': 'no-drag' } as CSSProperties}>
-          <button onClick={() => runtimeApi().WindowMinimise()}><Minus size={17} /></button>
-          <button onClick={() => runtimeApi().WindowToggleMaximise()}><Maximize2 size={15} /></button>
-          <button className="close" onClick={() => runtimeApi().Quit()}><X size={18} /></button>
+          <button title={t('window.minimize')} aria-label={t('window.minimize')} onClick={() => runtimeApi().WindowMinimise()}><Minus size={17} /></button>
+          <button title={t('window.maximize')} aria-label={t('window.maximize')} onClick={() => runtimeApi().WindowToggleMaximise()}><Maximize2 size={15} /></button>
+          <button className="close" title={t('window.close')} aria-label={t('window.close')} onClick={() => runtimeApi().Quit()}><X size={18} /></button>
         </div>
       </header>
 
@@ -1201,7 +1201,7 @@ function App() {
           <select value={language} onChange={(e) => handleLanguage(e.target.value)}>
             {Object.entries(languageNames).map(([code, name]) => <option key={code} value={code}>{name}</option>)}
           </select>
-          <button className="icon-btn" title={theme} onClick={cycleTheme}>
+          <button className="icon-btn" title={theme === 'system' ? t('theme.system') : theme === 'dark' ? t('theme.dark') : t('theme.light')} aria-label={theme === 'system' ? t('theme.system') : theme === 'dark' ? t('theme.dark') : t('theme.light')} onClick={cycleTheme}>
             {effectiveTheme === 'dark' ? <Sun /> : <Moon />}
           </button>
           <button className="action help-btn" onClick={() => setHelpOpen(true)}><CircleHelp />{t('button.help')}</button>
@@ -1304,7 +1304,7 @@ function App() {
                 setTagSearch={setTagSearch}
                 filteredTags={filteredTags}
                 insertTag={insertTag}
-                 userPresets={userPresets}
+                userPresets={userPresets}
                 setUserPresets={setUserPresets}
               />
             )}
@@ -1652,7 +1652,7 @@ interface MethodEditorProps {
   setTagSearch: (value: string) => void
   filteredTags: { token: string; labelKey: string }[]
   insertTag: (token: string) => void
-   userPresets: UserPreset[]
+  userPresets: UserPreset[]
   setUserPresets: (presets: UserPreset[]) => void
 }
 
@@ -1850,8 +1850,8 @@ function MethodEditor(props: MethodEditorProps) {
         </div>
         <div className="tag-tabs">
           <button className={props.tagTab === 'tags' ? 'active' : ''} onClick={() => props.setTagTab('tags')}>{t('help.tags')}</button>
-          <button className={props.tagTab === 'functions' ? 'active' : ''} onClick={() => props.setTagTab('functions')}>{t('label.functions_help').split(':')[0]}</button>
-          <button className={props.tagTab === 'variables' ? 'active' : ''} onClick={() => props.setTagTab('variables')}>{t('label.variables_help').split(':')[0]}</button>
+          <button className={props.tagTab === 'functions' ? 'active' : ''} onClick={() => props.setTagTab('functions')}>{t('tab.functions')}</button>
+          <button className={props.tagTab === 'variables' ? 'active' : ''} onClick={() => props.setTagTab('variables')}>{t('tab.variables')}</button>
         </div>
         <div className="tag-search"><Search /><input value={props.tagSearch} onChange={(e) => props.setTagSearch(e.target.value)} placeholder={t('tag.search')} /></div>
         <div className="tag-grid">
@@ -1873,9 +1873,9 @@ function MethodEditor(props: MethodEditorProps) {
             </button>
           ))}
           {props.tagTab === 'functions' && functionEntries.map(([name, example]) => <button key={name} onClick={() => props.insertTag(example)}><code>{name}</code><span>{example}</span></button>)}
-          {props.tagTab === 'variables' && variableEntries.map(([name, description]) => <button key={name} onClick={() => props.insertTag(name)}><code>{name}</code><span>{description}</span></button>)}
+          {props.tagTab === 'variables' && variableEntries.map(([name, descriptionKey]) => <button key={name} onClick={() => props.insertTag(name)}><code>{name}</code><span>{t(descriptionKey)}</span></button>)}
         </div>
-        <div className="editor-hint">ⓘ {t('tag.hint')}</div>
+        <div className="editor-hint"><CircleHelp size={14} />{t('tag.hint')}</div>
       </div>
     )
   }

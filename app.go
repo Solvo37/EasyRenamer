@@ -240,10 +240,11 @@ func (a *App) Preview(sources []string, recursive bool, category string, customE
 		Category:         engine.Category(category),
 		CustomExtensions: customExtensions,
 		Methods:          methods,
-		SortBy:           engine.SortMode(sortBy),
-		SortDescending:   sortDescending,
-		SortPerFolder:    sortPerFolder,
-		BatchTime:        time.Now(),
+		SortBy:              engine.SortMode(sortBy),
+		SortDescending:      sortDescending,
+		SortPerFolder:       sortPerFolder,
+		SkipImageDimensions: true,
+		BatchTime:           time.Now(),
 	}
 
 	items, err := engine.PreviewContext(ctx, cfg)

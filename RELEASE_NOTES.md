@@ -1,77 +1,68 @@
-# EasyRenamer v0.8.0
+# EasyRenamer v1.0.0
 
-This release replaces the release UI layer instead of continuing to patch the old Win32/Walk forms.
+EasyRenamer 1.0 доводит новый Wails-интерфейс до полноценного рабочего процесса массового переименования, сохраняя компактную схему «методы слева / файлы справа».
 
-## New desktop technology
+## Главное
 
-- The production UI is now **Wails v2 + React + TypeScript**.
-- The existing Go rename engine remains the source of truth for preview, validation, metadata, transactional rename and Undo.
-- The old Walk frontend remains in the repository temporarily as a legacy fallback, but it is no longer the release shell.
-- Wails v2 was chosen because it is the stable Wails line; v3 is still beta.
+- Группировка загруженных файлов по папкам со сворачиванием групп и выбором всей папки.
+- Явное управление порядком обработки: natural name, дата создания/изменения, размер, расширение, путь, порядок добавления и ручной порядок.
+- Отдельная сортировка внутри каждой папки для корректной нумерации через `<Inc NrDir:01>`.
+- Перетаскиваемые splitter'ы между методами/настройками и между левой/правой областями.
+- Кнопка **+ Метод** в заголовке списка методов.
+- Автоматический live preview с debounce; кнопка **Проверить** выполняет явную перепроверку.
+- Поиск по исходному имени, новому имени и пути.
+- Виртуализированная таблица для больших наборов файлов.
 
-## Mockup-driven shell
+## Безопасность переименования
 
-- Frameless custom title bar with EasyRenamer branding and native window controls.
-- Large primary command bar matching the approved mockup.
-- Dedicated filter row.
-- Card-based rename-method sidebar.
-- Modern settings card below the selected method.
-- Large file workspace with sticky table header.
-- Selected-file thumbnail and metadata preview.
-- Original → new filename comparison card.
-- Full-width bottom status bar.
-- Responsive layout for smaller Windows displays.
+- Предзапусковая проверка недопустимых Windows-имён, зарезервированных имён, пустых имён, конфликтов и существующих destination paths.
+- Безопасный двухэтапный rename через уникальные `.easyrenamer_tmp_*` имена, включая swap и изменение только регистра.
+- Политика конфликтов по умолчанию — **не переименовывать конфликтующие**.
+- Доступна автоматическая нумерация конфликтов и остановка операции при конфликте.
+- Destructive overwrite оставлен выключенным до появления безопасного backup/restore.
+- Literal extension в шаблоне больше не дублируется: `fixed.txt` не превращается в `fixed.txt.txt`.
 
-## Modern interaction
+## Большие операции
 
-- CSS-based dark/light/system themes apply instantly.
-- Language switching applies instantly using the existing Go translation tables.
-- Native Wails drag & drop accepts files and folders.
-- Folder drops use a custom in-app choice dialog.
-- Native multi-file picker and multi-folder picker remain available.
-- Ctrl+Z performs Undo.
-- Save/load method sets remain supported.
-- Local image thumbnails are shown only for the currently selected file.
+- Переименование выполняется асинхронно относительно UI.
+- Показываются этап, текущий файл, счётчик и progress.
+- Операцию можно отменить без оставшихся временных файлов.
+- Thumbnail и размеры изображения запрашиваются только для выбранного файла, а не для всего списка.
 
-## Rename methods
+## Undo и история
 
-The React settings editor supports the existing engine methods:
+- Ctrl+Z отменяет последнюю доступную операцию.
+- Журнал хранит до 20 последних операций.
+- Из истории можно повторно открыть сведения и выполнить откат доступной операции.
+- История хранит фактические пары полного пути `old → new`, а не пересчитывает обратные имена по текущему шаблону.
 
-- New Name / template tags
-- Replace
-- Renumber
-- Change case
-- Remove
-- Remove pattern
-- Add text
-- Move
-- List
-- List Replace
-- Swap
-- Trim
-- Timestamp
-- Script expressions
+## UX
 
-The method chain on the left remains the single source of truth.
+- Контекстное меню файлов: открыть, показать в Проводнике, скопировать имя/путь, исключить или убрать из списка.
+- Контекстные действия для групп папок.
+- Ctrl/Shift-выделение строк и Ctrl+A.
+- Горячие клавиши: Ctrl+O, Ctrl+Shift+O, Ctrl+A, Ctrl+Z, Delete, Ctrl+Enter, F5 и Esc.
+- Настраиваемые ширина, порядок и видимость колонок.
+- Autocomplete тегов прямо в поле **Новое имя**.
+- Пользовательские пресеты: сохранить, переименовать, дублировать и удалить.
+- Визуальный diff исходного и нового имени.
+- Сохраняются основные рабочие UI-настройки: splitter'ы, сортировка, группировка, collision policy, колонки, тема и пользовательские пресеты.
 
-## Tags
+## Совместимость
 
-- Built-in tag catalog.
-- Category selector.
-- Search by raw token or localized description.
-- Tags insert directly at the caret in the New Name field.
-- Functions and Script variables are available alongside tags.
+- Production UI: **Wails v2 + React + TypeScript**.
+- Rename engine: Go.
+- Legacy Walk-клиент остаётся в `cmd/easyrenamer/`, но не используется для релизного EXE.
+- Сохранена обратная совместимость старого API preview: вызовы без новых параметров сортировки продолжают использовать прежний порядок «папка → natural filename».
 
-## Build and stability
+## Проверка релиза
 
-- GitHub Actions now builds the Wails production executable.
-- React/TypeScript frontend is compiled as part of the release.
-- Core Go tests pass.
-- Windows production build passes.
-- The produced EXE passes the startup smoke test.
+- `go test ./internal/...`
+- production Windows Wails build
+- startup smoke-test собранного `EasyRenamer.exe`
 
 ## Downloads
 
 - **EasyRenamer.exe** — portable Windows x64 executable.
-- **EasyRenamer-v0.8.0-windows-x64.zip** — EXE + README + license + documentation.
+- **EasyRenamer-v1.0.0-windows-x64.zip** — EXE + README + license + documentation.
 - **SHA256SUMS.txt** — checksums.

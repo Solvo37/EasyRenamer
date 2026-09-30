@@ -1150,7 +1150,7 @@ function App() {
     <div className="app-shell">
       <header className="titlebar" style={{ '--wails-draggable': 'drag' } as CSSProperties}>
         <div className="brand">
-          <div className="brand-mark">ER</div>
+          <div className="brand-mark"><img src="/easyrenamer.svg" alt="" /></div>
           <strong>EasyRenamer <span>{bootstrap?.version || 'dev'}</span></strong>
           <span className="brand-subtitle">{t('app.subtitle', 'Batch file renaming')}</span>
         </div>

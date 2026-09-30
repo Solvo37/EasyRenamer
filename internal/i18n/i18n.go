@@ -76,6 +76,23 @@ func LanguageName(lang Language) string {
 	}
 }
 
+func Table(lang Language) map[string]string {
+	if !IsSupported(lang) {
+		lang = English
+	}
+	out := make(map[string]string, len(translations[English]))
+	for key, fallback := range translations[English] {
+		value := fallback
+		if table, ok := translations[lang]; ok {
+			if translated := table[key]; translated != "" {
+				value = translated
+			}
+		}
+		out[key] = value
+	}
+	return out
+}
+
 func T(key string) string {
 	mu.RLock()
 	lang := current

@@ -260,6 +260,8 @@ function App() {
   const [sortBy, setSortBy] = useState<SortMode>(() => (localStorage.getItem('easyrenamer-sort') as SortMode) || 'name')
   const [sortDescending, setSortDescending] = useState(() => localStorage.getItem('easyrenamer-sort-desc') === '1')
   const [sortPerFolder, setSortPerFolder] = useState(() => localStorage.getItem('easyrenamer-sort-per-folder') !== '0')
+  const [manualOrder, setManualOrder] = useState<string[]>([])
+  const [draggedPath, setDraggedPath] = useState('')
   const [groupByFolder, setGroupByFolder] = useState(() => localStorage.getItem('easyrenamer-group-folders') !== '0')
   const [fileSearch, setFileSearch] = useState('')
   const [showErrorsOnly, setShowErrorsOnly] = useState(false)
@@ -450,7 +452,7 @@ function App() {
     }
     setPreviewBusy(true)
     try {
-      const result = await appApi().Preview(sources, [...excludedPaths], recursive, category, extensions, methods, sortBy, sortDescending, sortPerFolder, collisionPolicy)
+      const result = await appApi().Preview(sources, [...excludedPaths], recursive, category, extensions, methods, sortBy, sortDescending, sortPerFolder, manualOrder, collisionPolicy)
       const nextItems = result.items || []
       setItems(nextItems)
       setChecked((prev) => {
@@ -473,7 +475,7 @@ function App() {
     } finally {
       setPreviewBusy(false)
     }
-  }, [sources, excludedPaths, recursive, category, extensions, methods, selectionTouched, sortBy, sortDescending, sortPerFolder, collisionPolicy])
+  }, [sources, excludedPaths, recursive, category, extensions, methods, selectionTouched, sortBy, sortDescending, sortPerFolder, manualOrder, collisionPolicy])
 
   useEffect(() => {
     if (previewTimer.current) window.clearTimeout(previewTimer.current)
@@ -492,6 +494,21 @@ function App() {
     const available = new Set(items.map((item) => item.sourcePath))
     setSelectedRows((prev) => new Set([...prev].filter((path) => available.has(path))))
   }, [items])
+
+  useEffect(() => {
+    if (sortBy !== 'manual') return
+    const current = items.map((item) => item.sourcePath)
+    const available = new Set(current)
+    setManualOrder((prev) => {
+      const next = prev.filter((path) => available.has(path))
+      const present = new Set(next)
+      current.forEach((path) => {
+        if (!present.has(path)) next.push(path)
+      })
+      if (next.length === prev.length && next.every((path, index) => path === prev[index])) return prev
+      return next
+    })
+  }, [items, sortBy])
 
   useEffect(() => {
     let alive = true
@@ -990,10 +1007,42 @@ function App() {
     }
   }
 
+  const reorderManual = (from: string, to: string) => {
+    if (!from || !to || from === to) return
+    setManualOrder((prev) => {
+      const base = prev.length ? [...prev] : items.map((item) => item.sourcePath)
+      const fromIndex = base.indexOf(from)
+      const toIndex = base.indexOf(to)
+      if (fromIndex < 0 || toIndex < 0) return prev
+      const [moved] = base.splice(fromIndex, 1)
+      const nextTarget = base.indexOf(to)
+      base.splice(nextTarget < 0 ? base.length : nextTarget, 0, moved)
+      return base
+    })
+  }
+
   const renderFileRow = (item: PreviewItem) => (
     <tr
       key={item.sourcePath}
-      className={selectedRows.has(item.sourcePath) ? 'selected' : ''}
+      className={`${selectedRows.has(item.sourcePath) ? 'selected' : ''} ${sortBy === 'manual' ? 'manual-drag' : ''} ${draggedPath === item.sourcePath ? 'dragging' : ''}`}
+      draggable={sortBy === 'manual'}
+      onDragStart={(e) => {
+        if (sortBy !== 'manual') return
+        setDraggedPath(item.sourcePath)
+        e.dataTransfer.effectAllowed = 'move'
+        e.dataTransfer.setData('text/plain', item.sourcePath)
+      }}
+      onDragEnd={() => setDraggedPath('')}
+      onDragOver={(e) => {
+        if (sortBy === 'manual') e.preventDefault()
+      }}
+      onDrop={(e) => {
+        if (sortBy !== 'manual') return
+        e.preventDefault()
+        const from = draggedPath || e.dataTransfer.getData('text/plain')
+        reorderManual(from, item.sourcePath)
+        setDraggedPath('')
+      }}
       onClick={(e) => handleRowSelection(item, e)}
       onDoubleClick={() => appApi().Open(item.sourcePath)}
       onContextMenu={(e) => {
@@ -1226,7 +1275,11 @@ function App() {
               </label>
               <label className="sort-control">
                 <span>{ux.order}:</span>
-                <select value={sortBy} onChange={(e) => setSortBy(e.target.value as SortMode)}>
+                <select value={sortBy} onChange={(e) => {
+                  const value = e.target.value as SortMode
+                  setSortBy(value)
+                  if (value === 'manual') setSortDescending(false)
+                }}>
                   <option value="name">{ux.name}</option>
                   <option value="created">{ux.created}</option>
                   <option value="modified">{ux.modified}</option>

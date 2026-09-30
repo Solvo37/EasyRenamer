@@ -12,7 +12,7 @@ func init() {
 		"collision.label": "Colisiones:",
 		"group.methods": "Métodos de renombrado", "group.settings": "Configuración del método", "column.filename": "Nombre",
 		"column.new_filename": "Nuevo nombre", "column.path": "Ruta", "column.size": "Tamaño", "column.status": "Error / Estado",
-		"status.errors": "Estado: revisa los errores antes del lote",
+		"status.errors": "Errores",
 		"method.new_name": "Nuevo nombre", "method.list": "Lista", "method.list_replace": "Reemplazo por lista",
 		"method.change_case": "Mayúsculas/minúsculas", "method.move": "Mover", "method.remove": "Eliminar",
 		"method.remove_pattern": "Eliminar patrón", "method.renumber": "Renumerar", "method.replace": "Reemplazar",
@@ -136,7 +136,7 @@ func init() {
 		"label.suffix_position": "Sufijo",
 		"help.title": "Ayuda de EasyRenamer",
 		"help.tags": "Etiquetas",
-		"help.guide_body": "INICIO RÁPIDO\n\n1. Añade archivos o carpetas.\n2. Crea la cadena de métodos a la izquierda.\n3. Selecciona un método y ajusta sus opciones.\n4. Comprueba la vista previa a la derecha.\n5. Desmarca los archivos que no quieras cambiar.\n6. Pulsa Iniciar.\n\nCADENA DE MÉTODOS\nLos métodos se ejecutan de arriba abajo. Puedes activarlos, desactivarlos, reordenarlos, duplicarlos y guardar/cargar conjuntos.\n\nVISTA PREVIA\nLos cambios se recalculan automáticamente. Los análisis pesados se pueden cancelar.\n\nARRASTRAR Y SOLTAR\nArrastra archivos o carpetas a la aplicación. Para carpetas puedes incluir subcarpetas.\n\nSEGURIDAD\nEasyRenamer valida nombres de Windows y colisiones antes de renombrar. Las operaciones correctas se pueden deshacer.\n\nTEMA E IDIOMA\nSe pueden cambiar sin reiniciar el programa.",
+		"help.guide_body": "INICIO RÁPIDO\n\n1. Añade archivos o carpetas.\n2. Elige la agrupación y el orden de procesamiento.\n3. Crea la cadena de métodos a la izquierda.\n4. Revisa la vista previa y corrige los errores críticos.\n5. Desmarca los archivos que no quieras renombrar.\n6. Pulsa Iniciar. Usa Ctrl+Z o Historial si necesitas revertir una operación.\n\nORDEN Y AGRUPACIÓN\nEl orden natural usa 1, 2, 10. La ordenación puede aplicarse por separado dentro de cada carpeta, algo importante para contadores como <Inc NrDir:01>. El orden manual admite arrastrar y soltar.\n\nCADENA DE MÉTODOS\nLos métodos se ejecutan de arriba abajo. Puedes activarlos, desactivarlos, reordenarlos, duplicarlos, guardarlos y cargarlos.\n\nSEGURIDAD\nEasyRenamer valida nombres de Windows y conflictos de destino antes de ejecutar. El renombrado usa nombres temporales únicos para que los intercambios y los cambios solo de mayúsculas/minúsculas sean seguros. La sobrescritura destructiva está desactivada.\n\nLOTES GRANDES\nLa tabla está virtualizada. El progreso se muestra sin bloquear la interfaz y la operación se puede cancelar.\n\nATAJOS\nCtrl+O archivos · Ctrl+Shift+O carpetas · Ctrl+A seleccionar filas · Ctrl+Z deshacer · Delete quitar de la tarea · Ctrl+Enter iniciar · F5 comprobar · Esc cancelar.",
 		"case.lower": "minúsculas",
 		"case.upper": "MAYÚSCULAS",
 		"case.title": "Iniciales En Mayúscula",
@@ -248,6 +248,7 @@ func init() {
 		"script.var.dir_name": "Carpeta superior",
 		"script.var.unix": "Marca Unix del lote",
 		"script.var.modified_unix": "Marca Unix de modificación",
+		"status.selected": "Seleccionados",
 		"status.of": "de",
 	}
 }

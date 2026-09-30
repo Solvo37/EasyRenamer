@@ -2141,7 +2141,7 @@ Composite{Background: uiCardBrush(darkTheme),
 						},
 					},
 				},
-			},,
+			},
 			Composite{Background: uiWindowBrush(darkTheme),
 				Layout: HBox{Spacing: 12, Margins: Margins{Left: 8, Top: 5, Right: 8, Bottom: 3}},
 				Children: []Widget{
@@ -2150,7 +2150,7 @@ Composite{Background: uiCardBrush(darkTheme),
 					Label{AssignTo: &collisionLbl, Text: i18n.T("status.waiting"), TextColor: uiMutedTextColor(darkTheme), Background: uiWindowBrush(darkTheme)},
 					Label{AssignTo: &statusLbl, Text: fmt.Sprintf(i18n.T("status.summary"), 0, 0, 0, 0), TextColor: uiMutedTextColor(darkTheme), Background: uiWindowBrush(darkTheme)},
 				},
-			}
+			},
 		},
 	}
 

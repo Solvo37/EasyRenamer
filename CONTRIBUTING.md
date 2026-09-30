@@ -1,33 +1,77 @@
-# Contributing
+# Contributing to EasyRenamer
 
-Thanks for helping improve EasyRenamer.
+Спасибо за интерес к EasyRenamer. Баг-репорты, идеи и pull requests приветствуются.
 
-## Development
+## Перед началом
 
-1. Fork or create a branch.
-2. Keep rename logic in `internal/engine` independent from the GUI where possible.
-3. Add or update tests for engine behavior.
-4. Run:
+1. Проверьте существующие Issues и Pull Requests.
+2. Для заметной новой функции лучше сначала описать сценарий использования в Issue.
+3. Не добавляйте телеметрию, рекламу, аккаунты или обязательные сетевые зависимости.
 
-```bash
+## Локальная разработка
+
+Требования:
+
+- Go 1.23+;
+- Node.js 20+;
+- Wails v2.15;
+- Windows для production desktop build.
+
+Базовая проверка движка:
+
+```powershell
 go test ./internal/...
 ```
 
-5. On Windows, build the GUI:
+Frontend:
 
 ```powershell
-go build ./cmd/easyrenamer
+cd frontend
+npm install
+npm run build
 ```
 
-## Design principles
+Production desktop build:
 
-- Preview first. Never surprise the user.
-- Preserve file extensions unless the rule explicitly changes them.
-- Detect conflicts before execution.
-- Use transactional/two-phase rename where collisions are possible.
-- Keep the core testable without the GUI.
-- Prefer a useful free feature over artificial edition limits.
+```powershell
+go install github.com/wailsapp/wails/v2/cmd/wails@v2.15.0
+wails build -clean -platform windows/amd64 -o EasyRenamer.exe
+```
 
-## Pull requests
+## Pull Request checklist
 
-Explain what problem the change solves and include a before/after example when changing rename behavior.
+Перед PR:
+
+- код форматирован;
+- `go test ./internal/...` проходит;
+- TypeScript build проходит;
+- новые UI-строки добавлены во **все четыре** таблицы переводов;
+- массовые файловые операции не обходят preview/validation;
+- destructive overwrite не включается без безопасного rollback;
+- README/LEARN обновлены, если меняется пользовательский workflow;
+- бинарники и generated build output не коммитятся.
+
+## Архитектура
+
+```text
+app.go                 Wails backend/API
+frontend/              React + TypeScript UI
+internal/engine/       rename engine
+internal/history/      operation journal / Undo
+internal/i18n/         translations
+docs/                  user documentation
+```
+
+UI не должен дублировать критическую rename-логику: порядок обработки, validation и фактические файловые операции должны оставаться в Go-движке.
+
+## Стиль изменений
+
+Предпочтительны небольшие, понятные commits. Не смешивайте крупный feature, массовое форматирование и несвязанный cleanup без необходимости.
+
+## Security
+
+Если проблема может привести к потере или перезаписи пользовательских файлов, не публикуйте опасный proof-of-concept с реальными данными. Опишите сценарий достаточно подробно для воспроизведения на временных тестовых файлах.
+
+## License
+
+Отправляя изменения, вы соглашаетесь на их публикацию по лицензии [MIT](LICENSE).

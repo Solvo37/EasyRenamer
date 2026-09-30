@@ -59,6 +59,12 @@ type OperationResult struct {
 	Pairs []engine.RenamePair `json:"pairs,omitempty"`
 }
 
+type PathClassification struct {
+	Files   []string `json:"files"`
+	Folders []string `json:"folders"`
+}
+
+
 type methodStackFile struct {
 	Version int                   `json:"version"`
 	Methods []engine.RenameMethod `json:"methods"`
@@ -142,6 +148,26 @@ func defaultModernMethod(method engine.Method) engine.RenameMethod {
 	default:
 		return engine.RenameMethod{Type: engine.MethodTemplate, Template: "<Inc NrDir:01>_<Name>"}
 	}
+}
+
+func (a *App) ClassifyPaths(paths []string) PathClassification {
+	result := PathClassification{}
+	for _, path := range paths {
+		path = filepath.Clean(strings.TrimSpace(path))
+		if path == "" {
+			continue
+		}
+		info, err := os.Stat(path)
+		if err != nil {
+			continue
+		}
+		if info.IsDir() {
+			result.Folders = append(result.Folders, path)
+		} else {
+			result.Files = append(result.Files, path)
+		}
+	}
+	return result
 }
 
 func (a *App) PickFiles() ([]string, error) {

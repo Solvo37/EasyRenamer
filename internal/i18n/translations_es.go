@@ -6,7 +6,6 @@ func init() {
 		"menu.add_files": "Añadir archivos...", "menu.add_folder": "Añadir carpetas...",
 		"menu.save_methods": "Guardar conjunto de métodos...", "menu.load_methods": "Cargar conjunto de métodos...",
 		"button.files": "+ Archivos", "button.folders": "+ Carpetas", "button.clear": "Limpiar", "button.start": "Iniciar lote",
-		"button.select_valid": "Seleccionar válidos",
 		"sources.count": "Orígenes: %d", "filter.label": "Filtro:", "filter.subfolders": "Incluir subcarpetas",
 		"filter.extensions": "Extensiones:",
 		"collision.label": "Colisiones:",

@@ -98,6 +98,13 @@ func PreviewContext(ctx context.Context, cfg Config) ([]*Item, error) {
 			continue
 		}
 
+		if !cfg.SkipImageDimensions {
+			if width, height, ok := readImageDimensions(path); ok {
+				item.Width = width
+				item.Height = height
+			}
+		}
+
 		if strings.EqualFold(oldName, newName) {
 			item.Status = StatusUnchanged
 			item.Checked = false

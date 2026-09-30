@@ -267,6 +267,7 @@ function App() {
   const [showErrorsOnly, setShowErrorsOnly] = useState(false)
   const [collapsedFolders, setCollapsedFolders] = useState<Set<string>>(new Set())
   const [methodsHeight, setMethodsHeight] = useState(() => Number(localStorage.getItem('easyrenamer-methods-height')) || 260)
+  const [sidebarWidth, setSidebarWidth] = useState(() => Number(localStorage.getItem('easyrenamer-sidebar-width')) || 460)
   const [executing, setExecuting] = useState(false)
   const [executeProgress, setExecuteProgress] = useState<ExecuteProgress | null>(null)
   const [historyOpen, setHistoryOpen] = useState(false)
@@ -934,6 +935,24 @@ function App() {
     window.addEventListener('pointerup', stop)
   }
 
+  const startWorkspaceResize = (event: ReactPointerEvent<HTMLDivElement>) => {
+    event.preventDefault()
+    const startX = event.clientX
+    const startWidth = sidebarWidth
+    let latestWidth = startWidth
+    const move = (moveEvent: PointerEvent) => {
+      latestWidth = Math.max(340, Math.min(720, startWidth + moveEvent.clientX - startX))
+      setSidebarWidth(latestWidth)
+    }
+    const stop = () => {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', stop)
+      localStorage.setItem('easyrenamer-sidebar-width', String(Math.round(latestWidth)))
+    }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', stop)
+  }
+
   const toggleFolder = (folder: string) => {
     setCollapsedFolders((prev) => {
       const next = new Set(prev)
@@ -1187,7 +1206,7 @@ function App() {
         <button className="mini-more" onClick={openHistory} title={ux.history}><MoreHorizontal /></button>
       </section>
 
-      <main className="workspace">
+      <main className="workspace" style={{ '--sidebar-width': `${sidebarWidth}px` } as CSSProperties}>
         <aside className="sidebar" style={{ '--methods-height': `${methodsHeight}px` } as CSSProperties}>
           <section className="panel methods-panel">
             <div className="panel-title method-panel-title">
@@ -1261,6 +1280,8 @@ function App() {
             )}
           </section>
         </aside>
+
+        <div className="workspace-splitter" onPointerDown={startWorkspaceResize} title="Drag to resize sidebar" />
 
         <section className="files-panel">
           <div className="files-head">

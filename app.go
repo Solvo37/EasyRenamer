@@ -213,6 +213,11 @@ func (a *App) PickFolders() ([]string, error) {
 }
 
 func (a *App) Preview(sources []string, excludedPaths []string, recursive bool, category string, customExtensions string, methods []engine.RenameMethod, sortBy string, sortDescending bool, sortPerFolder bool, manualOrder []string, collisionPolicy string) (PreviewResult, error) {
+	return a.preview(sources, excludedPaths, recursive, category, customExtensions, methods, sortBy, sortDescending, sortPerFolder, manualOrder, collisionPolicy, nil)
+}
+
+// preview exposes the registered-operation boundary for deterministic cancellation tests.
+func (a *App) preview(sources []string, excludedPaths []string, recursive bool, category string, customExtensions string, methods []engine.RenameMethod, sortBy string, sortDescending bool, sortPerFolder bool, manualOrder []string, collisionPolicy string, beforeScan func()) (PreviewResult, error) {
 	if len(sources) == 0 {
 		return PreviewResult{}, nil
 	}
@@ -250,6 +255,9 @@ func (a *App) Preview(sources []string, excludedPaths []string, recursive bool, 
 		BatchTime:           time.Now(),
 	}
 
+	if beforeScan != nil {
+		beforeScan()
+	}
 	items, err := engine.PreviewContext(ctx, cfg)
 	if err != nil {
 		return PreviewResult{}, err
@@ -294,6 +302,11 @@ func (a *App) CancelPreview() {
 }
 
 func (a *App) Execute(selectedPaths []string) (OperationResult, error) {
+	return a.execute(selectedPaths, nil)
+}
+
+// execute allows deterministic progress observation without a Wails window.
+func (a *App) execute(selectedPaths []string, progressObserver func(engine.ExecuteProgress)) (OperationResult, error) {
 	selected := make(map[string]struct{}, len(selectedPaths))
 	for _, path := range selectedPaths {
 		selected[strings.ToLower(filepath.Clean(path))] = struct{}{}
@@ -333,6 +346,9 @@ func (a *App) Execute(selectedPaths []string) (OperationResult, error) {
 	}()
 
 	pairs, err := engine.ExecuteContext(ctx, items, func(progress engine.ExecuteProgress) {
+		if progressObserver != nil {
+			progressObserver(progress)
+		}
 		if a.ctx != nil {
 			wailsruntime.EventsEmit(a.ctx, "rename:progress", progress)
 		}

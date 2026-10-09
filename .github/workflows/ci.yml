@@ -16,9 +16,9 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.23.x'
+          go-version: '1.25.x'
           cache: true
-      - run: go test ./internal/...
+      - run: go test -race -count=1 ./internal/...
 
   windows-build:
     runs-on: windows-latest
@@ -26,20 +26,22 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.23.x'
+          go-version: '1.25.x'
           cache: true
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
       - name: Test core
-        run: go test ./internal/...
+        run: go test -race -count=1 ./internal/...
       - name: Install Wails
         run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.15.0
       - name: Build modern desktop app
         shell: pwsh
         run: |
           wails build -clean -platform windows/amd64 -o EasyRenamer.exe -ldflags "-X github.com/Solvo37/easyrenamer/internal/version.Version=ci"
-      - name: Smoke test startup
+      - name: Test application methods (headless integration)
+        run: go test -race -count=1 -timeout 2m .
+      - name: Smoke test startup (process liveness only)
         shell: pwsh
         run: |
           $exe = ".\\build\\bin\\EasyRenamer.exe"

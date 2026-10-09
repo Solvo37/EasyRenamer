@@ -294,6 +294,11 @@ func (a *App) CancelPreview() {
 }
 
 func (a *App) Execute(selectedPaths []string) (OperationResult, error) {
+	return a.execute(selectedPaths, nil)
+}
+
+// execute allows deterministic progress observation without a Wails window.
+func (a *App) execute(selectedPaths []string, progressObserver func(engine.ExecuteProgress)) (OperationResult, error) {
 	selected := make(map[string]struct{}, len(selectedPaths))
 	for _, path := range selectedPaths {
 		selected[strings.ToLower(filepath.Clean(path))] = struct{}{}
@@ -333,6 +338,9 @@ func (a *App) Execute(selectedPaths []string) (OperationResult, error) {
 	}()
 
 	pairs, err := engine.ExecuteContext(ctx, items, func(progress engine.ExecuteProgress) {
+		if progressObserver != nil {
+			progressObserver(progress)
+		}
 		if a.ctx != nil {
 			wailsruntime.EventsEmit(a.ctx, "rename:progress", progress)
 		}

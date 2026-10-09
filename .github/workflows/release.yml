@@ -21,7 +21,7 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.23.x'
+          go-version: '1.25.x'
           cache: true
 
       - uses: actions/setup-node@v4
@@ -45,19 +45,25 @@ jobs:
           "version=$version" >> $env:GITHUB_OUTPUT
           Write-Host "Building EasyRenamer $version"
 
-      - name: Test
-        run: go test ./internal/...
+      - name: Test Go engine
+        run: go test -race -count=1 ./internal/...
 
       - name: Install Wails
         run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.15.0
 
-      - name: Build portable release
+      - name: Build desktop app
         shell: pwsh
         run: |
           $version = "${{ steps.version.outputs.version }}"
 
           wails build -clean -platform windows/amd64 -o EasyRenamer.exe -ldflags "-X github.com/Solvo37/easyrenamer/internal/version.Version=$version"
 
+      - name: Test application methods (headless integration)
+        run: go test -race -count=1 -timeout 2m .
+
+      - name: Smoke test startup (process liveness only)
+        shell: pwsh
+        run: |
           $exe = ".\\build\\bin\\EasyRenamer.exe"
           $p = Start-Process -FilePath $exe -PassThru
           Start-Sleep -Seconds 6
@@ -67,6 +73,11 @@ jobs:
           }
           Stop-Process -Id $p.Id -Force
 
+      - name: Package portable release
+        shell: pwsh
+        run: |
+          $version = "${{ steps.version.outputs.version }}"
+          $exe = ".\\build\\bin\\EasyRenamer.exe"
           New-Item -ItemType Directory -Force dist | Out-Null
           Copy-Item $exe dist/EasyRenamer.exe
           Copy-Item LICENSE dist/LICENSE

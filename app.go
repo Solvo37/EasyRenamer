@@ -213,6 +213,11 @@ func (a *App) PickFolders() ([]string, error) {
 }
 
 func (a *App) Preview(sources []string, excludedPaths []string, recursive bool, category string, customExtensions string, methods []engine.RenameMethod, sortBy string, sortDescending bool, sortPerFolder bool, manualOrder []string, collisionPolicy string) (PreviewResult, error) {
+	return a.preview(sources, excludedPaths, recursive, category, customExtensions, methods, sortBy, sortDescending, sortPerFolder, manualOrder, collisionPolicy, nil)
+}
+
+// preview exposes the registered-operation boundary for deterministic cancellation tests.
+func (a *App) preview(sources []string, excludedPaths []string, recursive bool, category string, customExtensions string, methods []engine.RenameMethod, sortBy string, sortDescending bool, sortPerFolder bool, manualOrder []string, collisionPolicy string, beforeScan func()) (PreviewResult, error) {
 	if len(sources) == 0 {
 		return PreviewResult{}, nil
 	}
@@ -250,6 +255,9 @@ func (a *App) Preview(sources []string, excludedPaths []string, recursive bool, 
 		BatchTime:           time.Now(),
 	}
 
+	if beforeScan != nil {
+		beforeScan()
+	}
 	items, err := engine.PreviewContext(ctx, cfg)
 	if err != nil {
 		return PreviewResult{}, err

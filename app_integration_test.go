@@ -287,19 +287,18 @@ func TestAppIntegrationCancelExecute(t *testing.T) {
 func TestAppIntegrationCancelPreview(t *testing.T) {
 	a, dir := integrationApp(t)
 	p := writeFixture(t, dir, "a.txt", "A")
-	// Install the same cancellation state Preview registers, then exercise the
-	// public cancellation method without depending on filesystem scan timing.
-	ctx, cancel := context.WithCancel(context.Background())
-	a.previewCancel = cancel
 	seq := a.previewSeq
-	a.CancelPreview()
-	if !errors.Is(ctx.Err(), context.Canceled) || a.previewCancel != nil || a.previewSeq != seq+1 {
+	_, err := a.preview([]string{p}, nil, false, string(engine.CategoryAll), "", []engine.RenameMethod{{Type: engine.MethodTemplate, Template: "new_<Name>"}}, "name", false, true, nil, "skip", func() {
+		if a.previewCancel == nil {
+			t.Fatal("preview cancellation was not registered")
+		}
+		a.CancelPreview()
+	})
+	if a.previewCancel != nil || a.previewSeq != seq+2 {
 		t.Fatal("preview cancellation state not cleared/invalidated")
 	}
 	a.CancelPreview() // safe when idle
 	a.CancelExecute()
-	a.ctx = ctx
-	_, err := a.Preview([]string{p}, nil, false, string(engine.CategoryAll), "", []engine.RenameMethod{{Type: engine.MethodTemplate, Template: "new_<Name>"}}, "name", false, true, nil, "skip")
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("cancelled preview error = %v", err)
 	}
@@ -308,7 +307,6 @@ func TestAppIntegrationCancelPreview(t *testing.T) {
 	}
 	assertFiles(t, dir, map[string]string{"a.txt": "A"})
 	assertHistory(t, a, 0)
-	a.ctx = nil
 	previewTemplate(t, a, []string{p}, "new_<Name>", "skip")
 	if _, err := a.Execute([]string{p}); err != nil {
 		t.Fatal(err)

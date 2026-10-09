@@ -22,15 +22,15 @@ Run `go test -race -count=1 -timeout 2m .` on Windows. The tests cover:
 - Targets appearing after Preview and original paths blocking Undo.
 - Reserved Windows names, forbidden characters and control characters.
 - CancelExecute during staging and final renaming, rollback and a successful retry.
-- CancelPreview cancellation/sequence bookkeeping, cancelled-context rejection and recovery.
+- CancelPreview after operation registration, cancelled-context rejection and recovery.
 
 All fixtures use `t.TempDir`. `LOCALAPPDATA` points inside the fixture root so
 history cannot read or overwrite the user's real EasyRenamer journal. Do not run
 these environment-mutating tests in parallel. Every scenario checks file names
 and bytes; exact tree comparisons also detect `.easyrenamer_tmp_*` leftovers.
-The private `execute` helper runs the same code as the public Execute method and
+The private `preview` helper observes the operation-registration boundary; the private `execute` helper runs the same code as the public Execute method and
 adds a progress observer for deterministic cancellation without a Wails runtime.
-CancelPreview bookkeeping is tested directly; this is not an in-flight GUI scan test.
+CancelPreview is invoked after registration and before scanning starts, deterministically rejecting publication/execution of the cancelled preview. This is not a GUI scan test.
 
 CI runs engine tests separately from application tests, with the race detector.
 Release builds also run both suites before packaging/publishing. Changing tests
